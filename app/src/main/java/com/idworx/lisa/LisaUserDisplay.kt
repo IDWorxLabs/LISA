@@ -3,13 +3,22 @@ package com.idworx.lisa
 /**
  * Communication timeline stages shown in Everyday Mode.
  */
-enum class CommunicationTimelineStage(val label: String) {
-    Watching("Watching"),
-    Listening("Listening"),
-    Understanding("Understanding"),
-    Confirming("Confirming"),
-    Speaking("Speaking"),
-    Delivered("Delivered")
+enum class CommunicationTimelineStage {
+    Watching,
+    Listening,
+    Understanding,
+    Confirming,
+    Speaking,
+    Delivered
+}
+
+fun CommunicationTimelineStage.localizedLabel(strings: LisaUiStrings): String = when (this) {
+    CommunicationTimelineStage.Watching -> strings.timelineWatching
+    CommunicationTimelineStage.Listening -> strings.timelineListening
+    CommunicationTimelineStage.Understanding -> strings.timelineUnderstanding
+    CommunicationTimelineStage.Confirming -> strings.timelineConfirming
+    CommunicationTimelineStage.Speaking -> strings.timelineSpeaking
+    CommunicationTimelineStage.Delivered -> strings.timelineDelivered
 }
 
 /**
@@ -56,6 +65,7 @@ fun LisaCommunicationState.toTimelineStage(): CommunicationTimelineStage = when 
 }
 
 fun LisaCommunicationState.toUserDisplay(
+    strings: LisaUiStrings,
     pendingPhrase: String?,
     countdown: Int?,
     leftWinkDots: Int = 0,
@@ -67,8 +77,8 @@ fun LisaCommunicationState.toUserDisplay(
         LisaCommunicationState.Ready,
         LisaCommunicationState.Reset,
         LisaCommunicationState.Cancelled -> LisaUserDisplay(
-            headline = "LISTENING...",
-            subtitle = "Watching your eyes...",
+            headline = strings.listening,
+            subtitle = strings.watchingYourEyes,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
@@ -78,24 +88,24 @@ fun LisaCommunicationState.toUserDisplay(
         LisaCommunicationState.LeftWinkDetected,
         LisaCommunicationState.RightWinkDetected,
         is LisaCommunicationState.Sequence -> LisaUserDisplay(
-            headline = "LISTENING...",
-            subtitle = "Building your message...",
+            headline = strings.listening,
+            subtitle = strings.buildingYourMessage,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
         )
 
         LisaCommunicationState.WaitingForNextWink -> LisaUserDisplay(
-            headline = "WAITING...",
-            subtitle = "You can continue your sequence...",
+            headline = strings.waiting,
+            subtitle = strings.continueYourSequence,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
         )
 
         is LisaCommunicationState.PossibleMatch -> LisaUserDisplay(
-            headline = "POSSIBLE MATCH",
-            subtitle = "Continue or pause longer",
+            headline = strings.possibleMatch,
+            subtitle = strings.continueOrPause,
             phrase = phrase,
             timelineStage = timelineStage,
             showIntentPreview = true,
@@ -104,8 +114,8 @@ fun LisaCommunicationState.toUserDisplay(
         )
 
         LisaCommunicationState.ProcessingSequence -> LisaUserDisplay(
-            headline = "PROCESSING...",
-            subtitle = "Understanding your message...",
+            headline = strings.processing,
+            subtitle = strings.understandingYourMessage,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
@@ -118,8 +128,8 @@ fun LisaCommunicationState.toUserDisplay(
                 ?: (this as? LisaCommunicationState.Detected)?.phrase
                 ?: (this as? LisaCommunicationState.CountdownConfirm)?.phrase
             LisaUserDisplay(
-                headline = "I UNDERSTOOD",
-                subtitle = if (countdown != null) "Speaking in" else "",
+                headline = strings.iUnderstood,
+                subtitle = if (countdown != null) strings.speakingIn else "",
                 phrase = phrase,
                 countdown = countdown,
                 timelineStage = timelineStage,
@@ -131,7 +141,7 @@ fun LisaCommunicationState.toUserDisplay(
         }
 
         is LisaCommunicationState.Speaking -> LisaUserDisplay(
-            headline = "SPEAKING",
+            headline = strings.speaking,
             subtitle = "",
             phrase = phrase,
             timelineStage = timelineStage,
@@ -139,20 +149,20 @@ fun LisaCommunicationState.toUserDisplay(
         )
 
         LisaCommunicationState.MessageDelivered -> LisaUserDisplay(
-            headline = "MESSAGE DELIVERED",
+            headline = strings.messageDelivered,
             subtitle = "",
             timelineStage = timelineStage
         )
 
         LisaCommunicationState.EmergencyAlarmActive -> LisaUserDisplay(
-            headline = "EMERGENCY",
-            subtitle = "Calling for help...",
+            headline = strings.emergency,
+            subtitle = strings.callingForHelp,
             timelineStage = timelineStage
         )
 
         LisaCommunicationState.NoPhraseMatched -> LisaUserDisplay(
-            headline = "LISTENING...",
-            subtitle = "Watching your eyes...",
+            headline = strings.listening,
+            subtitle = strings.watchingYourEyes,
             timelineStage = CommunicationTimelineStage.Watching
         )
     }

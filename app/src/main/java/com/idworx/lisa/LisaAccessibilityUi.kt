@@ -40,6 +40,7 @@ import com.idworx.lisa.ui.theme.LisaWhite
 
 @Composable
 fun LisaRootUI(
+    uiStrings: LisaUiStrings,
     userDisplay: LisaUserDisplay,
     emergencyActive: Boolean,
     emergencyNotifyNames: List<String> = emptyList(),
@@ -86,10 +87,16 @@ fun LisaRootUI(
     onOpenAppSettings: () -> Unit = {},
     onSaveFeedback: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     onToggleChecklistItem: (String, Boolean) -> Unit = { _, _ -> },
+    voiceSettingsState: LisaVoiceSettingsState = LisaVoiceSettingsState(),
+    onSelectTtsVoice: (String) -> Unit = {},
+    onTestTtsVoice: () -> Unit = {},
+    onInstallTtsVoiceData: () -> Unit = {},
+    onOpenTtsSettings: () -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
     if (!onboardingCompleted) {
         OnboardingFlow(
+            uiStrings = uiStrings,
             primaryUserName = primaryUserName,
             onPrimaryUserNameChange = onPrimaryUserNameChange,
             onRequestCameraPermission = onRequestCameraPermission,
@@ -105,6 +112,7 @@ fun LisaRootUI(
             cameraView()
         } else {
             CameraPermissionScreen(
+                uiStrings = uiStrings,
                 permanentlyDenied = cameraPermissionPermanentlyDenied,
                 onRequestPermission = onRequestCameraPermission,
                 onOpenSettings = onOpenAppSettings
@@ -112,7 +120,7 @@ fun LisaRootUI(
         }
 
         if (emergencyActive) {
-            EmergencyOverlay(notifyNames = emergencyNotifyNames)
+            EmergencyOverlay(uiStrings = uiStrings, notifyNames = emergencyNotifyNames)
         }
 
         CompositionLocalProvider(
@@ -125,7 +133,7 @@ fun LisaRootUI(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CompactTimelineChip(activeStage = userDisplay.timelineStage)
+            CompactTimelineChip(uiStrings = uiStrings, activeStage = userDisplay.timelineStage)
 
             Spacer(Modifier.height(4.dp))
 
@@ -135,6 +143,7 @@ fun LisaRootUI(
             }
 
             EverydayCommunicationPanel(
+                uiStrings = uiStrings,
                 userDisplay = userDisplay,
                 countdownActive = countdownActive,
                 onEditCountdown = onEditCountdown
@@ -142,6 +151,7 @@ fun LisaRootUI(
 
             Spacer(Modifier.height(4.dp))
             CompactSensitivityControls(
+                uiStrings = uiStrings,
                 sensitivityLevel = sensitivityLevel,
                 onDecrease = onSensitivityDecrease,
                 onIncrease = onSensitivityIncrease
@@ -150,6 +160,7 @@ fun LisaRootUI(
             if (!developerMode && (userDisplay.leftWinkDots > 0 || userDisplay.rightWinkDots > 0)) {
                 Spacer(Modifier.height(4.dp))
                 SequenceProgressDots(
+                    uiStrings = uiStrings,
                     leftCount = userDisplay.leftWinkDots,
                     rightCount = userDisplay.rightWinkDots
                 )
@@ -174,13 +185,13 @@ fun LisaRootUI(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 LisaActionButton(
-                    text = if (activePanel.isOpen()) "Close" else "Menu",
+                    text = if (activePanel.isOpen()) uiStrings.close else uiStrings.menu,
                     modifier = Modifier.weight(1f),
                     filled = !activePanel.isOpen(),
                     onClick = onMenuClick
                 )
                 LisaActionButton(
-                    text = "Reset",
+                    text = uiStrings.reset,
                     modifier = Modifier.weight(1f),
                     filled = false,
                     danger = emergencyActive,
@@ -188,7 +199,7 @@ fun LisaRootUI(
                 )
                 if (canRepeat) {
                     LisaActionButton(
-                        text = "Repeat",
+                        text = uiStrings.repeat,
                         modifier = Modifier.weight(1f),
                         filled = false,
                         onClick = onRepeat
@@ -200,12 +211,14 @@ fun LisaRootUI(
                 Spacer(Modifier.height(10.dp))
                 when (activePanel) {
                     LisaPanel.Menu -> MenuPanel(
+                        uiStrings = uiStrings,
                         canRepeat = canRepeat,
                         onSelectPanel = onSelectPanel,
                         onRepeat = onRepeat,
                         onClose = onClosePanel
                     )
                     LisaPanel.MyCommunication -> MyCommunicationPanel(
+                        uiStrings = uiStrings,
                         profiles = profiles,
                         activeProfileId = activeProfileId,
                         onCreateProfile = onCreateProfile,
@@ -220,6 +233,8 @@ fun LisaRootUI(
                         onBack = onBackToMenu
                     )
                     LisaPanel.VocabularyTraining -> VocabularyTrainingPanel(
+                        uiStrings = uiStrings,
+                        preferredLanguage = uiStrings.language,
                         mappings = mappings,
                         onAddMapping = onAddMapping,
                         onBack = onBackToMenu
@@ -238,6 +253,35 @@ fun LisaRootUI(
                         onDeleteCaregiver = onDeleteCaregiver,
                         onBack = onBackToMenu
                     )
+                    LisaPanel.Voice -> VoiceHomePanel(
+                        uiStrings = uiStrings,
+                        onOpenDeviceVoice = { onSelectPanel(LisaPanel.VoiceDevice) },
+                        onOpenPremiumVoices = { onSelectPanel(LisaPanel.VoicePremium) },
+                        onOpenMyVoice = { onSelectPanel(LisaPanel.VoiceMyVoice) },
+                        onOpenFamilyVoice = { onSelectPanel(LisaPanel.VoiceFamily) },
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.VoiceDevice -> DeviceVoicePanel(
+                        uiStrings = uiStrings,
+                        state = voiceSettingsState,
+                        onSelectVoice = onSelectTtsVoice,
+                        onTestVoice = onTestTtsVoice,
+                        onInstallVoiceData = onInstallTtsVoiceData,
+                        onOpenTtsSettings = onOpenTtsSettings,
+                        onBack = { onSelectPanel(LisaPanel.Voice) }
+                    )
+                    LisaPanel.VoicePremium -> PremiumVoicesPanel(
+                        uiStrings = uiStrings,
+                        onBack = { onSelectPanel(LisaPanel.Voice) }
+                    )
+                    LisaPanel.VoiceMyVoice -> MyVoicePanel(
+                        uiStrings = uiStrings,
+                        onBack = { onSelectPanel(LisaPanel.Voice) }
+                    )
+                    LisaPanel.VoiceFamily -> FamilyVoicePanel(
+                        uiStrings = uiStrings,
+                        onBack = { onSelectPanel(LisaPanel.Voice) }
+                    )
                     LisaPanel.Settings -> SettingsPanel(
                         settingsState = settingsState,
                         onDeveloperModeChange = onDeveloperModeChange,
@@ -251,18 +295,20 @@ fun LisaRootUI(
                         onDeveloperModeChange = onDeveloperModeChange,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.AboutLisa -> AboutLisaPanel(onBack = onBackToMenu)
+                    LisaPanel.AboutLisa -> AboutLisaPanel(uiStrings = uiStrings, onBack = onBackToMenu)
                     LisaPanel.Feedback -> FeedbackPanel(
+                        uiStrings = uiStrings,
                         savedCount = feedbackSavedCount,
                         onSaveFeedback = onSaveFeedback,
                         onBack = onBackToMenu
                     )
                     LisaPanel.TestingChecklist -> TestingChecklistPanel(
+                        uiStrings = uiStrings,
                         checklist = testingChecklist,
                         onToggleItem = onToggleChecklistItem,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.ReleaseNotes -> ReleaseNotesPanel(onBack = onBackToMenu)
+                    LisaPanel.ReleaseNotes -> ReleaseNotesPanel(uiStrings = uiStrings, onBack = onBackToMenu)
                     LisaPanel.None -> Unit
                 }
             }
@@ -285,9 +331,9 @@ data class DeveloperPanelInfo(
 )
 
 @Composable
-private fun CompactTimelineChip(activeStage: CommunicationTimelineStage) {
+private fun CompactTimelineChip(uiStrings: LisaUiStrings, activeStage: CommunicationTimelineStage) {
     Text(
-        text = activeStage.label,
+        text = activeStage.localizedLabel(uiStrings),
         color = LisaWhite,
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
@@ -300,6 +346,7 @@ private fun CompactTimelineChip(activeStage: CommunicationTimelineStage) {
 
 @Composable
 private fun CompactSensitivityControls(
+    uiStrings: LisaUiStrings,
     sensitivityLevel: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit
@@ -319,9 +366,9 @@ private fun CompactSensitivityControls(
             modifier = Modifier.height(30.dp),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-        ) { Text("Sensitivity -", fontSize = 10.sp) }
+        ) { Text(uiStrings.sensitivityDecrease, fontSize = 10.sp) }
         Text(
-            text = "Sensitivity: $sensitivityLevel",
+            text = "${uiStrings.sensitivity}: $sensitivityLevel",
             color = LisaWhite,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium
@@ -332,12 +379,12 @@ private fun CompactSensitivityControls(
             modifier = Modifier.height(30.dp),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-        ) { Text("Sensitivity +", fontSize = 10.sp) }
+        ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
     }
 }
 
 @Composable
-private fun SequenceProgressDots(leftCount: Int, rightCount: Int) {
+private fun SequenceProgressDots(uiStrings: LisaUiStrings, leftCount: Int, rightCount: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -348,13 +395,13 @@ private fun SequenceProgressDots(leftCount: Int, rightCount: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Left: ${winkDots(leftCount)}",
+            text = uiStrings.leftDots(leftCount),
             color = LisaWhite,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
         Text(
-            text = "Right: ${winkDots(rightCount)}",
+            text = uiStrings.rightDots(rightCount),
             color = LisaWhite,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
@@ -391,6 +438,7 @@ private fun IntentPreviewCard(phrase: String, compact: Boolean = false) {
 
 @Composable
 private fun EverydayCommunicationPanel(
+    uiStrings: LisaUiStrings,
     userDisplay: LisaUserDisplay,
     countdownActive: Boolean,
     onEditCountdown: () -> Unit
@@ -473,7 +521,7 @@ private fun EverydayCommunicationPanel(
             if (userDisplay.showCountdownHints) {
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    text = "Left wink = Cancel",
+                    text = uiStrings.leftWinkCancel,
                     color = LisaWhite.copy(alpha = 0.95f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
@@ -481,7 +529,7 @@ private fun EverydayCommunicationPanel(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Right wink = Speak now",
+                    text = uiStrings.rightWinkSpeak,
                     color = LisaWhite.copy(alpha = 0.95f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
@@ -501,7 +549,7 @@ private fun EverydayCommunicationPanel(
                         containerColor = Color.White.copy(alpha = 0.15f)
                     )
                 ) {
-                    Text("Edit", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(uiStrings.editSequence, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -576,14 +624,16 @@ internal fun LisaPanelShell(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = if (title.isBlank()) Arrangement.End else Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = LisaBlueDark
-                )
+                if (title.isNotBlank()) {
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = LisaBlueDark
+                    )
+                }
                 if (onBack != null) {
                     TextButton(onClick = onBack) {
                         Text("Back", color = LisaBlueDark, fontWeight = FontWeight.SemiBold)
@@ -600,41 +650,43 @@ private data class MenuEntry(val label: String, val panel: LisaPanel)
 
 @Composable
 private fun MenuPanel(
+    uiStrings: LisaUiStrings,
     canRepeat: Boolean,
     onSelectPanel: (LisaPanel) -> Unit,
     onRepeat: () -> Unit,
     onClose: () -> Unit
 ) {
     val entries = listOf(
-        MenuEntry("My Communication", LisaPanel.MyCommunication),
-        MenuEntry("Communication Setup", LisaPanel.CommunicationSetup),
-        MenuEntry("Vocabulary / Training", LisaPanel.VocabularyTraining),
-        MenuEntry("Emergency Setup", LisaPanel.EmergencySetup),
-        MenuEntry("Caregiver Linking", LisaPanel.CaregiverLinking),
-        MenuEntry("Settings", LisaPanel.Settings),
-        MenuEntry("Testing Checklist", LisaPanel.TestingChecklist),
-        MenuEntry("Feedback", LisaPanel.Feedback),
-        MenuEntry("Release Notes", LisaPanel.ReleaseNotes),
-        MenuEntry("Developer Tools", LisaPanel.DeveloperTools),
-        MenuEntry("About LISA", LisaPanel.AboutLisa)
+        LisaPanel.MyCommunication,
+        LisaPanel.CommunicationSetup,
+        LisaPanel.VocabularyTraining,
+        LisaPanel.EmergencySetup,
+        LisaPanel.CaregiverLinking,
+        LisaPanel.Voice,
+        LisaPanel.Settings,
+        LisaPanel.TestingChecklist,
+        LisaPanel.Feedback,
+        LisaPanel.ReleaseNotes,
+        LisaPanel.DeveloperTools,
+        LisaPanel.AboutLisa
     )
 
-    LisaPanelShell(title = "Menu", onBack = onClose) {
+    LisaPanelShell(title = uiStrings.menu, onBack = onClose) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 360.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-        entries.forEach { entry ->
-            MenuRow(label = entry.label, onClick = { onSelectPanel(entry.panel) })
+        entries.forEach { panel ->
+            MenuRow(label = uiStrings.menuLabel(panel), onClick = { onSelectPanel(panel) })
             Spacer(Modifier.height(4.dp))
         }
         if (canRepeat) {
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = LisaBlue.copy(alpha = 0.25f))
             Spacer(Modifier.height(8.dp))
-            MenuRow(label = "Repeat last phrase", onClick = onRepeat)
+            MenuRow(label = uiStrings.repeatLastPhrase, onClick = onRepeat)
         }
         }
     }
@@ -668,6 +720,7 @@ private fun MenuRow(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun MyCommunicationPanel(
+    uiStrings: LisaUiStrings,
     profiles: List<LisaUserProfile>,
     activeProfileId: String,
     onCreateProfile: () -> Unit,
@@ -683,7 +736,7 @@ private fun MyCommunicationPanel(
         editingName = activeProfile?.name ?: ""
     }
 
-    LisaPanelShell(title = "My Communication", onBack = onBack) {
+    LisaPanelShell(title = uiStrings.myCommunication, onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1093,6 +1146,8 @@ private fun SettingsSliderRow(
 
 @Composable
 private fun VocabularyTrainingPanel(
+    uiStrings: LisaUiStrings,
+    preferredLanguage: PreferredLanguage,
     mappings: List<WinkMapping>,
     onAddMapping: (left: Int, right: Int, phrase: String) -> Unit,
     onBack: () -> Unit
@@ -1101,10 +1156,10 @@ private fun VocabularyTrainingPanel(
     var rightTxt by remember { mutableStateOf("0") }
     var phraseTxt by remember { mutableStateOf("") }
 
-    LisaPanelShell(title = "Vocabulary / Training", onBack = onBack) {
-        Text("Single winks and natural blinks are ignored.", fontSize = 13.sp, color = LisaBlueDark)
+    LisaPanelShell(title = uiStrings.vocabularyTraining, onBack = onBack) {
+        Text(uiStrings.minSequenceNote, fontSize = 13.sp, color = LisaBlueDark)
         Text(
-            "Minimum sequence: $MIN_SEQUENCE_WINKS winks. After detection, a countdown lets you cancel or speak.",
+            uiStrings.countdownNote,
             fontSize = 13.sp,
             color = LisaBlueDark.copy(alpha = 0.85f),
             lineHeight = 18.sp
@@ -1115,7 +1170,7 @@ private fun VocabularyTrainingPanel(
         val customMappings = mappings.filter { it.isCustom }
 
         Text(
-            "Core vocabulary (${coreMappings.size})",
+            uiStrings.coreVocabulary(coreMappings.size),
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = LisaBlueDark
@@ -1125,29 +1180,42 @@ private fun VocabularyTrainingPanel(
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 220.dp)
+                .heightIn(max = 280.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(LisaWhite)
                 .padding(10.dp)
         ) {
             items(coreMappings) { m ->
-                Text(
-                    text = "L${m.left} R${m.right} → ${m.phrase}",
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = LisaBlueDark
-                )
-                Spacer(Modifier.height(3.dp))
+                val localized = m.localizedPhrase(preferredLanguage)
+                val englishSub = uiStrings.phraseEnglishSubtitle(m.vocabularyId)
+                Column {
+                    Text(
+                        text = "L${m.left} R${m.right} → $localized",
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = LisaBlueDark,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (englishSub != null) {
+                        Text(
+                            text = englishSub,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            color = LisaGray
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
             }
         }
 
         if (customMappings.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text("Custom phrases", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+            Text(uiStrings.customPhrases, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
             Spacer(Modifier.height(6.dp))
             customMappings.forEach { m ->
                 Text(
-                    text = "L${m.left} R${m.right} → ${m.phrase}",
+                    text = "L${m.left} R${m.right} → ${m.localizedPhrase(preferredLanguage)}",
                     fontSize = 12.sp,
                     color = LisaBlueDark
                 )
@@ -1159,7 +1227,7 @@ private fun VocabularyTrainingPanel(
         HorizontalDivider(color = LisaBlue.copy(alpha = 0.25f))
         Spacer(Modifier.height(12.dp))
 
-        Text("Add a custom sequence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+        Text(uiStrings.addCustomSequence, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
         Spacer(Modifier.height(8.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1167,7 +1235,7 @@ private fun VocabularyTrainingPanel(
                 modifier = Modifier.weight(1f),
                 value = leftTxt,
                 onValueChange = { leftTxt = it.filter { ch -> ch.isDigit() } },
-                label = { Text("Left") },
+                label = { Text(uiStrings.leftLabel) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
@@ -1175,7 +1243,7 @@ private fun VocabularyTrainingPanel(
                 modifier = Modifier.weight(1f),
                 value = rightTxt,
                 onValueChange = { rightTxt = it.filter { ch -> ch.isDigit() } },
-                label = { Text("Right") },
+                label = { Text(uiStrings.rightLabel) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
@@ -1243,7 +1311,7 @@ private fun LisaActionButton(
 }
 
 @Composable
-private fun EmergencyOverlay(notifyNames: List<String> = emptyList()) {
+private fun EmergencyOverlay(uiStrings: LisaUiStrings, notifyNames: List<String> = emptyList()) {
     val infiniteTransition = rememberInfiniteTransition(label = "emergency_flash")
     val flashAlpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -1260,7 +1328,7 @@ private fun EmergencyOverlay(notifyNames: List<String> = emptyList()) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "EMERGENCY",
+                text = uiStrings.emergency,
                 color = LisaWhite,
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
@@ -1268,7 +1336,7 @@ private fun EmergencyOverlay(notifyNames: List<String> = emptyList()) {
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Calling for help...",
+                text = uiStrings.callingForHelp,
                 color = LisaWhite,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Medium,
@@ -1277,7 +1345,7 @@ private fun EmergencyOverlay(notifyNames: List<String> = emptyList()) {
             if (notifyNames.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "Would notify: ${notifyNames.joinToString(", ")}",
+                    text = "${uiStrings.wouldNotify} ${notifyNames.joinToString(", ")}",
                     color = LisaWhite.copy(alpha = 0.95f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,

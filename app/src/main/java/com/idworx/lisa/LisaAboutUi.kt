@@ -18,8 +18,8 @@ import com.idworx.lisa.ui.theme.LisaWhite
 import java.util.Locale
 
 @Composable
-fun AboutLisaPanel(onBack: () -> Unit) {
-    LisaPanelShell(title = "About LISA", onBack = onBack) {
+fun AboutLisaPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
+    LisaPanelShell(title = uiStrings.aboutLisa, onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -27,7 +27,7 @@ fun AboutLisaPanel(onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AboutHeroBlock()
+            AboutHeroBlock(uiStrings = uiStrings)
 
             AboutSection(
                 title = "What is LISA?",
@@ -112,7 +112,7 @@ fun AboutLisaPanel(onBack: () -> Unit) {
 }
 
 @Composable
-private fun AboutHeroBlock() {
+private fun AboutHeroBlock(uiStrings: LisaUiStrings) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -128,13 +128,13 @@ private fun AboutHeroBlock() {
             color = LisaBlueDark
         )
         Text(
-            text = "Look Into Speaking Assistant",
+            text = uiStrings.lisaFullName,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = LisaBlueDark.copy(alpha = 0.8f)
         )
         Text(
-            text = "Assistive communication through intentional eye movements.",
+            text = uiStrings.lisaTagline,
             fontSize = 13.sp,
             color = LisaGray,
             lineHeight = 18.sp

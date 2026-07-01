@@ -17,17 +17,18 @@ enum class CommunicationLevel(val label: String) {
 
 enum class PreferredLanguage(val label: String) {
     English("English"),
-    Spanish("Spanish"),
-    French("French"),
-    German("German"),
-    Italian("Italian"),
-    Portuguese("Portuguese");
+    Afrikaans("Afrikaans"),
+    IsiZulu("isiZulu");
 
     companion object {
         val selectable: List<PreferredLanguage> = entries.toList()
 
-        fun fromStored(value: String): PreferredLanguage =
-            entries.find { it.name == value || it.label == value } ?: English
+        fun fromStored(value: String): PreferredLanguage = when {
+            value.equals("English", ignoreCase = true) -> English
+            value.equals("Afrikaans", ignoreCase = true) -> Afrikaans
+            value.equals("isiZulu", ignoreCase = true) || value.equals("IsiZulu", ignoreCase = true) -> IsiZulu
+            else -> entries.find { it.name == value || it.label.equals(value, ignoreCase = true) } ?: English
+        }
     }
 }
 
@@ -42,6 +43,7 @@ data class LisaUserProfile(
     val sequenceTimeoutSec: Float = 2.5f,
     val emergencyVolume: Float = 1.0f,
     val developerMode: Boolean = false,
+    val selectedTtsVoiceName: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -88,6 +90,9 @@ data class LisaUserProfile(
         put("sequenceTimeoutSec", sequenceTimeoutSec.toDouble())
         put("emergencyVolume", emergencyVolume.toDouble())
         put("developerMode", developerMode)
+        if (selectedTtsVoiceName != null) {
+            put("selectedTtsVoiceName", selectedTtsVoiceName)
+        }
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }
@@ -105,6 +110,7 @@ data class LisaUserProfile(
             sequenceTimeoutSec = obj.optDouble("sequenceTimeoutSec", 2.5).toFloat().coerceIn(1.5f, 4f),
             emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
             developerMode = obj.optBoolean("developerMode", false),
+            selectedTtsVoiceName = obj.optString("selectedTtsVoiceName").takeIf { it.isNotBlank() },
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )

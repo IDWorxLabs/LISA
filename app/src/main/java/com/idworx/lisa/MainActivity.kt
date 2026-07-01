@@ -145,6 +145,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private lateinit var profileStore: LisaProfileStore
     private lateinit var caregiverStore: LisaCaregiverStore
     private val uiCaregivers = mutableStateListOf<LisaCaregiver>()
+    private val uiActiveLanguage = mutableStateOf(PreferredLanguage.English)
     private val uiEmergencyNotifyNames = mutableStateOf<List<String>>(emptyList())
     private lateinit var releaseStore: LisaReleaseStore
     private val uiOnboardingCompleted = mutableStateOf(false)
@@ -152,6 +153,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiCameraPermissionPermanentlyDenied = mutableStateOf(false)
     private val uiTestingChecklist = mutableStateOf<Map<String, Boolean>>(emptyMap())
     private val uiFeedbackSavedCount = mutableStateOf(0)
+    private val uiVoiceSettingsState = mutableStateOf(LisaVoiceSettingsState())
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
@@ -201,13 +203,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setContent {
             LISATheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
+                    val uiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
                     val userDisplay = uiCommunicationState.value.toUserDisplay(
+                        strings = uiStrings,
                         pendingPhrase = uiPendingPhrase.value,
                         countdown = uiCountdown.value,
                         leftWinkDots = uiDiagLeftCount.value,
                         rightWinkDots = uiDiagRightCount.value
                     )
                     LisaRootUI(
+                        uiStrings = uiStrings,
                         userDisplay = userDisplay,
                         emergencyActive = uiEmergencyActive.value,
                         emergencyNotifyNames = uiEmergencyNotifyNames.value,
@@ -267,7 +272,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             val cleaned = phrase.trim()
                             if (cleaned.isBlank()) return@LisaRootUI
                             if (!isSequenceEligibleForSpeech(left, right)) return@LisaRootUI
-                            val newMap = WinkMapping(left, right, cleaned, isCustom = true)
+                            val newMap = WinkMapping(
+                                left = left,
+                                right = right,
+                                vocabularyId = cleaned,
+                                isCustom = true,
+                                customPhrase = cleaned
+                            )
                             mappingsState.add(newMap)
                             saveCustomMappings(this@MainActivity, mappingsState.filter { it.isCustom })
                             Toast.makeText(this@MainActivity, "Saved: L$left R$right → $cleaned", Toast.LENGTH_SHORT).show()
@@ -292,6 +303,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onToggleChecklistItem = { key, checked ->
                             toggleChecklistItem(key, checked)
                         },
+                        voiceSettingsState = uiVoiceSettingsState.value,
+                        onSelectTtsVoice = { voiceName -> selectTtsVoice(voiceName) },
+                        onTestTtsVoice = { testTtsVoice() },
+                        onInstallTtsVoiceData = { installTtsVoiceData() },
+                        onOpenTtsSettings = { openTtsSettings() },
                         cameraView = {
                             CameraPreview(
                                 onFrame = { imageProxy -> processFrame(imageProxy) }
@@ -306,6 +322,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onResume() {
         super.onResume()
         refreshCameraPermissionState()
+        activeProfile()?.let { applyTtsForProfile(it) }
+        refreshVoiceSettingsState()
     }
 
     override fun onDestroy() {
@@ -319,7 +337,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.getDefault()
+            activeProfile()?.let { LisaTtsVoiceManager.applyForProfile(tts!!, it) }
+                ?: applyTtsForLanguage(uiActiveLanguage.value)
+            refreshVoiceSettingsState()
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) = Unit
 
@@ -492,6 +512,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun openPanel(panel: LisaPanel) {
         uiActivePanel.value = panel
+        if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
+            refreshVoiceSettingsState()
+        }
     }
 
     private fun closeAllPanels() {
@@ -536,7 +559,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         emergencyAlarmController.start(
             leftWinks,
             rightWinks,
-            activeProfile()?.emergencyVolume ?: 1.0f
+            activeProfile()?.emergencyVolume ?: 1.0f,
+            speechPhrase = LisaUiStrings.forLanguage(uiActiveLanguage.value).emergencySpeechPhrase
         )
         resetSequence()
     }
@@ -598,6 +622,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyProfileSettings(profile: LisaUserProfile, persist: Boolean = true) {
+        uiActiveLanguage.value = profile.preferredLanguage
+        applyTtsForProfile(profile)
+        refreshVoiceSettingsState()
         applySensitivityLevel(profile.sensitivityLevel)
         uiDeveloperMode.value = profile.developerMode
         saveDeveloperMode(this, profile.developerMode)
@@ -654,6 +681,81 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         applyProfileSettings(profile)
         refreshCaregiversForActiveProfile()
     }
+
+    private fun applyTtsForProfile(profile: LisaUserProfile) {
+        tts?.let { LisaTtsVoiceManager.applyForProfile(it, profile) }
+    }
+
+    private fun applyTtsForLanguage(language: PreferredLanguage) {
+        activeProfile()?.let { applyTtsForProfile(it) } ?: run {
+            tts?.language = LisaUiStrings.ttsLocale(language)
+        }
+    }
+
+    private fun refreshVoiceSettingsState() {
+        val profile = activeProfile() ?: return
+        uiVoiceSettingsState.value = LisaTtsVoiceManager.buildSettingsState(
+            tts = tts,
+            profile = profile,
+            ttsEngineLabel = resolveTtsEngineLabel()
+        )
+    }
+
+    private fun resolveTtsEngineLabel(): String {
+        val engine = Settings.Secure.getString(contentResolver, Settings.Secure.TTS_DEFAULT_SYNTH)
+        if (engine.isNullOrBlank()) return "Android system default"
+        return try {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(engine, 0)
+            ).toString()
+        } catch (_: Exception) {
+            engine
+        }
+    }
+
+    private fun selectTtsVoice(voiceName: String) {
+        updateActiveProfile { it.copy(selectedTtsVoiceName = voiceName) }
+        refreshVoiceSettingsState()
+    }
+
+    private fun testTtsVoice() {
+        val engine = tts ?: run {
+            Toast.makeText(this, "Speech engine not ready", Toast.LENGTH_SHORT).show()
+            return
+        }
+        activeProfile()?.let { LisaTtsVoiceManager.applyForProfile(engine, it) }
+        val phrase = LisaTtsVoiceManager.samplePhrase(uiActiveLanguage.value)
+        engine.speak(phrase, TextToSpeech.QUEUE_FLUSH, Bundle(), "LISA_TTS_TEST")
+    }
+
+    private fun installTtsVoiceData() {
+        try {
+            startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Unable to open voice installer", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openTtsSettings() {
+        val intents = listOf(
+            Intent("com.android.settings.TTS_SETTINGS"),
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        )
+        for (intent in intents) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (intent.resolveActivity(packageManager) != null) {
+                try {
+                    startActivity(intent)
+                    return
+                } catch (_: Exception) {
+                    // try next fallback
+                }
+            }
+        }
+        Toast.makeText(this, "Unable to open speech settings", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun activeLanguage(): PreferredLanguage = uiActiveLanguage.value
 
     private fun refreshCaregiversForActiveProfile() {
         uiCaregivers.clear()
@@ -1017,7 +1119,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (finalize) return
 
         if (exact != null && continuation) {
-            setCommunicationState(LisaCommunicationState.PossibleMatch(exact.phrase))
+            setCommunicationState(LisaCommunicationState.PossibleMatch(exact.localizedPhrase(activeLanguage())))
         } else {
             setCommunicationState(LisaCommunicationState.WaitingForNextWink)
         }
@@ -1052,7 +1154,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun findPhraseFor(l: Int, r: Int): String? =
-        findExactMapping(l, r, mappingsState)?.phrase
+        findExactMapping(l, r, mappingsState)?.localizedPhrase(activeLanguage())
 
     private fun resetSequence() {
         leftWinks = 0
@@ -1181,6 +1283,6 @@ private fun loadCustomMappings(context: Context): List<WinkMapping> {
             val r = lr[1].toIntOrNull() ?: return@mapNotNull null
             val phrase = parts[1].trim()
             if (phrase.isBlank()) return@mapNotNull null
-            WinkMapping(l, r, phrase, isCustom = true)
+            WinkMapping(l, r, vocabularyId = phrase, isCustom = true, customPhrase = phrase)
         }
 }

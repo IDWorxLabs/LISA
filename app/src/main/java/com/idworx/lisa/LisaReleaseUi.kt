@@ -19,10 +19,10 @@ import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaWhite
-import java.util.Locale
 
 @Composable
 fun OnboardingFlow(
+    uiStrings: LisaUiStrings,
     primaryUserName: String,
     onPrimaryUserNameChange: (String) -> Unit,
     onRequestCameraPermission: () -> Unit,
@@ -56,7 +56,7 @@ fun OnboardingFlow(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Step ${step + 1} of $totalSteps",
+                    text = uiStrings.stepOf(step + 1, totalSteps),
                     fontSize = 12.sp,
                     color = LisaGray,
                     fontWeight = FontWeight.Medium
@@ -69,44 +69,44 @@ fun OnboardingFlow(
 
                 when (step) {
                     0 -> OnboardingBlock(
-                        title = "Welcome to LISA",
-                        body = "LISA — Look Into Speaking Assistant — helps you communicate using intentional eye movements. This setup takes about one minute."
+                        title = uiStrings.welcomeToLisa,
+                        body = uiStrings.onboardingWelcomeBody
                     )
                     1 -> OnboardingBlock(
-                        title = "What LISA does",
-                        body = "LISA uses your front camera to detect deliberate wink sequences, matches them to phrases, asks you to confirm, and speaks your message aloud. Emergency sequences can trigger a local alarm."
+                        title = uiStrings.whatLisaDoes,
+                        body = uiStrings.onboardingWhatBody
                     )
                     2 -> OnboardingBlock(
-                        title = "Camera permission",
-                        body = "LISA needs camera access to see your face and detect intentional winks. Video is processed on your device only — nothing is uploaded during this testing build.",
+                        title = uiStrings.cameraPermissionTitle,
+                        body = uiStrings.onboardingCameraBody,
                         extra = {
                             OutlinedButton(
                                 onClick = onRequestCameraPermission,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Allow camera access")
+                                Text(uiStrings.allowCameraAccess)
                             }
                         }
                     )
                     3 -> OnboardingBlock(
-                        title = "Safety notice",
+                        title = uiStrings.onboardingSafetyTitle,
                         bullets = listOf(
-                            "LISA is an assistive communication tool, not a certified medical device.",
-                            "Test with supervision before relying on it.",
-                            "Do not use LISA as your only emergency system yet.",
-                            "Practice emergency and reset with a caregiver present."
+                            uiStrings.t("LISA is an assistive communication tool, not a certified medical device.", "LISA is 'n hulpkommunikasiehulpmiddel, nie 'n gesertifiseerde mediese toestel nie.", "I-LISA iyithuluzi lokuxhumana olusizayo, hhayi idivayisi yezokwelapha eqinisekisiwe."),
+                            uiStrings.t("Test with supervision before relying on it.", "Toets met toesig voordat jy daarop staatmaak.", "Hlola ngokuqapha ngaphambi kokuthembela kuyo."),
+                            uiStrings.t("Do not use LISA as your only emergency system yet.", "Moenie LISA nog as jou enigste noodstelsel gebruik nie.", "Ungasebenzisi i-LISA njengohlelo lwakho oluphuthumayo kuphela okwamanje."),
+                            uiStrings.t("Practice emergency and reset with a caregiver present.", "Oefen nood en herstel met 'n versorger teenwoordig.", "Zilolonge usizo oluphuthumayo nokusetha kabusha nomnakekeli okhona.")
                         )
                     )
                     4 -> {
                         Text(
-                            text = "Primary User profile",
+                            text = uiStrings.primaryUserProfile,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = LisaBlueDark
                         )
                         Text(
-                            text = "Confirm the name for the main communication profile on this device.",
+                            text = uiStrings.confirmProfileName,
                             fontSize = 14.sp,
                             color = LisaBlueDark.copy(alpha = 0.85f),
                             lineHeight = 20.sp
@@ -114,18 +114,18 @@ fun OnboardingFlow(
                         OutlinedTextField(
                             value = editingName,
                             onValueChange = { editingName = it },
-                            label = { Text("Profile name") },
+                            label = { Text(uiStrings.profileName) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
                     }
                     5 -> OnboardingBlock(
-                        title = "Start LISA",
-                        body = "You're ready for local testing. Use Menu → Testing Checklist to verify winks, speech, and emergency before real-world use.",
+                        title = uiStrings.startLisaTitle,
+                        body = uiStrings.onboardingStartBody,
                         extra = {
                             Text(
-                                text = "Primary User: $editingName",
+                                text = uiStrings.primaryUserLabel(editingName),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = LisaBlueDark
@@ -143,7 +143,7 @@ fun OnboardingFlow(
                             onClick = { step -= 1 },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text("Back") }
+                        ) { Text(uiStrings.back) }
                     }
                     Button(
                         onClick = {
@@ -161,12 +161,19 @@ fun OnboardingFlow(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
                     ) {
-                        Text(if (step == totalSteps - 1) "Start LISA" else "Next")
+                        Text(if (step == totalSteps - 1) uiStrings.startLisa else uiStrings.next)
                     }
                 }
             }
         }
     }
+}
+
+/** Exposed for onboarding safety bullets. */
+internal fun LisaUiStrings.t(en: String, af: String, zu: String): String = when (language) {
+    PreferredLanguage.English -> en
+    PreferredLanguage.Afrikaans -> af
+    PreferredLanguage.IsiZulu -> zu
 }
 
 @Composable
@@ -193,6 +200,7 @@ private fun OnboardingBlock(
 
 @Composable
 fun CameraPermissionScreen(
+    uiStrings: LisaUiStrings,
     permanentlyDenied: Boolean,
     onRequestPermission: () -> Unit,
     onOpenSettings: () -> Unit
@@ -214,21 +222,21 @@ fun CameraPermissionScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Camera access needed",
+                text = uiStrings.cameraAccessNeeded,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = LisaBlueDark,
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "LISA uses the front camera to detect your face and intentional wink sequences. Without camera access, LISA cannot listen for your messages.",
+                text = uiStrings.cameraPermissionExplain,
                 fontSize = 14.sp,
                 color = LisaBlueDark.copy(alpha = 0.85f),
                 lineHeight = 20.sp,
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Processing stays on this device. No video is uploaded in this testing build.",
+                text = uiStrings.cameraOnDeviceOnly,
                 fontSize = 13.sp,
                 color = LisaGray,
                 lineHeight = 18.sp,
@@ -241,10 +249,10 @@ fun CameraPermissionScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
                 ) {
-                    Text("Open Settings")
+                    Text(uiStrings.openSettings)
                 }
                 Text(
-                    text = "Camera permission was denied. Open Settings → LISA → Permissions to enable the camera.",
+                    text = uiStrings.cameraDeniedSettingsHint,
                     fontSize = 12.sp,
                     color = LisaGray,
                     textAlign = TextAlign.Center,
@@ -257,7 +265,7 @@ fun CameraPermissionScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
                 ) {
-                    Text("Grant camera permission")
+                    Text(uiStrings.grantCameraPermission)
                 }
             }
         }
@@ -266,6 +274,7 @@ fun CameraPermissionScreen(
 
 @Composable
 fun FeedbackPanel(
+    uiStrings: LisaUiStrings,
     savedCount: Int,
     onSaveFeedback: (
         whatWorkedWell: String,
@@ -280,7 +289,12 @@ fun FeedbackPanel(
     var winkDetection by remember { mutableStateOf("") }
     var speechTiming by remember { mutableStateOf("") }
 
-    LisaPanelShell(title = "Feedback", onBack = onBack) {
+    val q1 = uiStrings.t("What worked well?", "Wat het goed gewerk?", "Yini eyasebenza kahle?")
+    val q2 = uiStrings.t("What was confusing?", "Wat was verwarrend?", "Yini eyedidezelayo?")
+    val q3 = uiStrings.t("Did LISA detect your winks correctly?", "Het LISA jou knippe korrek opgespoor?", "Ingabe i-LISA ithole ama-wink akho ngokulungile?")
+    val q4 = uiStrings.t("Did speech happen at the right time?", "Het spraak op die regte tyd plaasgevind?", "Ingabe inkulumo yenzekile ngesikhathi esifanele?")
+
+    LisaPanelShell(title = uiStrings.feedback, onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -289,22 +303,19 @@ fun FeedbackPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Help improve LISA during local testing. Responses are saved on this device only.",
+                text = uiStrings.t(
+                    "Help improve LISA during local testing. Responses are saved on this device only.",
+                    "Help om LISA te verbeter tydens plaaslike toetsing. Antwoorde word slegs op hierdie toestel gestoor.",
+                    "Siza ukuthuthukisa i-LISA ngesikhathi sokuhlola endaweni. Izimpendulo zigcinwa kule divayisi kuphela."
+                ),
                 fontSize = 13.sp,
                 color = LisaBlueDark.copy(alpha = 0.8f),
                 lineHeight = 18.sp
             )
-            if (savedCount > 0) {
-                Text(
-                    text = "$savedCount response${if (savedCount == 1) "" else "s"} saved locally",
-                    fontSize = 12.sp,
-                    color = LisaGray
-                )
-            }
-            FeedbackField("What worked well?", workedWell) { workedWell = it }
-            FeedbackField("What was confusing?", confusing) { confusing = it }
-            FeedbackField("Did LISA detect your winks correctly?", winkDetection) { winkDetection = it }
-            FeedbackField("Did speech happen at the right time?", speechTiming) { speechTiming = it }
+            FeedbackField(q1, workedWell) { workedWell = it }
+            FeedbackField(q2, confusing) { confusing = it }
+            FeedbackField(q3, winkDetection) { winkDetection = it }
+            FeedbackField(q4, speechTiming) { speechTiming = it }
             Button(
                 onClick = {
                     onSaveFeedback(workedWell, confusing, winkDetection, speechTiming)
@@ -319,7 +330,7 @@ fun FeedbackPanel(
                 enabled = workedWell.isNotBlank() || confusing.isNotBlank() ||
                     winkDetection.isNotBlank() || speechTiming.isNotBlank()
             ) {
-                Text("Save feedback")
+                Text(uiStrings.t("Save feedback", "Stoor terugvoer", "Londoloza impendulo"))
             }
         }
     }
@@ -339,11 +350,12 @@ private fun FeedbackField(label: String, value: String, onValueChange: (String) 
 
 @Composable
 fun TestingChecklistPanel(
+    uiStrings: LisaUiStrings,
     checklist: Map<String, Boolean>,
     onToggleItem: (String, Boolean) -> Unit,
     onBack: () -> Unit
 ) {
-    LisaPanelShell(title = "Testing Checklist", onBack = onBack) {
+    LisaPanelShell(title = uiStrings.testingChecklist, onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -351,14 +363,9 @@ fun TestingChecklistPanel(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = "Complete before sharing with family and friends. Check each item as you verify it.",
-                fontSize = 13.sp,
-                color = LisaBlueDark.copy(alpha = 0.8f),
-                lineHeight = 18.sp
-            )
             TestingChecklistItem.entries.forEach { item ->
                 val checked = checklist[item.key] == true
+                val label = uiStrings.testingChecklistLabel(item)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -367,25 +374,33 @@ fun TestingChecklistPanel(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Checkbox(
-                        checked = checked,
-                        onCheckedChange = { onToggleItem(item.key, it) }
-                    )
-                    Text(
-                        text = item.label,
-                        fontSize = 14.sp,
-                        color = LisaBlueDark,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Checkbox(checked = checked, onCheckedChange = { onToggleItem(item.key, it) })
+                    Text(text = label, fontSize = 14.sp, color = LisaBlueDark, modifier = Modifier.weight(1f))
                 }
             }
         }
     }
 }
 
+private fun LisaUiStrings.testingChecklistLabel(item: TestingChecklistItem): String = when (item) {
+    TestingChecklistItem.CameraOpens -> t("Camera opens", "Kamera maak oop", "Ikhamera ivula")
+    TestingChecklistItem.FaceDetected -> t("Face detected", "Gesig opgespoor", "Ubuso batholakele")
+    TestingChecklistItem.LeftWinkDetected -> t("Left wink detected correctly", "Linkerknik korrek opgespoor", "Ukucwayiza kwesokunxele kutholwe kahle")
+    TestingChecklistItem.RightWinkDetected -> t("Right wink detected correctly", "Regterknik korrek opgespoor", "Ukucwayiza kwesokudla kutholwe kahle")
+    TestingChecklistItem.YesSequenceWorks -> t("Yes sequence works", "Ja-reeks werk", "Uchungechunge lwe-Yebo luyasebenza")
+    TestingChecklistItem.NoSequenceWorks -> t("No sequence works", "Nee-reeks werk", "Uchungechunge lwe-Cha luyasebenza")
+    TestingChecklistItem.EmergencyAlarmTested -> t("Emergency alarm tested", "Noodalarm getoets", "I-alamu yosizo oluphuthumayo ihloliwe")
+    TestingChecklistItem.ResetStopsAlarm -> t("Reset stops alarm", "Herstel stop alarm", "Ukusetha kabusha kumisa i-alamu")
+    TestingChecklistItem.CaregiverKnowsTestBuild -> t(
+        "Caregiver knows this is a test build",
+        "Versorger weet dit is 'n toetsweergawe",
+        "Umphakeli wokunakekela uyazi ukuthi lokhu kuyakhiwo lokuhlola"
+    )
+}
+
 @Composable
-fun ReleaseNotesPanel(onBack: () -> Unit) {
-    LisaPanelShell(title = "Release Notes", onBack = onBack) {
+fun ReleaseNotesPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
+    LisaPanelShell(title = uiStrings.releaseNotes, onBack = onBack) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -394,48 +409,32 @@ fun ReleaseNotesPanel(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "LISA 1.1 Local Testing Build",
+                text = uiStrings.t(
+                    "LISA 1.1 Local Testing Build",
+                    "LISA 1.1 Plaaslike Toetsweergawe",
+                    "I-LISA 1.1 Yakhiwo Lokuhlola Lwasendaweni"
+                ),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = LisaBlueDark
             )
-            ReleaseNotesSection(
-                bullets = listOf(
-                    "Camera-first communication",
-                    "Wink sequence language",
-                    "Confirmation before speech",
-                    "Emergency alarm",
-                    "Local profiles",
-                    "Local caregiver linking",
-                    "About LISA",
-                    "Testing checklist"
-                )
+            val bullets = listOf(
+                uiStrings.t("Camera-first communication", "Kamera-eerste kommunikasie", "Ukuxhumana okuqala ngekhamera"),
+                uiStrings.t("Wink sequence language", "Knip-reeks taal", "Ulimi lochungechunge lama-wink"),
+                uiStrings.t("Confirmation before speech", "Bevestiging voor spraak", "Ukuqinisekisa ngaphambi kokukhuluma"),
+                uiStrings.t("Emergency alarm", "Noodalarm", "I-alamu yosizo oluphuthumayo"),
+                uiStrings.t("Local profiles", "Plaaslike profiele", "Amaphrofayela endawo"),
+                uiStrings.t("Local caregiver linking", "Plaaslike versorger-koppeling", "Ukuxhumanisa umnakekeli wendawo"),
+                uiStrings.t("About LISA", "Oor LISA", "Mayelana ne-LISA"),
+                uiStrings.t("Testing checklist", "Toets-kontrolelys", "Uhlu lokuhlola")
             )
+            bullets.forEach { item ->
+                Text(text = "• $item", fontSize = 14.sp, color = LisaBlueDark.copy(alpha = 0.88f), lineHeight = 20.sp)
+            }
             Text(
-                text = "Version: 1.1 local testing build",
+                text = uiStrings.t("Version: 1.1 local testing build", "Weergawe: 1.1 plaaslike toetsweergawe", "Inguqulo: 1.1 yakhiwo lokuhlola lwasendaweni"),
                 fontSize = 12.sp,
                 color = LisaGray
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReleaseNotesSection(bullets: List<String>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(LisaWhite)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        bullets.forEach { item ->
-            Text(
-                text = "• $item",
-                fontSize = 14.sp,
-                color = LisaBlueDark.copy(alpha = 0.88f),
-                lineHeight = 20.sp
             )
         }
     }

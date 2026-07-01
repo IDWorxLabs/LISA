@@ -19,20 +19,20 @@ class EmergencyAlarmController(
     private var mediaPlayer: MediaPlayer? = null
     private var running = false
     private var alarmVolume: Float = 1.0f
-
-    private val emergencyPhrase = "Emergency. I need help."
+    private var emergencySpeechPhrase = "Emergency. I need help."
 
     private val ttsLoopRunnable = object : Runnable {
         override fun run() {
             if (!running) return
-            speak(emergencyPhrase)
+            speak(emergencySpeechPhrase)
             mainHandler.postDelayed(this, TTS_REPEAT_MS)
         }
     }
 
-    fun start(sequenceLeft: Int, sequenceRight: Int, alarmVolume: Float = 1.0f) {
+    fun start(sequenceLeft: Int, sequenceRight: Int, alarmVolume: Float = 1.0f, speechPhrase: String? = null) {
         if (running) return
         running = true
+        if (speechPhrase != null) emergencySpeechPhrase = speechPhrase
         startAlarmSound(alarmVolume.coerceIn(0.5f, 1f))
         mainHandler.post(ttsLoopRunnable)
     }
