@@ -37,18 +37,33 @@ data class LinkedCaregiverDevice(
 object EmergencyNotificationService {
 
     fun notifyCaregiverPlaceholder(
-        patientDeviceId: String = "local-device",
+        profileId: String,
+        caregivers: List<LisaCaregiver>,
         sequenceLeft: Int = EMERGENCY_LEFT_WINKS,
         sequenceRight: Int = EMERGENCY_RIGHT_WINKS
-    ) {
-        // TODO: Firebase Cloud Messaging — send data message to LinkedCaregiverDevice.fcmToken
-        // TODO: Persist emergency event until acknowledgement is received
+    ): List<String> {
+        val toNotify = caregivers.filter { it.shouldNotifyOnEmergency() }
+        val names = toNotify.map { it.name }
+
+        // TODO: Firebase Cloud Messaging — send high-priority data message per caregiver device token
+        // TODO: SMS fallback — dial/send SMS to phoneNumber when emergencyContactEnabled is true
+        // TODO: Phone call integration — auto-call primary emergency contacts
+        // TODO: Persist emergency event until caregiver acknowledgement is received
         // TODO: Emergency acknowledgement — caregiver taps ACK → stop patient alarm remotely
+
+        android.util.Log.i(
+            TAG,
+            "Emergency L$sequenceLeft R$sequenceRight for profile $profileId — would notify: $names"
+        )
+
+        return names
     }
 
     fun onCaregiverAcknowledgedPlaceholder(emergencyEventId: String) {
         // TODO: Mark event acknowledged and signal patient device to exit emergency mode
     }
+
+    private const val TAG = "LisaEmergency"
 }
 
 /** L6 R0 — unique pattern with no prefix overlap with other built-in phrases. */

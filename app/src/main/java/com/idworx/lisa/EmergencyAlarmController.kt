@@ -18,6 +18,7 @@ class EmergencyAlarmController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
     private var running = false
+    private var alarmVolume: Float = 1.0f
 
     private val emergencyPhrase = "Emergency. I need help."
 
@@ -29,15 +30,11 @@ class EmergencyAlarmController(
         }
     }
 
-    fun start(sequenceLeft: Int, sequenceRight: Int) {
+    fun start(sequenceLeft: Int, sequenceRight: Int, alarmVolume: Float = 1.0f) {
         if (running) return
         running = true
-        startAlarmSound()
+        startAlarmSound(alarmVolume.coerceIn(0.5f, 1f))
         mainHandler.post(ttsLoopRunnable)
-        EmergencyNotificationService.notifyCaregiverPlaceholder(
-            sequenceLeft = sequenceLeft,
-            sequenceRight = sequenceRight
-        )
     }
 
     fun stop() {
@@ -53,11 +50,17 @@ class EmergencyAlarmController(
 
     fun isRunning(): Boolean = running
 
-    private fun startAlarmSound() {
+    fun setAlarmVolume(volume: Float) {
+        alarmVolume = volume.coerceIn(0.5f, 1f)
+        mediaPlayer?.setVolume(alarmVolume, alarmVolume)
+    }
+
+    private fun startAlarmSound(volume: Float) {
         val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             ?: return
 
+        this.alarmVolume = volume
         mediaPlayer = MediaPlayer().apply {
             setDataSource(context, alarmUri)
             isLooping = true
@@ -67,7 +70,7 @@ class EmergencyAlarmController(
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
-            setVolume(1.0f, 1.0f)
+            setVolume(volume, volume)
             prepare()
             start()
         }

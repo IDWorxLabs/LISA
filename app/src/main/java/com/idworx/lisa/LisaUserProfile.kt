@@ -1,0 +1,241 @@
+package com.idworx.lisa
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
+
+enum class CommunicationLevel(val label: String) {
+    Beginner("Beginner"),
+    Standard("Standard"),
+    Advanced("Advanced");
+
+    companion object {
+        fun fromStored(value: String): CommunicationLevel =
+            entries.find { it.name == value || it.label == value } ?: Beginner
+    }
+}
+
+enum class PreferredLanguage(val label: String) {
+    English("English"),
+    Spanish("Spanish"),
+    French("French"),
+    German("German"),
+    Italian("Italian"),
+    Portuguese("Portuguese");
+
+    companion object {
+        val selectable: List<PreferredLanguage> = entries.toList()
+
+        fun fromStored(value: String): PreferredLanguage =
+            entries.find { it.name == value || it.label == value } ?: English
+    }
+}
+
+data class LisaUserProfile(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val preferredLanguage: PreferredLanguage = PreferredLanguage.English,
+    val communicationLevel: CommunicationLevel = CommunicationLevel.Beginner,
+    val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    val textSizeScale: Float = 1.0f,
+    val confirmationCountdownSec: Int = 3,
+    val sequenceTimeoutSec: Float = 2.5f,
+    val emergencyVolume: Float = 1.0f,
+    val developerMode: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+) {
+    fun toSettingsUiState(): LisaSettingsUiState = LisaSettingsUiState(
+        sensitivityLevel = sensitivityLevel,
+        textSizeScale = textSizeScale,
+        countdownDurationSec = confirmationCountdownSec,
+        sequenceIdleTimeoutSec = sequenceTimeoutSec,
+        emergencyAlarmVolume = emergencyVolume,
+        developerMode = developerMode
+    )
+
+    fun withUpdatedSettings(settings: LisaSettingsUiState): LisaUserProfile = copy(
+        sensitivityLevel = settings.sensitivityLevel,
+        textSizeScale = settings.textSizeScale,
+        confirmationCountdownSec = settings.countdownDurationSec,
+        sequenceTimeoutSec = settings.sequenceIdleTimeoutSec,
+        emergencyVolume = settings.emergencyAlarmVolume,
+        developerMode = settings.developerMode,
+        updatedAt = System.currentTimeMillis()
+    )
+
+    fun withCommunicationLevel(level: CommunicationLevel): LisaUserProfile {
+        val defaults = profileDefaultsForLevel(level, sensitivityLevel)
+        return copy(
+            communicationLevel = level,
+            sensitivityLevel = defaults.sensitivityLevel,
+            textSizeScale = defaults.textSizeScale,
+            confirmationCountdownSec = defaults.confirmationCountdownSec,
+            sequenceTimeoutSec = defaults.sequenceTimeoutSec,
+            emergencyVolume = defaults.emergencyVolume,
+            updatedAt = System.currentTimeMillis()
+        )
+    }
+
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("name", name)
+        put("preferredLanguage", preferredLanguage.name)
+        put("communicationLevel", communicationLevel.name)
+        put("sensitivityLevel", sensitivityLevel)
+        put("textSizeScale", textSizeScale.toDouble())
+        put("confirmationCountdownSec", confirmationCountdownSec)
+        put("sequenceTimeoutSec", sequenceTimeoutSec.toDouble())
+        put("emergencyVolume", emergencyVolume.toDouble())
+        put("developerMode", developerMode)
+        put("createdAt", createdAt)
+        put("updatedAt", updatedAt)
+    }
+
+    companion object {
+        fun fromJson(obj: JSONObject): LisaUserProfile = LisaUserProfile(
+            id = obj.getString("id"),
+            name = obj.getString("name"),
+            preferredLanguage = PreferredLanguage.fromStored(obj.optString("preferredLanguage", "English")),
+            communicationLevel = CommunicationLevel.fromStored(obj.optString("communicationLevel", "Beginner")),
+            sensitivityLevel = obj.optInt("sensitivityLevel", DEFAULT_SENSITIVITY_LEVEL)
+                .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+            textSizeScale = obj.optDouble("textSizeScale", 1.0).toFloat().coerceIn(0.8f, 1.4f),
+            confirmationCountdownSec = obj.optInt("confirmationCountdownSec", 3).coerceIn(2, 5),
+            sequenceTimeoutSec = obj.optDouble("sequenceTimeoutSec", 2.5).toFloat().coerceIn(1.5f, 4f),
+            emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
+            developerMode = obj.optBoolean("developerMode", false),
+            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+            updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
+        )
+
+        fun createNew(name: String, template: LisaUserProfile? = null): LisaUserProfile {
+            val now = System.currentTimeMillis()
+            return if (template != null) {
+                template.copy(
+                    id = UUID.randomUUID().toString(),
+                    name = name,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            } else {
+                LisaUserProfile(
+                    name = name,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            }
+        }
+    }
+}
+
+data class ProfileLevelDefaults(
+    val sensitivityLevel: Int,
+    val textSizeScale: Float,
+    val confirmationCountdownSec: Int,
+    val sequenceTimeoutSec: Float,
+    val emergencyVolume: Float
+)
+
+fun profileDefaultsForLevel(
+    level: CommunicationLevel,
+    sensitivityOverride: Int? = null
+): ProfileLevelDefaults = when (level) {
+    CommunicationLevel.Beginner -> ProfileLevelDefaults(
+        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 2,
+        textSizeScale = 1.1f,
+        confirmationCountdownSec = 5,
+        sequenceTimeoutSec = 3.5f,
+        emergencyVolume = 1.0f
+    )
+    CommunicationLevel.Standard -> ProfileLevelDefaults(
+        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+            ?: DEFAULT_SENSITIVITY_LEVEL,
+        textSizeScale = 1.0f,
+        confirmationCountdownSec = 3,
+        sequenceTimeoutSec = 2.5f,
+        emergencyVolume = 1.0f
+    )
+    CommunicationLevel.Advanced -> ProfileLevelDefaults(
+        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 4,
+        textSizeScale = 0.95f,
+        confirmationCountdownSec = 2,
+        sequenceTimeoutSec = 2.0f,
+        emergencyVolume = 0.85f
+    )
+}
+
+data class LisaProfileState(
+    val profiles: List<LisaUserProfile>,
+    val activeProfileId: String
+) {
+    val activeProfile: LisaUserProfile?
+        get() = profiles.find { it.id == activeProfileId } ?: profiles.firstOrNull()
+}
+
+class LisaProfileStore(private val context: android.content.Context) {
+    private val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+
+    fun loadProfiles(): List<LisaUserProfile> {
+        val raw = prefs.getString(KEY_PROFILES_JSON, null) ?: return emptyList()
+        if (raw.isBlank()) return emptyList()
+        return try {
+            val array = JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    add(LisaUserProfile.fromJson(array.getJSONObject(i)))
+                }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun loadActiveProfileId(): String? =
+        prefs.getString(KEY_ACTIVE_PROFILE_ID, null)?.takeIf { it.isNotBlank() }
+
+    fun saveProfiles(profiles: List<LisaUserProfile>, activeProfileId: String) {
+        val array = JSONArray()
+        profiles.forEach { array.put(it.toJson()) }
+        prefs.edit()
+            .putString(KEY_PROFILES_JSON, array.toString())
+            .putString(KEY_ACTIVE_PROFILE_ID, activeProfileId)
+            .apply()
+    }
+
+    fun load(legacySensitivity: Int, legacyDeveloperMode: Boolean): LisaProfileState {
+        val (profiles, active) = ensureDefaultProfile(legacySensitivity, legacyDeveloperMode)
+        return LisaProfileState(profiles, active.id)
+    }
+
+    fun ensureDefaultProfile(
+        legacySensitivity: Int,
+        legacyDeveloperMode: Boolean
+    ): Pair<List<LisaUserProfile>, LisaUserProfile> {
+        val existing = loadProfiles()
+        if (existing.isNotEmpty()) {
+            val activeId = loadActiveProfileId()
+            val active = existing.find { it.id == activeId } ?: existing.first()
+            if (activeId == null || existing.none { it.id == activeId }) {
+                saveProfiles(existing, active.id)
+            }
+            return existing to active
+        }
+
+        val defaultProfile = LisaUserProfile(
+            name = "Primary User",
+            preferredLanguage = PreferredLanguage.English,
+            communicationLevel = CommunicationLevel.Beginner,
+            sensitivityLevel = legacySensitivity.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+            developerMode = legacyDeveloperMode
+        )
+        saveProfiles(listOf(defaultProfile), defaultProfile.id)
+        return listOf(defaultProfile) to defaultProfile
+    }
+
+    companion object {
+        const val PREFS_NAME = "lisa_prefs"
+        private const val KEY_PROFILES_JSON = "profiles_json"
+        private const val KEY_ACTIVE_PROFILE_ID = "active_profile_id"
+    }
+}

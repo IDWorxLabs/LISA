@@ -2,6 +2,9 @@ package com.idworx.lisa
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
@@ -43,12 +46,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val WINK_COOLDOWN_MS = 900L
-        private const val SEQUENCE_IDLE_TIMEOUT_MS = 2500L
         private const val SEQUENCE_MAX_WINDOW_MS = 4500L
         private const val EYE_PROB_JUMP_THRESHOLD = 0.28f
-        private const val COUNTDOWN_SECONDS = 3
         private const val COUNTDOWN_TICK_MS = 1000L
     }
+
+    private var countdownDurationSec = 3
+    private var sequenceIdleTimeoutMs = 2500L
 
     private data class SensitivitySettings(
         val closedEyeThreshold: Float,
@@ -130,20 +134,36 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiPendingPhrase = mutableStateOf<String?>(null)
     private val uiCountdown = mutableStateOf<Int?>(null)
     private val uiDeveloperMode = mutableStateOf(false)
-    private val uiShowSettings = mutableStateOf(false)
+    private val uiActivePanel = mutableStateOf(LisaPanel.None)
+    private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
+    private val uiProfiles = mutableStateListOf<LisaUserProfile>()
+    private val uiActiveProfileId = mutableStateOf("")
+    private val uiTextSizeScale = mutableStateOf(1.0f)
 
-    // training mode toggle
-    private val uiShowTraining = mutableStateOf(false)
+    private lateinit var profileStore: LisaProfileStore
+    private lateinit var caregiverStore: LisaCaregiverStore
+    private val uiCaregivers = mutableStateListOf<LisaCaregiver>()
+    private val uiEmergencyNotifyNames = mutableStateOf<List<String>>(emptyList())
+    private lateinit var releaseStore: LisaReleaseStore
+    private val uiOnboardingCompleted = mutableStateOf(false)
+    private val uiCameraPermissionGranted = mutableStateOf(false)
+    private val uiCameraPermissionPermanentlyDenied = mutableStateOf(false)
+    private val uiTestingChecklist = mutableStateOf<Map<String, Boolean>>(emptyMap())
+    private val uiFeedbackSavedCount = mutableStateOf(0)
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            uiCameraPermissionGranted.value = granted
             if (!granted) {
-                Toast.makeText(this, "Camera permission is required.", Toast.LENGTH_LONG).show()
+                uiCameraPermissionPermanentlyDenied.value =
+                    !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+            } else {
+                uiCameraPermissionPermanentlyDenied.value = false
             }
         }
 
@@ -161,13 +181,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         mappingsState.addAll(defaultLanguageMappings())
         mappingsState.addAll(loadCustomMappings(this))
 
-        applySensitivityLevel(loadSensitivityLevel(this))
-        uiDeveloperMode.value = loadDeveloperMode(this)
+        profileStore = LisaProfileStore(this)
+        caregiverStore = LisaCaregiverStore(this)
+        val legacySensitivity = loadSensitivityLevel(this)
+        val legacyDeveloperMode = loadDeveloperMode(this)
+        val profileState = profileStore.load(legacySensitivity, legacyDeveloperMode)
+        uiProfiles.clear()
+        uiProfiles.addAll(profileState.profiles)
+        uiActiveProfileId.value = profileState.activeProfileId
+        profileState.activeProfile?.let { applyProfileSettings(it, persist = false) }
+        refreshCaregiversForActiveProfile()
 
-// camera permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestCameraPermission.launch(Manifest.permission.CAMERA)
-        }
+        releaseStore = LisaReleaseStore(this)
+        uiOnboardingCompleted.value = releaseStore.isOnboardingCompleted()
+        uiTestingChecklist.value = releaseStore.loadChecklist()
+        uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
+        refreshCameraPermissionState()
 
         setContent {
             LISATheme {
@@ -181,11 +210,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     LisaRootUI(
                         userDisplay = userDisplay,
                         emergencyActive = uiEmergencyActive.value,
+                        emergencyNotifyNames = uiEmergencyNotifyNames.value,
                         developerMode = uiDeveloperMode.value,
-                        showSettings = uiShowSettings.value,
-                        showTraining = uiShowTraining.value,
+                        activePanel = uiActivePanel.value,
+                        lastSpoken = uiLastSpoken.value,
                         countdownActive = countdownActive,
                         sensitivityLevel = uiSensitivityLevel.value,
+                        settingsState = uiSettingsState.value.copy(
+                            sensitivityLevel = uiSensitivityLevel.value,
+                            developerMode = uiDeveloperMode.value
+                        ),
+                        textSizeScale = uiTextSizeScale.value,
+                        profiles = uiProfiles.toList(),
+                        activeProfileId = uiActiveProfileId.value,
+                        caregivers = uiCaregivers.toList(),
                         developerInfo = DeveloperPanelInfo(
                             leftEye = uiDiagLeftEye.value,
                             rightEye = uiDiagRightEye.value,
@@ -200,14 +238,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             detectionState = uiCommunicationState.value.displayText
                         ),
                         mappings = mappingsState,
-                        onToggleSettings = { uiShowSettings.value = !uiShowSettings.value },
+                        onMenuClick = { toggleMenuPanel() },
+                        onSelectPanel = { panel -> openPanel(panel) },
+                        onClosePanel = { closeAllPanels() },
+                        onBackToMenu = { openPanel(LisaPanel.Menu) },
                         onDeveloperModeChange = { enabled ->
-                            uiDeveloperMode.value = enabled
-                            saveDeveloperMode(this@MainActivity, enabled)
+                            updateActiveProfile { it.copy(developerMode = enabled) }
                         },
                         onSensitivityDecrease = { changeSensitivity(-1) },
                         onSensitivityIncrease = { changeSensitivity(1) },
-                        onToggleTraining = { uiShowTraining.value = !uiShowTraining.value },
+                        onSettingsPlaceholderChange = { updated ->
+                            updateActiveProfile { it.withUpdatedSettings(updated) }
+                        },
+                        onSelectProfile = { profileId -> switchToProfile(profileId) },
+                        onCreateProfile = { createNewProfile() },
+                        onUpdateProfile = { profile -> updateProfile(profile) },
+                        onDeleteProfile = { profileId -> deleteProfile(profileId) },
+                        onAddCaregiver = { caregiver -> addCaregiver(caregiver) },
+                        onUpdateCaregiver = { caregiver -> updateCaregiver(caregiver) },
+                        onDeleteCaregiver = { caregiverId -> deleteCaregiver(caregiverId) },
                         onRepeat = {
                             val phrase = uiLastSpoken.value
                             if (phrase.isNotBlank()) speak(phrase)
@@ -223,6 +272,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             saveCustomMappings(this@MainActivity, mappingsState.filter { it.isCustom })
                             Toast.makeText(this@MainActivity, "Saved: L$left R$right → $cleaned", Toast.LENGTH_SHORT).show()
                         },
+                        onboardingCompleted = uiOnboardingCompleted.value,
+                        cameraPermissionGranted = uiCameraPermissionGranted.value,
+                        cameraPermissionPermanentlyDenied = uiCameraPermissionPermanentlyDenied.value,
+                        primaryUserName = activeProfile()?.name ?: "Primary User",
+                        testingChecklist = uiTestingChecklist.value,
+                        feedbackSavedCount = uiFeedbackSavedCount.value,
+                        onPrimaryUserNameChange = { name ->
+                            activeProfile()?.let { profile ->
+                                updateProfile(profile.copy(name = name))
+                            }
+                        },
+                        onCompleteOnboarding = { completeOnboarding() },
+                        onRequestCameraPermission = { requestCameraPermissionFromUser() },
+                        onOpenAppSettings = { openAppSettings() },
+                        onSaveFeedback = { worked, confusing, winks, speech ->
+                            saveFeedbackEntry(worked, confusing, winks, speech)
+                        },
+                        onToggleChecklistItem = { key, checked ->
+                            toggleChecklistItem(key, checked)
+                        },
                         cameraView = {
                             CameraPreview(
                                 onFrame = { imageProxy -> processFrame(imageProxy) }
@@ -232,6 +301,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshCameraPermissionState()
     }
 
     override fun onDestroy() {
@@ -337,7 +411,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         countdownRightHandled = false
         uiPendingPhrase.value = phrase
         uiLastSpoken.value = phrase
-        uiCountdown.value = COUNTDOWN_SECONDS
+        uiCountdown.value = countdownDurationSec
         setCommunicationState(LisaCommunicationState.CountdownConfirm(phrase))
         mainHandler.removeCallbacks(countdownTickRunnable)
         mainHandler.postDelayed(countdownTickRunnable, COUNTDOWN_TICK_MS)
@@ -416,15 +490,32 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         scheduleSequenceStateUpdate()
     }
 
+    private fun openPanel(panel: LisaPanel) {
+        uiActivePanel.value = panel
+    }
+
+    private fun closeAllPanels() {
+        uiActivePanel.value = LisaPanel.None
+    }
+
+    private fun toggleMenuPanel() {
+        uiActivePanel.value = when (uiActivePanel.value) {
+            LisaPanel.Menu -> LisaPanel.None
+            else -> LisaPanel.Menu
+        }
+    }
+
     private fun performReset() {
         emergencyAlarmController.stop()
         emergencyActive = false
         uiEmergencyActive.value = false
+        uiEmergencyNotifyNames.value = emptyList()
         tts?.stop()
         clearCountdown()
         savedSequenceLeft = 0
         savedSequenceRight = 0
         resetSequence()
+        closeAllPanels()
         setCommunicationState(LisaCommunicationState.Reset)
         mainHandler.postDelayed({ updateReadyOrWaitingState() }, 500L)
     }
@@ -434,8 +525,172 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiEmergencyActive.value = true
         uiLastSpoken.value = "Emergency"
         setCommunicationState(LisaCommunicationState.EmergencyAlarmActive)
-        emergencyAlarmController.start(leftWinks, rightWinks)
+        val profileId = uiActiveProfileId.value
+        val profileCaregivers = caregiverStore.loadForProfile(profileId)
+        uiEmergencyNotifyNames.value = EmergencyNotificationService.notifyCaregiverPlaceholder(
+            profileId = profileId,
+            caregivers = profileCaregivers,
+            sequenceLeft = leftWinks,
+            sequenceRight = rightWinks
+        )
+        emergencyAlarmController.start(
+            leftWinks,
+            rightWinks,
+            activeProfile()?.emergencyVolume ?: 1.0f
+        )
         resetSequence()
+    }
+
+    private fun refreshCameraPermissionState() {
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        uiCameraPermissionGranted.value = granted
+        if (!granted && releaseStore.wasCameraPermissionRequested()) {
+            uiCameraPermissionPermanentlyDenied.value =
+                !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+        } else if (granted) {
+            uiCameraPermissionPermanentlyDenied.value = false
+        }
+    }
+
+    private fun requestCameraPermissionFromUser() {
+        releaseStore.markCameraPermissionRequested()
+        requestCameraPermission.launch(Manifest.permission.CAMERA)
+    }
+
+    private fun openAppSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+        )
+    }
+
+    private fun completeOnboarding() {
+        releaseStore.setOnboardingCompleted(true)
+        uiOnboardingCompleted.value = true
+        refreshCameraPermissionState()
+    }
+
+    private fun saveFeedbackEntry(
+        whatWorkedWell: String,
+        whatWasConfusing: String,
+        winkDetectionFeedback: String,
+        speechTimingFeedback: String
+    ) {
+        releaseStore.saveFeedback(
+            LisaFeedbackEntry(
+                whatWorkedWell = whatWorkedWell.trim(),
+                whatWasConfusing = whatWasConfusing.trim(),
+                winkDetectionFeedback = winkDetectionFeedback.trim(),
+                speechTimingFeedback = speechTimingFeedback.trim()
+            )
+        )
+        uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
+        Toast.makeText(this, "Feedback saved locally", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleChecklistItem(key: String, checked: Boolean) {
+        releaseStore.saveChecklistItem(key, checked)
+        uiTestingChecklist.value = releaseStore.loadChecklist()
+    }
+
+    private fun applyProfileSettings(profile: LisaUserProfile, persist: Boolean = true) {
+        applySensitivityLevel(profile.sensitivityLevel)
+        uiDeveloperMode.value = profile.developerMode
+        saveDeveloperMode(this, profile.developerMode)
+        countdownDurationSec = profile.confirmationCountdownSec
+        sequenceIdleTimeoutMs = (profile.sequenceTimeoutSec * 1000f).toLong()
+        uiTextSizeScale.value = profile.textSizeScale
+        emergencyAlarmController.setAlarmVolume(profile.emergencyVolume)
+        uiSettingsState.value = profile.toSettingsUiState()
+        if (persist) {
+            saveProfilesToStore()
+        }
+    }
+
+    private fun activeProfile(): LisaUserProfile? =
+        uiProfiles.find { it.id == uiActiveProfileId.value }
+
+    private fun saveProfilesToStore() {
+        profileStore.saveProfiles(uiProfiles.toList(), uiActiveProfileId.value)
+    }
+
+    private fun updateActiveProfile(transform: (LisaUserProfile) -> LisaUserProfile) {
+        val current = activeProfile() ?: return
+        val updated = transform(current).copy(updatedAt = System.currentTimeMillis())
+        val index = uiProfiles.indexOfFirst { it.id == current.id }
+        if (index >= 0) {
+            uiProfiles[index] = updated
+        }
+        applyProfileSettings(updated)
+    }
+
+    private fun updateProfile(profile: LisaUserProfile) {
+        val index = uiProfiles.indexOfFirst { it.id == profile.id }
+        if (index < 0) return
+        val updated = profile.copy(updatedAt = System.currentTimeMillis())
+        uiProfiles[index] = updated
+        if (profile.id == uiActiveProfileId.value) {
+            applyProfileSettings(updated)
+        } else {
+            saveProfilesToStore()
+        }
+    }
+
+    private fun createNewProfile() {
+        val newName = "Profile ${uiProfiles.size + 1}"
+        val newProfile = LisaUserProfile.createNew(newName, activeProfile())
+        uiProfiles.add(newProfile)
+        switchToProfile(newProfile.id)
+        Toast.makeText(this, "Created $newName", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun switchToProfile(profileId: String) {
+        val profile = uiProfiles.find { it.id == profileId } ?: return
+        uiActiveProfileId.value = profileId
+        applyProfileSettings(profile)
+        refreshCaregiversForActiveProfile()
+    }
+
+    private fun refreshCaregiversForActiveProfile() {
+        uiCaregivers.clear()
+        uiCaregivers.addAll(caregiverStore.loadForProfile(uiActiveProfileId.value))
+    }
+
+    private fun addCaregiver(caregiver: LisaCaregiver) {
+        caregiverStore.upsert(caregiver)
+        refreshCaregiversForActiveProfile()
+        Toast.makeText(this, "Caregiver added", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateCaregiver(caregiver: LisaCaregiver) {
+        caregiverStore.upsert(caregiver.copy(updatedAt = System.currentTimeMillis()))
+        refreshCaregiversForActiveProfile()
+        Toast.makeText(this, "Caregiver saved", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun deleteCaregiver(caregiverId: String) {
+        caregiverStore.delete(caregiverId)
+        refreshCaregiversForActiveProfile()
+        Toast.makeText(this, "Caregiver removed", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun deleteProfile(profileId: String) {
+        if (uiProfiles.size <= 1) return
+        val index = uiProfiles.indexOfFirst { it.id == profileId }
+        if (index < 0) return
+        uiProfiles.removeAt(index)
+        if (uiActiveProfileId.value == profileId) {
+            val next = uiProfiles.first()
+            uiActiveProfileId.value = next.id
+            applyProfileSettings(next)
+        } else {
+            saveProfilesToStore()
+        }
+        Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show()
     }
 
     private fun applySensitivityLevel(level: Int) {
@@ -444,13 +699,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         openEyeThreshold = settings.openEyeThreshold
         requiredWinkFrames = settings.requiredWinkFrames
         uiSensitivityLevel.value = level
+        uiSettingsState.value = uiSettingsState.value.copy(sensitivityLevel = level)
     }
 
     private fun changeSensitivity(delta: Int) {
         val newLevel = (uiSensitivityLevel.value + delta).coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         if (newLevel == uiSensitivityLevel.value) return
-        applySensitivityLevel(newLevel)
-        saveSensitivityLevel(this, newLevel)
+        updateActiveProfile { it.copy(sensitivityLevel = newLevel) }
         leftWinkFrameStreak = 0
         rightWinkFrameStreak = 0
         leftWinkGestureCounted = false
@@ -709,7 +964,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 right = rightWinks,
                 idleMs = idleMs,
                 sequenceAgeMs = totalWindowMs,
-                idleTimeoutMs = SEQUENCE_IDLE_TIMEOUT_MS,
+                idleTimeoutMs = sequenceIdleTimeoutMs,
                 maxWindowMs = SEQUENCE_MAX_WINDOW_MS,
                 mappings = mappingsState
             )
@@ -755,7 +1010,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             right = seqRight,
             idleMs = idleMs,
             sequenceAgeMs = totalWindowMs,
-            idleTimeoutMs = SEQUENCE_IDLE_TIMEOUT_MS,
+            idleTimeoutMs = sequenceIdleTimeoutMs,
             maxWindowMs = SEQUENCE_MAX_WINDOW_MS,
             mappings = mappingsState
         )

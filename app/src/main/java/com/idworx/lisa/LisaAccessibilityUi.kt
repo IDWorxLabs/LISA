@@ -10,10 +10,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,44 +25,99 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlue
 import java.util.Locale
 import com.idworx.lisa.ui.theme.LisaBlueDark
+import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
+import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
 
 @Composable
-fun     LisaRootUI(
+fun LisaRootUI(
     userDisplay: LisaUserDisplay,
     emergencyActive: Boolean,
+    emergencyNotifyNames: List<String> = emptyList(),
     developerMode: Boolean,
-    showSettings: Boolean,
-    showTraining: Boolean,
+    activePanel: LisaPanel,
+    lastSpoken: String,
     countdownActive: Boolean,
     sensitivityLevel: Int,
+    settingsState: LisaSettingsUiState,
+    textSizeScale: Float = 1.0f,
+    profiles: List<LisaUserProfile> = emptyList(),
+    activeProfileId: String = "",
+    caregivers: List<LisaCaregiver> = emptyList(),
     developerInfo: DeveloperPanelInfo,
     mappings: List<WinkMapping>,
-    onToggleSettings: () -> Unit,
+    onMenuClick: () -> Unit,
+    onSelectPanel: (LisaPanel) -> Unit,
+    onClosePanel: () -> Unit,
+    onBackToMenu: () -> Unit,
     onDeveloperModeChange: (Boolean) -> Unit,
     onSensitivityDecrease: () -> Unit,
     onSensitivityIncrease: () -> Unit,
-    onToggleTraining: () -> Unit,
+    onSettingsPlaceholderChange: (LisaSettingsUiState) -> Unit,
+    onCreateProfile: () -> Unit = {},
+    onSelectProfile: (String) -> Unit = {},
+    onUpdateProfile: (LisaUserProfile) -> Unit = {},
+    onDeleteProfile: (String) -> Unit = {},
+    onAddCaregiver: (LisaCaregiver) -> Unit = {},
+    onUpdateCaregiver: (LisaCaregiver) -> Unit = {},
+    onDeleteCaregiver: (String) -> Unit = {},
     onRepeat: () -> Unit,
     onReset: () -> Unit,
     onEditCountdown: () -> Unit,
     onAddMapping: (left: Int, right: Int, phrase: String) -> Unit,
+    onboardingCompleted: Boolean = true,
+    cameraPermissionGranted: Boolean = true,
+    cameraPermissionPermanentlyDenied: Boolean = false,
+    primaryUserName: String = "Primary User",
+    testingChecklist: Map<String, Boolean> = emptyMap(),
+    feedbackSavedCount: Int = 0,
+    onPrimaryUserNameChange: (String) -> Unit = {},
+    onCompleteOnboarding: () -> Unit = {},
+    onRequestCameraPermission: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
+    onSaveFeedback: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onToggleChecklistItem: (String, Boolean) -> Unit = { _, _ -> },
     cameraView: @Composable () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        cameraView()
+    if (!onboardingCompleted) {
+        OnboardingFlow(
+            primaryUserName = primaryUserName,
+            onPrimaryUserNameChange = onPrimaryUserNameChange,
+            onRequestCameraPermission = onRequestCameraPermission,
+            onComplete = onCompleteOnboarding
+        )
+        return
+    }
 
-        if (emergencyActive) {
-            EmergencyOverlay()
+    val canRepeat = lastSpoken.isNotBlank()
+    val density = LocalDensity.current
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (cameraPermissionGranted) {
+            cameraView()
+        } else {
+            CameraPermissionScreen(
+                permanentlyDenied = cameraPermissionPermanentlyDenied,
+                onRequestPermission = onRequestCameraPermission,
+                onOpenSettings = onOpenAppSettings
+            )
         }
 
+        if (emergencyActive) {
+            EmergencyOverlay(notifyNames = emergencyNotifyNames)
+        }
+
+        CompositionLocalProvider(
+            LocalDensity provides Density(density.density, density.fontScale * textSizeScale)
+        ) {
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -102,6 +160,7 @@ fun     LisaRootUI(
                 DeveloperPanel(info = developerInfo)
             }
         }
+        }
 
         Column(
             modifier = Modifier
@@ -115,16 +174,10 @@ fun     LisaRootUI(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 LisaActionButton(
-                    text = "Repeat",
+                    text = if (activePanel.isOpen()) "Close" else "Menu",
                     modifier = Modifier.weight(1f),
-                    filled = false,
-                    onClick = onRepeat
-                )
-                LisaActionButton(
-                    text = if (showTraining) "Back" else "Training",
-                    modifier = Modifier.weight(1f),
-                    filled = false,
-                    onClick = onToggleTraining
+                    filled = !activePanel.isOpen(),
+                    onClick = onMenuClick
                 )
                 LisaActionButton(
                     text = "Reset",
@@ -133,25 +186,85 @@ fun     LisaRootUI(
                     danger = emergencyActive,
                     onClick = onReset
                 )
-                LisaActionButton(
-                    text = "Settings",
-                    modifier = Modifier.weight(1f),
-                    filled = false,
-                    onClick = onToggleSettings
-                )
+                if (canRepeat) {
+                    LisaActionButton(
+                        text = "Repeat",
+                        modifier = Modifier.weight(1f),
+                        filled = false,
+                        onClick = onRepeat
+                    )
+                }
             }
 
-            if (showSettings) {
+            if (activePanel != LisaPanel.None) {
                 Spacer(Modifier.height(10.dp))
-                SettingsPanel(
-                    developerMode = developerMode,
-                    onDeveloperModeChange = onDeveloperModeChange
-                )
-            }
-
-            if (showTraining) {
-                Spacer(Modifier.height(10.dp))
-                TrainingPanel(mappings = mappings, onAddMapping = onAddMapping)
+                when (activePanel) {
+                    LisaPanel.Menu -> MenuPanel(
+                        canRepeat = canRepeat,
+                        onSelectPanel = onSelectPanel,
+                        onRepeat = onRepeat,
+                        onClose = onClosePanel
+                    )
+                    LisaPanel.MyCommunication -> MyCommunicationPanel(
+                        profiles = profiles,
+                        activeProfileId = activeProfileId,
+                        onCreateProfile = onCreateProfile,
+                        onSelectProfile = onSelectProfile,
+                        onUpdateProfile = onUpdateProfile,
+                        onDeleteProfile = onDeleteProfile,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.CommunicationSetup -> PlaceholderPanel(
+                        title = "Communication Setup",
+                        description = "Configure how LISA listens and confirms your messages. Coming soon.",
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.VocabularyTraining -> VocabularyTrainingPanel(
+                        mappings = mappings,
+                        onAddMapping = onAddMapping,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.EmergencySetup -> PlaceholderPanel(
+                        title = "Emergency Setup",
+                        description = "Emergency is triggered by L${EMERGENCY_LEFT_WINKS} R${EMERGENCY_RIGHT_WINKS} with no confirmation delay.",
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.CaregiverLinking -> CaregiverLinkingPanel(
+                        caregivers = caregivers,
+                        activeProfileId = activeProfileId,
+                        activeProfileName = profiles.find { it.id == activeProfileId }?.name ?: "Current profile",
+                        onAddCaregiver = onAddCaregiver,
+                        onUpdateCaregiver = onUpdateCaregiver,
+                        onDeleteCaregiver = onDeleteCaregiver,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.Settings -> SettingsPanel(
+                        settingsState = settingsState,
+                        onDeveloperModeChange = onDeveloperModeChange,
+                        onSensitivityDecrease = onSensitivityDecrease,
+                        onSensitivityIncrease = onSensitivityIncrease,
+                        onPlaceholderChange = onSettingsPlaceholderChange,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.DeveloperTools -> DeveloperToolsPanel(
+                        developerMode = developerMode,
+                        onDeveloperModeChange = onDeveloperModeChange,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.AboutLisa -> AboutLisaPanel(onBack = onBackToMenu)
+                    LisaPanel.Feedback -> FeedbackPanel(
+                        savedCount = feedbackSavedCount,
+                        onSaveFeedback = onSaveFeedback,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.TestingChecklist -> TestingChecklistPanel(
+                        checklist = testingChecklist,
+                        onToggleItem = onToggleChecklistItem,
+                        onBack = onBackToMenu
+                    )
+                    LisaPanel.ReleaseNotes -> ReleaseNotesPanel(onBack = onBackToMenu)
+                    LisaPanel.None -> Unit
+                }
             }
         }
     }
@@ -443,36 +556,654 @@ private fun DeveloperPanel(info: DeveloperPanelInfo) {
 }
 
 @Composable
-private fun SettingsPanel(
-    developerMode: Boolean,
-    onDeveloperModeChange: (Boolean) -> Unit
+internal fun LisaPanelShell(
+    title: String,
+    onBack: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = LisaWhite)
+        colors = CardDefaults.cardColors(containerColor = LisaBlueLight),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Settings", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = LisaBlueDark)
-            Spacer(Modifier.height(12.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Developer Mode", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = LisaBlueDark
+                )
+                if (onBack != null) {
+                    TextButton(onClick = onBack) {
+                        Text("Back", color = LisaBlueDark, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            content()
+        }
+    }
+}
+
+private data class MenuEntry(val label: String, val panel: LisaPanel)
+
+@Composable
+private fun MenuPanel(
+    canRepeat: Boolean,
+    onSelectPanel: (LisaPanel) -> Unit,
+    onRepeat: () -> Unit,
+    onClose: () -> Unit
+) {
+    val entries = listOf(
+        MenuEntry("My Communication", LisaPanel.MyCommunication),
+        MenuEntry("Communication Setup", LisaPanel.CommunicationSetup),
+        MenuEntry("Vocabulary / Training", LisaPanel.VocabularyTraining),
+        MenuEntry("Emergency Setup", LisaPanel.EmergencySetup),
+        MenuEntry("Caregiver Linking", LisaPanel.CaregiverLinking),
+        MenuEntry("Settings", LisaPanel.Settings),
+        MenuEntry("Testing Checklist", LisaPanel.TestingChecklist),
+        MenuEntry("Feedback", LisaPanel.Feedback),
+        MenuEntry("Release Notes", LisaPanel.ReleaseNotes),
+        MenuEntry("Developer Tools", LisaPanel.DeveloperTools),
+        MenuEntry("About LISA", LisaPanel.AboutLisa)
+    )
+
+    LisaPanelShell(title = "Menu", onBack = onClose) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+        entries.forEach { entry ->
+            MenuRow(label = entry.label, onClick = { onSelectPanel(entry.panel) })
+            Spacer(Modifier.height(4.dp))
+        }
+        if (canRepeat) {
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = LisaBlue.copy(alpha = 0.25f))
+            Spacer(Modifier.height(8.dp))
+            MenuRow(label = "Repeat last phrase", onClick = onRepeat)
+        }
+        }
+    }
+}
+
+@Composable
+private fun MenuRow(label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LisaWhite)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = LisaBlueDark
+        )
+        Text(
+            text = "›",
+            fontSize = 20.sp,
+            color = LisaGray
+        )
+    }
+}
+
+@Composable
+private fun MyCommunicationPanel(
+    profiles: List<LisaUserProfile>,
+    activeProfileId: String,
+    onCreateProfile: () -> Unit,
+    onSelectProfile: (String) -> Unit,
+    onUpdateProfile: (LisaUserProfile) -> Unit,
+    onDeleteProfile: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    val activeProfile = profiles.find { it.id == activeProfileId } ?: profiles.firstOrNull()
+    var editingName by remember(activeProfileId) { mutableStateOf(activeProfile?.name ?: "") }
+
+    LaunchedEffect(activeProfile?.name) {
+        editingName = activeProfile?.name ?: ""
+    }
+
+    LisaPanelShell(title = "My Communication", onBack = onBack) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 380.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (activeProfile != null) {
+                SettingsSectionLabel("Active profile")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(LisaWhite)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        "Show calibration and debug data",
+                        text = activeProfile.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = LisaBlueDark
+                    )
+                    Text(
+                        text = "${activeProfile.preferredLanguage.label} · ${activeProfile.communicationLevel.label}",
+                        fontSize = 12.sp,
+                        color = LisaBlueDark.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "Sensitivity ${activeProfile.sensitivityLevel} · Text ${(activeProfile.textSizeScale * 100).toInt()}%",
                         fontSize = 12.sp,
                         color = LisaBlueDark.copy(alpha = 0.7f)
                     )
                 }
-                Switch(
-                    checked = developerMode,
-                    onCheckedChange = onDeveloperModeChange
+
+                SettingsSectionLabel("Profile name")
+                OutlinedTextField(
+                    modifier = Modifier.fillMaxWidth(),
+                    value = editingName,
+                    onValueChange = { editingName = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = {
+                        if (editingName != activeProfile.name && editingName.isNotBlank()) {
+                            TextButton(onClick = {
+                                onUpdateProfile(activeProfile.copy(name = editingName.trim()))
+                            }) {
+                                Text("Save", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                )
+
+                SettingsSectionLabel("Preferred language")
+                ProfileOptionGroup(
+                    options = PreferredLanguage.selectable.map { it.label },
+                    selected = activeProfile.preferredLanguage.label,
+                    onSelect = { label ->
+                        val language = PreferredLanguage.fromStored(label)
+                        onUpdateProfile(activeProfile.copy(preferredLanguage = language))
+                    }
+                )
+
+                SettingsSectionLabel("Communication level")
+                ProfileOptionGroup(
+                    options = CommunicationLevel.entries.map { it.label },
+                    selected = activeProfile.communicationLevel.label,
+                    onSelect = { label ->
+                        val level = CommunicationLevel.fromStored(label)
+                        onUpdateProfile(activeProfile.withCommunicationLevel(level))
+                    }
                 )
             }
+
+            SettingsSectionLabel("Saved profiles")
+            profiles.forEach { profile ->
+                val isActive = profile.id == activeProfileId
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isActive) LisaBlueLight.copy(alpha = 0.35f) else LisaWhite)
+                        .clickable { if (!isActive) onSelectProfile(profile.id) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = profile.name,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = LisaBlueDark
+                        )
+                        Text(
+                            text = profile.communicationLevel.label,
+                            fontSize = 11.sp,
+                            color = LisaBlueDark.copy(alpha = 0.65f)
+                        )
+                    }
+                    if (isActive) {
+                        Text(
+                            text = "Active",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LisaBlue
+                        )
+                    } else {
+                        Text(text = "›", fontSize = 18.sp, color = LisaGray)
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = onCreateProfile,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Create new profile")
+            }
+
+            if (profiles.size > 1 && activeProfile != null) {
+                OutlinedButton(
+                    onClick = { onDeleteProfile(activeProfile.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaEmergencyRed)
+                ) {
+                    Text("Delete active profile")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileOptionGroup(
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        options.forEach { option ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (option == selected) LisaBlueLight.copy(alpha = 0.35f) else LisaWhite)
+                    .clickable { onSelect(option) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = option,
+                    fontWeight = if (option == selected) FontWeight.SemiBold else FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = LisaBlueDark
+                )
+                if (option == selected) {
+                    Text(text = "✓", fontSize = 14.sp, color = LisaBlue, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaceholderPanel(
+    title: String,
+    description: String,
+    onBack: () -> Unit
+) {
+    LisaPanelShell(title = title, onBack = onBack) {
+        Text(
+            text = description,
+            fontSize = 14.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+private fun DeveloperToolsPanel(
+    developerMode: Boolean,
+    onDeveloperModeChange: (Boolean) -> Unit,
+    onBack: () -> Unit
+) {
+    LisaPanelShell(title = "Developer Tools", onBack = onBack) {
+        Text(
+            text = "Enable developer mode to show calibration and debug data on the main screen.",
+            fontSize = 14.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            lineHeight = 20.sp
+        )
+        Spacer(Modifier.height(12.dp))
+        SettingsToggleRow(
+            title = "Developer Mode",
+            subtitle = "Show live detection data overlay",
+            checked = developerMode,
+            onCheckedChange = onDeveloperModeChange
+        )
+    }
+}
+
+@Composable
+private fun SettingsToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LisaWhite)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+            Text(subtitle, fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+@Composable
+private fun SettingsPanel(
+    settingsState: LisaSettingsUiState,
+    onDeveloperModeChange: (Boolean) -> Unit,
+    onSensitivityDecrease: () -> Unit,
+    onSensitivityIncrease: () -> Unit,
+    onPlaceholderChange: (LisaSettingsUiState) -> Unit,
+    onBack: () -> Unit
+) {
+    LisaPanelShell(title = "Settings", onBack = onBack) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SettingsSectionLabel("Detection")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(LisaWhite)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sensitivity", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+                    Text("Level ${settingsState.sensitivityLevel}", fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = onSensitivityDecrease,
+                        enabled = settingsState.sensitivityLevel > MIN_SENSITIVITY_LEVEL,
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp)
+                    ) { Text("−", fontSize = 16.sp) }
+                    OutlinedButton(
+                        onClick = onSensitivityIncrease,
+                        enabled = settingsState.sensitivityLevel < MAX_SENSITIVITY_LEVEL,
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp)
+                    ) { Text("+", fontSize = 16.sp) }
+                }
+            }
+
+            SettingsToggleRow(
+                title = "Calibration",
+                subtitle = "Fine-tune eye-open thresholds (developer preview)",
+                checked = settingsState.calibrationEnabled,
+                onCheckedChange = { onPlaceholderChange(settingsState.copy(calibrationEnabled = it)) }
+            )
+
+            SettingsSectionLabel("Display")
+            SettingsSliderRow(
+                title = "Text size",
+                valueLabel = "${(settingsState.textSizeScale * 100).toInt()}%",
+                value = settingsState.textSizeScale,
+                valueRange = 0.8f..1.4f,
+                onValueChange = { onPlaceholderChange(settingsState.copy(textSizeScale = it)) }
+            )
+
+            SettingsSectionLabel("Communication")
+            SettingsSliderRow(
+                title = "Confirmation countdown",
+                valueLabel = "${settingsState.countdownDurationSec} sec",
+                value = settingsState.countdownDurationSec.toFloat(),
+                valueRange = 2f..5f,
+                steps = 2,
+                onValueChange = {
+                    onPlaceholderChange(settingsState.copy(countdownDurationSec = it.toInt()))
+                }
+            )
+            SettingsSliderRow(
+                title = "Sequence timeout",
+                valueLabel = "${"%.1f".format(settingsState.sequenceIdleTimeoutSec)} sec",
+                value = settingsState.sequenceIdleTimeoutSec,
+                valueRange = 1.5f..4f,
+                onValueChange = { onPlaceholderChange(settingsState.copy(sequenceIdleTimeoutSec = it)) }
+            )
+
+            SettingsSectionLabel("Emergency")
+            SettingsSliderRow(
+                title = "Emergency alarm volume",
+                valueLabel = "${(settingsState.emergencyAlarmVolume * 100).toInt()}%",
+                value = settingsState.emergencyAlarmVolume,
+                valueRange = 0.5f..1f,
+                onValueChange = { onPlaceholderChange(settingsState.copy(emergencyAlarmVolume = it)) }
+            )
+
+            SettingsSectionLabel("Advanced")
+            SettingsToggleRow(
+                title = "Developer Mode",
+                subtitle = "Show calibration and debug data",
+                checked = settingsState.developerMode,
+                onCheckedChange = onDeveloperModeChange
+            )
+
+            SettingsSectionLabel("Data")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(LisaWhite)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Profile backup / export", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+                    Text("Save vocabulary and settings", fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
+                }
+                OutlinedButton(onClick = { }, enabled = false) {
+                    Text("Export", fontSize = 12.sp)
+                }
+            }
+
+            Text(
+                text = "Settings are saved to the active communication profile.",
+                fontSize = 11.sp,
+                color = LisaGray,
+                lineHeight = 15.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionLabel(text: String) {
+    Text(
+        text = text.uppercase(Locale.getDefault()),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        color = LisaBlueDark.copy(alpha = 0.55f),
+        letterSpacing = 0.5.sp
+    )
+}
+
+@Composable
+private fun SettingsSliderRow(
+    title: String,
+    valueLabel: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
+    onValueChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LisaWhite)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+            Text(valueLabel, fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            colors = SliderDefaults.colors(
+                thumbColor = LisaBlue,
+                activeTrackColor = LisaBlue,
+                inactiveTrackColor = LisaSoftGray
+            )
+        )
+    }
+}
+
+@Composable
+private fun VocabularyTrainingPanel(
+    mappings: List<WinkMapping>,
+    onAddMapping: (left: Int, right: Int, phrase: String) -> Unit,
+    onBack: () -> Unit
+) {
+    var leftTxt by remember { mutableStateOf("2") }
+    var rightTxt by remember { mutableStateOf("0") }
+    var phraseTxt by remember { mutableStateOf("") }
+
+    LisaPanelShell(title = "Vocabulary / Training", onBack = onBack) {
+        Text("Single winks and natural blinks are ignored.", fontSize = 13.sp, color = LisaBlueDark)
+        Text(
+            "Minimum sequence: $MIN_SEQUENCE_WINKS winks. After detection, a countdown lets you cancel or speak.",
+            fontSize = 13.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            lineHeight = 18.sp
+        )
+        Spacer(Modifier.height(10.dp))
+
+        val coreMappings = mappings.filter { !it.isCustom }
+        val customMappings = mappings.filter { it.isCustom }
+
+        Text(
+            "Core vocabulary (${coreMappings.size})",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = LisaBlueDark
+        )
+        Spacer(Modifier.height(6.dp))
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(LisaWhite)
+                .padding(10.dp)
+        ) {
+            items(coreMappings) { m ->
+                Text(
+                    text = "L${m.left} R${m.right} → ${m.phrase}",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = LisaBlueDark
+                )
+                Spacer(Modifier.height(3.dp))
+            }
+        }
+
+        if (customMappings.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text("Custom phrases", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+            Spacer(Modifier.height(6.dp))
+            customMappings.forEach { m ->
+                Text(
+                    text = "L${m.left} R${m.right} → ${m.phrase}",
+                    fontSize = 12.sp,
+                    color = LisaBlueDark
+                )
+                Spacer(Modifier.height(3.dp))
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider(color = LisaBlue.copy(alpha = 0.25f))
+        Spacer(Modifier.height(12.dp))
+
+        Text("Add a custom sequence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+        Spacer(Modifier.height(8.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = leftTxt,
+                onValueChange = { leftTxt = it.filter { ch -> ch.isDigit() } },
+                label = { Text("Left") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                modifier = Modifier.weight(1f),
+                value = rightTxt,
+                onValueChange = { rightTxt = it.filter { ch -> ch.isDigit() } },
+                label = { Text("Right") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = phraseTxt,
+            onValueChange = { phraseTxt = it },
+            label = { Text("Phrase") },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        Spacer(Modifier.height(10.dp))
+        Button(
+            onClick = {
+                val l = leftTxt.toIntOrNull() ?: 0
+                val r = rightTxt.toIntOrNull() ?: 0
+                if (!isSequenceEligibleForSpeech(l, r)) return@Button
+                onAddMapping(l, r, phraseTxt)
+                phraseTxt = ""
+            },
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
+        ) {
+            Text("Save sequence")
         }
     }
 }
@@ -512,7 +1243,7 @@ private fun LisaActionButton(
 }
 
 @Composable
-private fun EmergencyOverlay() {
+private fun EmergencyOverlay(notifyNames: List<String> = emptyList()) {
     val infiniteTransition = rememberInfiniteTransition(label = "emergency_flash")
     val flashAlpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -543,130 +1274,16 @@ private fun EmergencyOverlay() {
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             )
-        }
-    }
-}
-
-@Composable
-private fun TrainingPanel(
-    mappings: List<WinkMapping>,
-    onAddMapping: (left: Int, right: Int, phrase: String) -> Unit
-) {
-    var leftTxt by remember { mutableStateOf("2") }
-    var rightTxt by remember { mutableStateOf("0") }
-    var phraseTxt by remember { mutableStateOf("") }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = LisaWhite),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Training", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = LisaBlueDark)
-            Spacer(Modifier.height(8.dp))
-            Text("Single winks are ignored.", fontSize = 13.sp, color = LisaBlueDark)
-            Text("Natural blinks are ignored.", fontSize = 13.sp, color = LisaBlueDark)
-            Text("Only completed sequences are translated.", fontSize = 13.sp, color = LisaBlueDark)
-            Text(
-                "Minimum sequence: $MIN_SEQUENCE_WINKS winks",
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                color = LisaBlueDark
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "After a phrase is detected, a short countdown lets you cancel or speak.",
-                fontSize = 13.sp,
-                color = LisaBlueDark.copy(alpha = 0.85f)
-            )
-            Spacer(Modifier.height(12.dp))
-
-            val coreMappings = mappings.filter { !it.isCustom }
-            val customMappings = mappings.filter { it.isCustom }
-
-            Text("Core vocabulary (${coreMappings.size}):", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Spacer(Modifier.height(6.dp))
-
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 280.dp)
-            ) {
-                items(coreMappings) { m ->
-                    Text(
-                        text = "L${m.left} R${m.right} → ${m.phrase}",
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        color = LisaBlueDark
-                    )
-                    Spacer(Modifier.height(3.dp))
-                }
-            }
-
-            if (customMappings.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Text("Custom phrases:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-                customMappings.forEach { m ->
-                    Text(
-                        text = "L${m.left} R${m.right} → ${m.phrase}",
-                        fontSize = 12.sp,
-                        color = LisaBlueDark
-                    )
-                    Spacer(Modifier.height(3.dp))
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = LisaSoftGray)
-            Spacer(Modifier.height(12.dp))
-
-            Text("Add a new sequence:", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Spacer(Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    modifier = Modifier.weight(1f),
-                    value = leftTxt,
-                    onValueChange = { leftTxt = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Left winks") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
+            if (notifyNames.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Would notify: ${notifyNames.joinToString(", ")}",
+                    color = LisaWhite.copy(alpha = 0.95f),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
-                OutlinedTextField(
-                    modifier = Modifier.weight(1f),
-                    value = rightTxt,
-                    onValueChange = { rightTxt = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Right winks") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                modifier = Modifier.fillMaxWidth(),
-                value = phraseTxt,
-                onValueChange = { phraseTxt = it },
-                label = { Text("Phrase") },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    val l = leftTxt.toIntOrNull() ?: 0
-                    val r = rightTxt.toIntOrNull() ?: 0
-                    if (!isSequenceEligibleForSpeech(l, r)) return@Button
-                    onAddMapping(l, r, phraseTxt)
-                    phraseTxt = ""
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
-            ) {
-                Text("Save sequence")
             }
         }
     }
