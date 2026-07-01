@@ -40,7 +40,8 @@ data class LisaUserProfile(
     val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
     val textSizeScale: Float = 1.0f,
     val confirmationCountdownSec: Int = 3,
-    val sequenceTimeoutSec: Float = 2.5f,
+    val responseSpeed: ResponseSpeed = ResponseSpeed.default,
+    val sequenceTimeoutSec: Float = ResponseSpeed.default.idleTimeoutMs / 1000f,
     val emergencyVolume: Float = 1.0f,
     val developerMode: Boolean = false,
     val selectedTtsVoiceName: String? = null,
@@ -51,7 +52,8 @@ data class LisaUserProfile(
         sensitivityLevel = sensitivityLevel,
         textSizeScale = textSizeScale,
         countdownDurationSec = confirmationCountdownSec,
-        sequenceIdleTimeoutSec = sequenceTimeoutSec,
+        responseSpeed = responseSpeed,
+        sequenceIdleTimeoutSec = responseSpeed.idleTimeoutMs / 1000f,
         emergencyAlarmVolume = emergencyVolume,
         developerMode = developerMode
     )
@@ -60,7 +62,8 @@ data class LisaUserProfile(
         sensitivityLevel = settings.sensitivityLevel,
         textSizeScale = settings.textSizeScale,
         confirmationCountdownSec = settings.countdownDurationSec,
-        sequenceTimeoutSec = settings.sequenceIdleTimeoutSec,
+        responseSpeed = settings.responseSpeed,
+        sequenceTimeoutSec = settings.responseSpeed.idleTimeoutMs / 1000f,
         emergencyVolume = settings.emergencyAlarmVolume,
         developerMode = settings.developerMode,
         updatedAt = System.currentTimeMillis()
@@ -73,7 +76,8 @@ data class LisaUserProfile(
             sensitivityLevel = defaults.sensitivityLevel,
             textSizeScale = defaults.textSizeScale,
             confirmationCountdownSec = defaults.confirmationCountdownSec,
-            sequenceTimeoutSec = defaults.sequenceTimeoutSec,
+            responseSpeed = defaults.responseSpeed,
+            sequenceTimeoutSec = defaults.responseSpeed.idleTimeoutMs / 1000f,
             emergencyVolume = defaults.emergencyVolume,
             updatedAt = System.currentTimeMillis()
         )
@@ -87,7 +91,8 @@ data class LisaUserProfile(
         put("sensitivityLevel", sensitivityLevel)
         put("textSizeScale", textSizeScale.toDouble())
         put("confirmationCountdownSec", confirmationCountdownSec)
-        put("sequenceTimeoutSec", sequenceTimeoutSec.toDouble())
+        put("responseSpeed", responseSpeed.name)
+        put("sequenceTimeoutSec", responseSpeed.idleTimeoutMs / 1000.0)
         put("emergencyVolume", emergencyVolume.toDouble())
         put("developerMode", developerMode)
         if (selectedTtsVoiceName != null) {
@@ -107,7 +112,14 @@ data class LisaUserProfile(
                 .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
             textSizeScale = obj.optDouble("textSizeScale", 1.0).toFloat().coerceIn(0.8f, 1.4f),
             confirmationCountdownSec = obj.optInt("confirmationCountdownSec", 3).coerceIn(2, 5),
-            sequenceTimeoutSec = obj.optDouble("sequenceTimeoutSec", 2.5).toFloat().coerceIn(1.5f, 4f),
+            responseSpeed = ResponseSpeed.fromStored(
+                stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
+                legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", ResponseSpeed.default.idleTimeoutMs / 1000.0).toFloat()
+            ),
+            sequenceTimeoutSec = ResponseSpeed.fromStored(
+                stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
+                legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", ResponseSpeed.default.idleTimeoutMs / 1000.0).toFloat()
+            ).idleTimeoutMs / 1000f,
             emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
             developerMode = obj.optBoolean("developerMode", false),
             selectedTtsVoiceName = obj.optString("selectedTtsVoiceName").takeIf { it.isNotBlank() },
@@ -139,7 +151,7 @@ data class ProfileLevelDefaults(
     val sensitivityLevel: Int,
     val textSizeScale: Float,
     val confirmationCountdownSec: Int,
-    val sequenceTimeoutSec: Float,
+    val responseSpeed: ResponseSpeed,
     val emergencyVolume: Float
 )
 
@@ -151,7 +163,7 @@ fun profileDefaultsForLevel(
         sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 2,
         textSizeScale = 1.1f,
         confirmationCountdownSec = 5,
-        sequenceTimeoutSec = 3.5f,
+        responseSpeed = ResponseSpeed.Slow,
         emergencyVolume = 1.0f
     )
     CommunicationLevel.Standard -> ProfileLevelDefaults(
@@ -159,14 +171,14 @@ fun profileDefaultsForLevel(
             ?: DEFAULT_SENSITIVITY_LEVEL,
         textSizeScale = 1.0f,
         confirmationCountdownSec = 3,
-        sequenceTimeoutSec = 2.5f,
+        responseSpeed = ResponseSpeed.Normal,
         emergencyVolume = 1.0f
     )
     CommunicationLevel.Advanced -> ProfileLevelDefaults(
         sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 4,
         textSizeScale = 0.95f,
         confirmationCountdownSec = 2,
-        sequenceTimeoutSec = 2.0f,
+        responseSpeed = ResponseSpeed.Fast,
         emergencyVolume = 0.85f
     )
 }

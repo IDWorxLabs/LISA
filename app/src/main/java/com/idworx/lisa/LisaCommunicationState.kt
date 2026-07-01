@@ -11,6 +11,7 @@ sealed class LisaCommunicationState(val displayText: String) {
     data object Listening : LisaCommunicationState("Listening...")
     data object LeftWinkDetected : LisaCommunicationState("Left wink detected")
     data object RightWinkDetected : LisaCommunicationState("Right wink detected")
+    data object BuildingMessage : LisaCommunicationState("Building message")
     data object WaitingForNextWink : LisaCommunicationState("Waiting for next wink...")
 
     data class PossibleMatch(val phrase: String) : LisaCommunicationState("Possible match")

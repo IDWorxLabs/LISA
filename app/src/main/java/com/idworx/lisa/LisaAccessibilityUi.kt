@@ -92,6 +92,19 @@ fun LisaRootUI(
     onTestTtsVoice: () -> Unit = {},
     onInstallTtsVoiceData: () -> Unit = {},
     onOpenTtsSettings: () -> Unit = {},
+    quickControlsOpen: Boolean = false,
+    practiceModeOpen: Boolean = false,
+    practiceItemIndex: Int = 0,
+    practiceFeedback: PracticeFeedback? = null,
+    listeningPaused: Boolean = false,
+    onResponseSpeedChange: (ResponseSpeed) -> Unit = {},
+    onQuickControlsClose: () -> Unit = {},
+    onQuickControlsDecreaseSensitivity: () -> Unit = {},
+    onQuickControlsIncreaseSensitivity: () -> Unit = {},
+    onQuickControlsRepeat: () -> Unit = {},
+    onQuickControlsTogglePause: () -> Unit = {},
+    onQuickControlsOpenPractice: () -> Unit = {},
+    onPracticeClose: () -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
     if (!onboardingCompleted) {
@@ -121,6 +134,78 @@ fun LisaRootUI(
 
         if (emergencyActive) {
             EmergencyOverlay(uiStrings = uiStrings, notifyNames = emergencyNotifyNames)
+        }
+
+        if (practiceModeOpen) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            ) {
+                PracticeModeOverlay(
+                    uiStrings = uiStrings,
+                    language = uiStrings.language,
+                    itemIndex = practiceItemIndex,
+                    feedback = practiceFeedback,
+                    visible = true,
+                    onClose = onPracticeClose
+                )
+            }
+        }
+
+        if (quickControlsOpen) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            ) {
+                QuickControlsOverlay(
+                    uiStrings = uiStrings,
+                    responseSpeed = settingsState.responseSpeed,
+                    listeningPaused = listeningPaused,
+                    onSelectSpeed = onResponseSpeedChange,
+                    onDecreaseSensitivity = onQuickControlsDecreaseSensitivity,
+                    onIncreaseSensitivity = onQuickControlsIncreaseSensitivity,
+                    onRepeatLastPhrase = onQuickControlsRepeat,
+                    onTogglePause = onQuickControlsTogglePause,
+                    onOpenPractice = onQuickControlsOpenPractice,
+                    onClose = onQuickControlsClose,
+                    visible = true
+                )
+            }
+        }
+
+        if (listeningPaused && !quickControlsOpen && !practiceModeOpen) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(LisaBlueLight)
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = uiStrings.listeningPaused,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = LisaBlueDark
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = uiStrings.tapOrWinkToResume,
+                        fontSize = 12.sp,
+                        color = LisaGray
+                    )
+                }
+            }
         }
 
         CompositionLocalProvider(
@@ -227,9 +312,12 @@ fun LisaRootUI(
                         onDeleteProfile = onDeleteProfile,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.CommunicationSetup -> PlaceholderPanel(
-                        title = "Communication Setup",
-                        description = "Configure how LISA listens and confirms your messages. Coming soon.",
+                    LisaPanel.CommunicationSetup -> CommunicationSetupPanel(
+                        uiStrings = uiStrings,
+                        responseSpeed = settingsState.responseSpeed,
+                        onResponseSpeedChange = { speed ->
+                            onSettingsPlaceholderChange(settingsState.copy(responseSpeed = speed))
+                        },
                         onBack = onBackToMenu
                     )
                     LisaPanel.VocabularyTraining -> VocabularyTrainingPanel(
@@ -283,6 +371,7 @@ fun LisaRootUI(
                         onBack = { onSelectPanel(LisaPanel.Voice) }
                     )
                     LisaPanel.Settings -> SettingsPanel(
+                        uiStrings = uiStrings,
                         settingsState = settingsState,
                         onDeveloperModeChange = onDeveloperModeChange,
                         onSensitivityDecrease = onSensitivityDecrease,
@@ -969,6 +1058,7 @@ private fun SettingsToggleRow(
 
 @Composable
 private fun SettingsPanel(
+    uiStrings: LisaUiStrings,
     settingsState: LisaSettingsUiState,
     onDeveloperModeChange: (Boolean) -> Unit,
     onSensitivityDecrease: () -> Unit,
@@ -1041,12 +1131,10 @@ private fun SettingsPanel(
                     onPlaceholderChange(settingsState.copy(countdownDurationSec = it.toInt()))
                 }
             )
-            SettingsSliderRow(
-                title = "Sequence timeout",
-                valueLabel = "${"%.1f".format(settingsState.sequenceIdleTimeoutSec)} sec",
-                value = settingsState.sequenceIdleTimeoutSec,
-                valueRange = 1.5f..4f,
-                onValueChange = { onPlaceholderChange(settingsState.copy(sequenceIdleTimeoutSec = it)) }
+            ResponseSpeedPicker(
+                uiStrings = uiStrings,
+                selected = settingsState.responseSpeed,
+                onSelect = { speed -> onPlaceholderChange(settingsState.copy(responseSpeed = speed)) }
             )
 
             SettingsSectionLabel("Emergency")
@@ -1206,6 +1294,9 @@ private fun VocabularyTrainingPanel(
                     }
                 }
                 Spacer(Modifier.height(4.dp))
+            }
+            item {
+                SystemCommandsTrainingSection(uiStrings = uiStrings)
             }
         }
 

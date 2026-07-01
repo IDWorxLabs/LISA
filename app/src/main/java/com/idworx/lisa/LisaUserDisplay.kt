@@ -48,6 +48,7 @@ fun LisaCommunicationState.toTimelineStage(): CommunicationTimelineStage = when 
     LisaCommunicationState.LeftWinkDetected,
     LisaCommunicationState.RightWinkDetected,
     is LisaCommunicationState.Sequence,
+    LisaCommunicationState.BuildingMessage,
     LisaCommunicationState.WaitingForNextWink,
     is LisaCommunicationState.PossibleMatch -> CommunicationTimelineStage.Listening
 
@@ -84,12 +85,20 @@ fun LisaCommunicationState.toUserDisplay(
             rightWinkDots = rightWinkDots
         )
 
-        LisaCommunicationState.Listening,
+        LisaCommunicationState.Listening -> LisaUserDisplay(
+            headline = strings.listening,
+            subtitle = strings.watchingYourEyes,
+            timelineStage = timelineStage,
+            leftWinkDots = leftWinkDots,
+            rightWinkDots = rightWinkDots
+        )
+
+        LisaCommunicationState.BuildingMessage,
         LisaCommunicationState.LeftWinkDetected,
         LisaCommunicationState.RightWinkDetected,
         is LisaCommunicationState.Sequence -> LisaUserDisplay(
-            headline = strings.listening,
-            subtitle = strings.buildingYourMessage,
+            headline = strings.buildingMessage,
+            subtitle = "${strings.buildingLeftDots(leftWinkDots)}\n${strings.buildingRightDots(rightWinkDots)}",
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
@@ -97,15 +106,15 @@ fun LisaCommunicationState.toUserDisplay(
 
         LisaCommunicationState.WaitingForNextWink -> LisaUserDisplay(
             headline = strings.waiting,
-            subtitle = strings.continueYourSequence,
+            subtitle = strings.takeYourTime,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
         )
 
         is LisaCommunicationState.PossibleMatch -> LisaUserDisplay(
-            headline = strings.possibleMatch,
-            subtitle = strings.continueOrPause,
+            headline = strings.waiting,
+            subtitle = strings.continueYourSequence,
             phrase = phrase,
             timelineStage = timelineStage,
             showIntentPreview = true,
@@ -161,8 +170,8 @@ fun LisaCommunicationState.toUserDisplay(
         )
 
         LisaCommunicationState.NoPhraseMatched -> LisaUserDisplay(
-            headline = strings.listening,
-            subtitle = strings.watchingYourEyes,
+            headline = strings.noPhraseMatched,
+            subtitle = strings.tryAgainPrompt,
             timelineStage = CommunicationTimelineStage.Watching
         )
     }

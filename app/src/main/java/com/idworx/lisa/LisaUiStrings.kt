@@ -51,11 +51,69 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Bou jou boodskap...",
         "Yakha umlayezo wakho..."
     )
+    val buildingMessage: String get() = t("BUILDING MESSAGE", "BOU Boodskap", "YAKHA UMLAYEZO")
+    fun buildingLeftDots(count: Int): String = t("Left: ${winkDots(count)}", "Links: ${winkDots(count)}", "Kwesokunxele: ${winkDots(count)}")
+    fun buildingRightDots(count: Int): String = t("Right: ${winkDots(count)}", "Regs: ${winkDots(count)}", "Kwesokudla: ${winkDots(count)}")
+    val listeningPaused: String get() = t("LISTENING PAUSED", "LUISTER GEPAUZEER", "UKULALELA KUMISWE")
+    val tapOrWinkToResume: String get() = t("Use L2 R2 or Resume to continue", "Gebruik L2 R2 of Hervat om voort te gaan", "Sebenzisa L2 R2 noma Qhubeka ukuze uqhubeke")
+
+    // System language
+    val systemCommandsTitle: String get() = t("SYSTEM COMMANDS", "STELSELOPDRAGTE", "IMIYALELO YOHLELO")
+    val systemCommandsNote: String get() = t(
+        "These control LISA. They do not speak aloud.",
+        "Hierdie beheer LISA. Hulle praat nie hardop nie.",
+        "Lezi zilawula i-LISA. Azikhulumi ngokuzwakalayo."
+    )
+    val systemOpenQuickControls: String get() = t("Open Quick Controls", "Maak Vinnige Kontroles oop", "Vula Izilawuli Ezisheshayo")
+    val systemCloseHelp: String get() = t("Close Help", "Sluit Hulp", "Vala Usizo")
+    val systemSpeedFast: String get() = t("Set Response Speed: Fast", "Stel Reaksiespoed: Vinnig", "Setha Isivinini: Shesha")
+    val systemSpeedNormal: String get() = t("Set Response Speed: Normal", "Stel Reaksiespoed: Normaal", "Setha Isivinini: Okujwayelekile")
+    val systemSpeedSlow: String get() = t("Set Response Speed: Slow", "Stel Reaksiespoed: Stadig", "Setha Isivinini: Kancane")
+    val systemSensitivityDecrease: String get() = t("Decrease sensitivity", "Verminder sensitiwiteit", "Nciphisa ukuzwela")
+    val systemSensitivityIncrease: String get() = t("Increase sensitivity", "Verhoog sensitiwiteit", "Khulisa ukuzwela")
+    val systemRepeatLast: String get() = t("Repeat last phrase", "Herhaal laaste frase", "Phinda ibinzana lokugcina")
+    val systemTogglePause: String get() = t("Toggle Pause / Resume listening", "Wissel Pauzeer / Hervat luister", "Shintsha Ukumisa / Qhubeka ukulalela")
+    val systemOpenPractice: String get() = t("Open Practice Mode", "Maak Oefenmodus oop", "Vula Imodi Yokuqeqesha")
+    val systemCloseQuickControls: String get() = t("Close Quick Controls", "Sluit Vinnige Kontroles", "Vala Izilawuli Ezisheshayo")
+    val quickControlsEyeHint: String get() = t(
+        "Use the wink sequences shown beside each option.",
+        "Gebruik die knip-reekse langs elke opsie.",
+        "Sebenzisa uchungechunge lwama-wink obonisa eceleni kwezinketho."
+    )
+    val quickControlsLanguage: String get() = t("Language", "Taal", "Ulimi")
+    val quickControlsVolume: String get() = t("Volume", "Volume", "Ivolumu")
+    val quickControlsPauseListening: String get() = t("Pause Listening", "Pauzeer Luister", "Misa Ukulalela")
+    val quickControlsResumeListening: String get() = t("Resume Listening", "Hervat Luister", "Qhubeka Ukulalela")
+    val quickControlsPracticeMode: String get() = t("Practice Mode", "Oefenmodus", "Imodi Yokuqeqesha")
+
+    // Practice Mode
+    val practiceModeTitle: String get() = t("Practice Mode", "Oefenmodus", "Imodi Yokuqeqesha")
+    val practiceTrySaying: String get() = t("Try saying:", "Probeer sê:", "Zama ukuthi:")
+    val practiceSequence: String get() = t("Sequence:", "Reeks:", "Uchungechunge:")
+    val practiceCorrect: String get() = t("Correct", "Korrek", "Kulungile")
+    val practiceAlmost: String get() = t("Almost. Try again.", "Amper. Probeer weer.", "Cishe. Zama futhi.")
+    val practiceTryAgain: String get() = t("Try again", "Probeer weer", "Zama futhi")
+    val practiceCloseHint: String get() = t("L4 R0 closes practice", "L4 R0 sluit oefening", "L4 R0 ivala ukuqeqeshwa")
     val waiting: String get() = t("WAITING...", "WAG...", "IYALINDA...")
     val continueYourSequence: String get() = t(
-        "You can continue your sequence...",
-        "Jy kan jou reeks voortsit...",
-        "Ungaqhubeka noluhlu lwakho..."
+        "You can continue",
+        "Jy kan voortgaan",
+        "Ungaqhubeka"
+    )
+    val takeYourTime: String get() = t(
+        "Take your time",
+        "Neem jou tyd",
+        "Thatha isikhathi sakho"
+    )
+    val noPhraseMatched: String get() = t(
+        "No phrase matched.",
+        "Geen frase ooreenstem nie.",
+        "Akukho sigwebo esifanayo."
+    )
+    val tryAgainPrompt: String get() = t(
+        "Try again.",
+        "Probeer weer.",
+        "Zama futhi."
     )
     val processing: String get() = t("PROCESSING...", "VERWERK...", "IYACUBUNGA...")
     val understandingYourMessage: String get() = t(
@@ -75,10 +133,75 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val possibleMatch: String get() = t("POSSIBLE MATCH", "MOONTLIKE TREFFER", "KUNGASE KULINGANE")
     val continueOrPause: String get() = t(
-        "Continue or pause longer",
-        "Gaan voort of wag langer",
-        "Qhubeka noma misa isikhashana"
+        "You can continue",
+        "Jy kan voortgaan",
+        "Ungaqhubeka"
     )
+
+    // Response speed
+    val responseSpeedTitle: String get() = t("Response Speed", "Reaksiespoed", "Isivinini Sempendulo")
+    fun responseSpeedLabel(speed: ResponseSpeed): String = when (speed) {
+        ResponseSpeed.Fast -> t("Fast", "Vinnig", "Shesha")
+        ResponseSpeed.Normal -> t("Normal", "Normaal", "Okujwayelekile")
+        ResponseSpeed.Slow -> t("Slow", "Stadig", "Kancane")
+    }
+    fun responseSpeedDescription(speed: ResponseSpeed): String = when (speed) {
+        ResponseSpeed.Fast -> t("Shorter wait", "Korter wag", "Ukulinda okufushane")
+        ResponseSpeed.Normal -> t("Recommended", "Aanbeveel", "Kunconywa")
+        ResponseSpeed.Slow -> t("More time to finish sequences", "Meer tyd om reekse te voltooi", "Isikhathi esiningi sokuqeda uchungechunge")
+    }
+    val slower: String get() = t("Slower", "Stadiger", "Kancane kakhulu")
+    val faster: String get() = t("Faster", "Vinniger", "Shesha kakhulu")
+    val communicationSetupIntro: String get() = t(
+        "Adjust how long LISA waits after your last wink before processing a sequence.",
+        "Pas aan hoe lank LISA wag na jou laaste knip voordat 'n reeks verwerk word.",
+        "Lungisa ukuthi i-LISA ilinda isikhathi esingakanani ngemuva kokucwayiza kwakho kokugcina ngaphambi kokucubunga uchungechunge."
+    )
+    val settingsSavedToProfileHint: String get() = t(
+        "Settings are saved to the active communication profile.",
+        "Instellings word op die aktiewe kommunikasieprofiel gestoor.",
+        "Izilungiselelo zigcinwa kuphrofayela yokuxhumana esebenzayo."
+    )
+
+    // Unknown sequence help
+    val unknownHelpHeadline: String get() = t(
+        "I'm not sure what you wanted to say.",
+        "Ek is nie seker wat jy wou sê nie.",
+        "Angiqiniseki ukuthi ubelufuna ukuthini."
+    )
+    val unknownHelpSubheadline: String get() = t(
+        "Did you mean:",
+        "Het jy bedoel:",
+        "Ubuhlosile ukuthi:"
+    )
+    val unknownHelpDismissHint: String get() = t(
+        "This help closes automatically, or use L4 R0 to close help.",
+        "Hierdie hulp sluit outomaties, of gebruik L4 R0 om hulp te sluit.",
+        "Lolu suzo luvala ngokuzenzakalelayo, noma sebenzisa L4 R0 ukuvala usizo."
+    )
+    fun winkSequenceDescription(left: Int, right: Int): String = when {
+        left > 0 && right > 0 -> t(
+            "$left left, $right right winks",
+            "$left links, $right regter knippe",
+            "ama-wink angu-$left kwesokunxele, angu-$right kwesokudla"
+        )
+        left > 0 -> t(
+            "$left left winks",
+            "$left linkerknippe",
+            "ama-wink angu-$left kwesokunxele"
+        )
+        right > 0 -> t(
+            "$right right winks",
+            "$right regterknippe",
+            "ama-wink angu-$right kwesokudla"
+        )
+        else -> t("—", "—", "—")
+    }
+
+    // Quick Controls
+    val quickControlsTitle: String get() = t("Quick Controls", "Vinnige Kontroles", "Izilawuli Ezisheshayo")
+    val closeQuickControls: String get() = t("Close", "Sluit", "Vala")
+
     val wouldNotify: String get() = t("Would notify:", "Sou in kennis stel:", "Kuzomazisa:")
 
     // Countdown

@@ -46,13 +46,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val WINK_COOLDOWN_MS = 900L
-        private const val SEQUENCE_MAX_WINDOW_MS = 4500L
         private const val EYE_PROB_JUMP_THRESHOLD = 0.28f
         private const val COUNTDOWN_TICK_MS = 1000L
+        private const val NO_PHRASE_MATCHED_DISPLAY_MS = 1800L
     }
 
     private var countdownDurationSec = 3
-    private var sequenceIdleTimeoutMs = 2500L
+    private var sequenceIdleTimeoutMs = SEQUENCE_IDLE_TIMEOUT_MS
+    private var sequenceMaxWindowMs = ResponseSpeed.default.maxSequenceWindowMs()
 
     private data class SensitivitySettings(
         val closedEyeThreshold: Float,
@@ -154,6 +155,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiTestingChecklist = mutableStateOf<Map<String, Boolean>>(emptyMap())
     private val uiFeedbackSavedCount = mutableStateOf(0)
     private val uiVoiceSettingsState = mutableStateOf(LisaVoiceSettingsState())
+    private val uiQuickControlsOpen = mutableStateOf(false)
+    private val uiPracticeModeOpen = mutableStateOf(false)
+    private val uiPracticeItemIndex = mutableStateOf(0)
+    private val uiPracticeFeedback = mutableStateOf<PracticeFeedback?>(null)
+    private val uiListeningPaused = mutableStateOf(false)
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
@@ -308,6 +314,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onTestTtsVoice = { testTtsVoice() },
                         onInstallTtsVoiceData = { installTtsVoiceData() },
                         onOpenTtsSettings = { openTtsSettings() },
+                        quickControlsOpen = uiQuickControlsOpen.value,
+                        practiceModeOpen = uiPracticeModeOpen.value,
+                        practiceItemIndex = uiPracticeItemIndex.value,
+                        practiceFeedback = uiPracticeFeedback.value,
+                        listeningPaused = uiListeningPaused.value,
+                        onResponseSpeedChange = { speed -> setResponseSpeed(speed) },
+                        onQuickControlsClose = { closeQuickControls() },
+                        onQuickControlsDecreaseSensitivity = { changeSensitivity(-1) },
+                        onQuickControlsIncreaseSensitivity = { changeSensitivity(1) },
+                        onQuickControlsRepeat = {
+                            val phrase = uiLastSpoken.value
+                            if (phrase.isNotBlank()) speak(phrase)
+                        },
+                        onQuickControlsTogglePause = { toggleListeningPaused() },
+                        onQuickControlsOpenPractice = { openPracticeMode() },
+                        onPracticeClose = { closePracticeMode() },
                         cameraView = {
                             CameraPreview(
                                 onFrame = { imageProxy -> processFrame(imageProxy) }
@@ -489,7 +511,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val sequenceStateRunnable = Runnable {
         if (emergencyActive) return@Runnable
         if (leftWinks > 0 || rightWinks > 0) {
-            setCommunicationState(LisaCommunicationState.Sequence(leftWinks, rightWinks))
+            setCommunicationState(LisaCommunicationState.BuildingMessage)
         }
     }
 
@@ -499,9 +521,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun onWinkCounted(isLeft: Boolean) {
+        lastWinkTimeMs = System.currentTimeMillis()
         val totalBefore = leftWinks + rightWinks - 1
         if (totalBefore == 0) {
-            setCommunicationState(LisaCommunicationState.Listening)
+            setCommunicationState(LisaCommunicationState.BuildingMessage)
+        } else {
+            setCommunicationState(LisaCommunicationState.BuildingMessage)
         }
         setCommunicationState(
             if (isLeft) LisaCommunicationState.LeftWinkDetected
@@ -533,6 +558,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         emergencyActive = false
         uiEmergencyActive.value = false
         uiEmergencyNotifyNames.value = emptyList()
+        closeQuickControls()
+        closePracticeMode()
         tts?.stop()
         clearCountdown()
         savedSequenceLeft = 0
@@ -629,12 +656,108 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiDeveloperMode.value = profile.developerMode
         saveDeveloperMode(this, profile.developerMode)
         countdownDurationSec = profile.confirmationCountdownSec
-        sequenceIdleTimeoutMs = (profile.sequenceTimeoutSec * 1000f).toLong()
+        applyResponseSpeed(profile.responseSpeed)
         uiTextSizeScale.value = profile.textSizeScale
         emergencyAlarmController.setAlarmVolume(profile.emergencyVolume)
         uiSettingsState.value = profile.toSettingsUiState()
         if (persist) {
             saveProfilesToStore()
+        }
+    }
+
+    private fun applyResponseSpeed(speed: ResponseSpeed) {
+        sequenceIdleTimeoutMs = speed.idleTimeoutMs
+        sequenceMaxWindowMs = speed.maxSequenceWindowMs()
+    }
+
+    private fun setResponseSpeed(speed: ResponseSpeed) {
+        updateActiveProfile { it.copy(responseSpeed = speed) }
+    }
+
+    private fun openQuickControls() {
+        uiQuickControlsOpen.value = true
+    }
+
+    private fun closeQuickControls() {
+        uiQuickControlsOpen.value = false
+    }
+
+    private fun openPracticeMode() {
+        closeQuickControls()
+        uiPracticeModeOpen.value = true
+        uiPracticeItemIndex.value = 0
+        uiPracticeFeedback.value = null
+    }
+
+    private fun closePracticeMode() {
+        uiPracticeModeOpen.value = false
+        uiPracticeFeedback.value = null
+    }
+
+    private fun toggleListeningPaused() {
+        uiListeningPaused.value = !uiListeningPaused.value
+        if (!uiListeningPaused.value) {
+            updateReadyOrWaitingState()
+        }
+    }
+
+    private fun executeQuickControlAction(action: SystemCommandAction) {
+        when (action) {
+            SystemCommandAction.SetSpeedFast -> setResponseSpeed(ResponseSpeed.Fast)
+            SystemCommandAction.SetSpeedNormal -> setResponseSpeed(ResponseSpeed.Normal)
+            SystemCommandAction.SetSpeedSlow -> setResponseSpeed(ResponseSpeed.Slow)
+            SystemCommandAction.DecreaseSensitivity -> changeSensitivity(-1)
+            SystemCommandAction.IncreaseSensitivity -> changeSensitivity(1)
+            SystemCommandAction.RepeatLastPhrase -> {
+                val phrase = uiLastSpoken.value
+                if (phrase.isNotBlank()) speak(phrase)
+            }
+            SystemCommandAction.TogglePauseListening -> toggleListeningPaused()
+            SystemCommandAction.OpenPracticeMode -> openPracticeMode()
+            SystemCommandAction.CloseQuickControls -> closeQuickControls()
+            else -> Unit
+        }
+    }
+
+    private fun executeGlobalSystemAction(action: SystemCommandAction) {
+        when (action) {
+            SystemCommandAction.OpenQuickControls -> openQuickControls()
+            SystemCommandAction.CloseOverlay -> {
+                closeQuickControls()
+                closePracticeMode()
+            }
+            else -> Unit
+        }
+        setCommunicationState(LisaCommunicationState.Listening)
+    }
+
+    private fun handlePracticeSequence(left: Int, right: Int) {
+        if (isEmergencySequence(left, right)) {
+            closePracticeMode()
+            startEmergencyMode()
+            return
+        }
+        if (isCloseHelpSequence(left, right)) {
+            resetSequence()
+            closePracticeMode()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+        val item = PracticeModeCatalog.items[uiPracticeItemIndex.value]
+        resetSequence()
+        when {
+            left == item.left && right == item.right -> {
+                uiPracticeFeedback.value = PracticeFeedback.Correct
+                mainHandler.postDelayed({
+                    if (uiPracticeItemIndex.value < PracticeModeCatalog.items.lastIndex) {
+                        uiPracticeItemIndex.value += 1
+                        uiPracticeFeedback.value = null
+                    }
+                }, 1500L)
+            }
+            kotlin.math.abs(left - item.left) + kotlin.math.abs(right - item.right) <= 2 ->
+                uiPracticeFeedback.value = PracticeFeedback.Almost
+            else -> uiPracticeFeedback.value = PracticeFeedback.TryAgain
         }
     }
 
@@ -965,6 +1088,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun processSequenceWinks(leftProb: Float, rightProb: Float) {
+        if (countdownActive) return
+        if (emergencyActive) return
+
         val leftUncertain = leftProb in closedEyeThreshold..openEyeThreshold
         val rightUncertain = rightProb in closedEyeThreshold..openEyeThreshold
         if (leftUncertain && rightUncertain) {
@@ -1039,14 +1165,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0
-        if (hasCountedWinks) {
-            if (wasLeftWinkCandidate && !leftWinkCandidate) {
-                lastWinkTimeMs = now
-            }
-            if (wasRightWinkCandidate && !rightWinkCandidate) {
-                lastWinkTimeMs = now
-            }
-        }
         wasLeftWinkCandidate = leftWinkCandidate
         wasRightWinkCandidate = rightWinkCandidate
 
@@ -1067,8 +1185,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 idleMs = idleMs,
                 sequenceAgeMs = totalWindowMs,
                 idleTimeoutMs = sequenceIdleTimeoutMs,
-                maxWindowMs = SEQUENCE_MAX_WINDOW_MS,
-                mappings = mappingsState
+                maxWindowMs = sequenceMaxWindowMs
             )
 
         if (finalize) {
@@ -1104,25 +1221,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (lastWinkTimeMs == 0L) return
         val idleMs = now - lastWinkTimeMs
         val totalWindowMs = now - sequenceStartMs
-        val (seqLeft, seqRight) = currentSequence(leftWinks, rightWinks)
-        val exact = findExactMapping(seqLeft, seqRight, mappingsState)
-        val continuation = hasLongerContinuation(seqLeft, seqRight, mappingsState)
         val finalize = shouldFinalizeSequence(
-            left = seqLeft,
-            right = seqRight,
+            left = leftWinks,
+            right = rightWinks,
             idleMs = idleMs,
             sequenceAgeMs = totalWindowMs,
             idleTimeoutMs = sequenceIdleTimeoutMs,
-            maxWindowMs = SEQUENCE_MAX_WINDOW_MS,
-            mappings = mappingsState
+            maxWindowMs = sequenceMaxWindowMs
         )
         if (finalize) return
 
-        if (exact != null && continuation) {
-            setCommunicationState(LisaCommunicationState.PossibleMatch(exact.localizedPhrase(activeLanguage())))
-        } else {
-            setCommunicationState(LisaCommunicationState.WaitingForNextWink)
-        }
+        setCommunicationState(LisaCommunicationState.WaitingForNextWink)
     }
 
     private fun finalizeSequence() {
@@ -1138,7 +1247,35 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setCommunicationState(LisaCommunicationState.ProcessingSequence)
 
         if (isEmergencySequence(capturedLeft, capturedRight)) {
+            closeQuickControls()
+            closePracticeMode()
             startEmergencyMode()
+            return
+        }
+
+        if (uiPracticeModeOpen.value) {
+            handlePracticeSequence(capturedLeft, capturedRight)
+            return
+        }
+
+        if (uiQuickControlsOpen.value) {
+            LisaSystemLanguage.resolveQuickControlCommand(capturedLeft, capturedRight)?.let { action ->
+                resetSequence()
+                executeQuickControlAction(action)
+                setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
+        }
+
+        LisaSystemLanguage.resolveGlobalCommand(capturedLeft, capturedRight)?.let { action ->
+            resetSequence()
+            executeGlobalSystemAction(action)
+            return
+        }
+
+        if (uiListeningPaused.value) {
+            resetSequence()
+            updateReadyOrWaitingState()
             return
         }
 
@@ -1149,8 +1286,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             startCountdown(phrase, capturedLeft, capturedRight)
         } else {
             setCommunicationState(LisaCommunicationState.NoPhraseMatched)
-            mainHandler.postDelayed({ updateReadyOrWaitingState() }, 1500L)
+            mainHandler.removeCallbacks(noPhraseMatchedRunnable)
+            mainHandler.postDelayed(noPhraseMatchedRunnable, NO_PHRASE_MATCHED_DISPLAY_MS)
         }
+    }
+
+    private val noPhraseMatchedRunnable = Runnable {
+        updateReadyOrWaitingState()
     }
 
     private fun findPhraseFor(l: Int, r: Int): String? =

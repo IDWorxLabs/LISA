@@ -27,7 +27,8 @@ data class LisaSettingsUiState(
     val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
     val textSizeScale: Float = 1.0f,
     val countdownDurationSec: Int = 3,
-    val sequenceIdleTimeoutSec: Float = 2.5f,
+    val responseSpeed: ResponseSpeed = ResponseSpeed.default,
+    val sequenceIdleTimeoutSec: Float = ResponseSpeed.default.idleTimeoutMs / 1000f,
     val emergencyAlarmVolume: Float = 1.0f,
     val calibrationEnabled: Boolean = false,
     val developerMode: Boolean = false
