@@ -145,7 +145,14 @@ fun CommunicationLessonScreen(
                 eyeTracking = panelTracking,
                 modifier = Modifier
                     .fillMaxWidth(0.82f)
-                    .padding(bottom = 12.dp)
+                    .padding(bottom = 4.dp)
+            )
+            AcceptedBlinkMessage(
+                leftCount = panelLeft,
+                rightCount = panelRight,
+                modifier = Modifier
+                    .fillMaxWidth(0.82f)
+                    .padding(bottom = 8.dp)
             )
             TrainingSensitivityControls(
                 sensitivityLevel = sensitivityLevel,
@@ -173,7 +180,7 @@ fun CommunicationLessonScreen(
                 lessonInteraction.detectedProgress != null
             ) {
                 Text(
-                    text = "Detected:",
+                    text = "Detected Progress",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = LisaGray,
@@ -188,8 +195,38 @@ fun CommunicationLessonScreen(
                     lineHeight = 26.sp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp)
+                        .padding(bottom = 12.dp)
                 )
+                if (lessonInteraction.waitingForLabel != null) {
+                    Text(
+                        text = "Waiting for:",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaGray,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = lessonInteraction.waitingForLabel,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlueDark,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp)
+                    )
+                } else {
+                    Text(
+                        text = "\u2713 Sequence complete",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlue,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp)
+                    )
+                }
             }
             if (lessonInteraction.successVisualMessage != null) {
                 Text(
@@ -231,16 +268,6 @@ fun CommunicationLessonScreen(
                 )
                 SimplifiedGestureDisplay(left = left, right = right)
                 Spacer(Modifier.height(28.dp))
-                Text(
-                    text = instruction,
-                    fontSize = 18.sp,
-                    color = LisaBlueDark.copy(alpha = 0.88f),
-                    lineHeight = 26.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                )
             }
         }
     }
@@ -282,13 +309,6 @@ fun NavigationLessonScreen(
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(20.dp))
-            Text(
-                text = instruction,
-                fontSize = 18.sp,
-                color = LisaBlueDark.copy(alpha = 0.88f),
-                lineHeight = 26.sp,
-                textAlign = TextAlign.Center
-            )
             if (awaitingAction) {
                 Spacer(Modifier.height(16.dp))
                 Text(

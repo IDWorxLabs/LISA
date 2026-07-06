@@ -627,4 +627,64 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaGuidedBlinkAcceptanceVisualFeedbackV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_BLINK_ACCEPTANCE_VISUAL_FEEDBACK_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedBlinkAcceptanceVisualFeedbackAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedRemoveRedundantHelperTextV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_REMOVE_REDUNDANT_HELPER_TEXT_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedRemoveRedundantHelperTextAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedTotalSequenceProgressV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_TOTAL_SEQUENCE_PROGRESS_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedTotalSequenceProgressAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedProgressWordingPolishV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_PROGRESS_WORDING_POLISH_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedProgressWordingPolishAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }

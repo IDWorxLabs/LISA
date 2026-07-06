@@ -26,7 +26,7 @@ object GuidedLearningInteractiveLessonsAuditor {
     fun lessonScreenShowsLiveBlinkFeedback(): Boolean {
         val lessons = readLessonScreens() ?: return false
         val components = readTrainingComponents() ?: return false
-        return lessons.contains("Detected:") &&
+        return lessons.contains("Detected Progress") &&
             lessons.contains("detectedProgress") &&
             components.contains("Left blinks") &&
             components.contains("Right blinks")

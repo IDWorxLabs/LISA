@@ -22,7 +22,9 @@ data class LessonInteractionState(
     val wrongEyeMessage: String? = null,
     val liveLeftBlinks: Int = 0,
     val liveRightBlinks: Int = 0,
-    val awaitingSuccessSpeech: Boolean = false
+    val awaitingSuccessSpeech: Boolean = false,
+    /** Side still needed to complete the sequence (e.g. "Right blink"), or null when none is pending. */
+    val waitingForLabel: String? = null
 )
 
 data class GuidedTrainingUiState(

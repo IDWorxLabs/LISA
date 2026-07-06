@@ -38,8 +38,7 @@ object GuidedUiOverlapAndFalseBlinkFixAuditor {
         val lessons = readLessonScreens() ?: return false
         val phraseIndex = lessons.indexOf("GuidedLessonPhraseTitle")
         val gestureIndex = lessons.indexOf("SimplifiedGestureDisplay")
-        val instructionIndex = lessons.indexOf("text = instruction")
-        return phraseIndex in 0 until gestureIndex && gestureIndex < instructionIndex
+        return phraseIndex in 0 until gestureIndex
     }
 
     fun guidedLearningRemainsMinimal(): Boolean {

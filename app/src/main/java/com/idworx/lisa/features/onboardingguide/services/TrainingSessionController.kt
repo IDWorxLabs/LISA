@@ -114,7 +114,8 @@ class TrainingSessionController(
             return true
         }
 
-        val progressLabel = LessonInteractionEngine.progressLabel(left, right, blinkOrder, lesson)
+        val progressLabel = LessonInteractionEngine.totalSequenceProgressLabel(left, right, lesson)
+        val waitingFor = LessonInteractionEngine.waitingForLabel(lesson, blinkOrder, left, right)
         state = state.copy(
             feedback = TrainingFeedback.None,
             feedbackMessage = null,
@@ -126,7 +127,8 @@ class TrainingSessionController(
                 liveRightBlinks = right,
                 retryVisualMessage = null,
                 successVisualMessage = null,
-                wrongEyeMessage = null
+                wrongEyeMessage = null,
+                waitingForLabel = waitingFor
             )
         )
         onPersist(state)

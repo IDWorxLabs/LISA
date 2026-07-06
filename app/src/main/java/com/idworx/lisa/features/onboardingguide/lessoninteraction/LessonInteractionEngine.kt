@@ -75,6 +75,18 @@ object LessonInteractionEngine {
         return null
     }
 
+    /** "Left blink" / "Right blink" — the side still needed to complete the sequence, or null if none. */
+    fun waitingForLabel(
+        lesson: CommunicationLesson,
+        blinkOrder: List<Boolean>,
+        left: Int,
+        right: Int
+    ): String? = when (expectedNextBlinkSide(lesson, blinkOrder, left, right)) {
+        true -> "Left blink"
+        false -> "Right blink"
+        null -> null
+    }
+
     fun expectedSideOrder(lesson: CommunicationLesson): List<Boolean>? {
         val required = lesson.blinkOrder ?: return null
         if (required.isBlank()) return null
@@ -128,6 +140,26 @@ object LessonInteractionEngine {
             }
         }
         return BlinkSequenceOrder.label(blinkOrder)
+    }
+
+    /** Total blinks required to complete the full gesture — left + right combined. */
+    fun totalBlinksRequired(lesson: CommunicationLesson): Int = lesson.left + lesson.right
+
+    /**
+     * "X of Y blinks" across the WHOLE gesture sequence (left + right combined), not just
+     * progress within the current eye section — e.g. for L1 R3 this counts 1..4 straight
+     * through, rather than resetting back to "1 of 3" once the right side starts.
+     */
+    fun totalSequenceProgressLabel(
+        left: Int,
+        right: Int,
+        lesson: CommunicationLesson
+    ): String? {
+        if (left == 0 && right == 0) return null
+        val total = totalBlinksRequired(lesson)
+        if (total <= 0) return null
+        val completed = (left + right).coerceAtMost(total)
+        return "$completed of $total blinks"
     }
 
     fun lessonMatchesGesture(

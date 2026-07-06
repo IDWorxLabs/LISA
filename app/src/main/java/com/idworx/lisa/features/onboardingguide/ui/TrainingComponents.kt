@@ -1,11 +1,16 @@
 package com.idworx.lisa.features.onboardingguide.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
@@ -28,12 +33,17 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +55,7 @@ import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import kotlinx.coroutines.delay
 
 @Composable
 fun TrainingSoftBackground(content: @Composable () -> Unit) {
@@ -263,23 +274,114 @@ fun LessonEyeStatusPanel(
                 else -> "Detected"
             }
         )
-        SetupStatusLine(
+        AnimatedBlinkCounterRow(
             label = "Left blinks",
-            value = eyeTracking.leftBlinkCount.toString()
+            count = eyeTracking.leftBlinkCount
         )
-        SetupStatusLine(
+        AnimatedBlinkCounterRow(
             label = "Right blinks",
-            value = eyeTracking.rightBlinkCount.toString()
+            count = eyeTracking.rightBlinkCount
         )
-        eyeTracking.acceptedBlinkLabel?.let { label ->
+    }
+}
+
+/**
+ * A single blink counter row that gives calm, immediate confirmation the instant a blink is
+ * accepted: the count briefly scales up (~18%) and brightens to [LisaBlue], and the dot
+ * indicator flashes the same color, then both smoothly settle back to rest over ~250-300ms.
+ *
+ * Driven entirely by [count] increasing — every accepted blink produces a new, distinct value,
+ * so repeated blinks of the same eye each independently retrigger the animation, while a
+ * decrease (e.g. a timeout reset back to 0) never plays the "accepted" animation.
+ */
+@Composable
+fun AnimatedBlinkCounterRow(
+    label: String,
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    var previousCount by remember { mutableStateOf(count) }
+    val pulse = remember { Animatable(0f) }
+
+    LaunchedEffect(count) {
+        if (count > previousCount) {
+            pulse.animateTo(1f, tween(durationMillis = 90, easing = FastOutSlowInEasing))
+            pulse.animateTo(0f, tween(durationMillis = 190, easing = FastOutSlowInEasing))
+        }
+        previousCount = count
+    }
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, fontSize = 16.sp, color = LisaBlueDark.copy(alpha = 0.75f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(lerp(LisaGray.copy(alpha = 0.35f), LisaBlue, pulse.value))
+            )
             Text(
-                text = label,
-                fontSize = 14.sp,
+                text = count.toString(),
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = LisaBlue,
-                modifier = Modifier.fillMaxWidth()
+                color = lerp(LisaBlueDark, LisaBlue, pulse.value),
+                modifier = Modifier.scale(1f + pulse.value * 0.18f)
             )
         }
+    }
+}
+
+/**
+ * Below the eye status panel: briefly shows "✓ Left blink detected" / "✓ Right blink detected"
+ * the instant a blink is accepted. Fades in, holds for ~600ms, then fades out automatically —
+ * never left permanently visible. Keyed off the raw blink counts so each accepted blink
+ * (even in a fast multi-blink sequence) independently retriggers its own fade cycle.
+ */
+@Composable
+fun AcceptedBlinkMessage(
+    leftCount: Int,
+    rightCount: Int,
+    modifier: Modifier = Modifier
+) {
+    var previousLeft by remember { mutableStateOf(leftCount) }
+    var previousRight by remember { mutableStateOf(rightCount) }
+    var visible by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("") }
+
+    LaunchedEffect(leftCount, rightCount) {
+        val leftAccepted = leftCount > previousLeft
+        val rightAccepted = rightCount > previousRight
+        previousLeft = leftCount
+        previousRight = rightCount
+        if (leftAccepted || rightAccepted) {
+            message = if (leftAccepted) "\u2713 Left blink detected" else "\u2713 Right blink detected"
+            visible = true
+            delay(600L)
+            visible = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(durationMillis = 150)),
+        exit = fadeOut(tween(durationMillis = 200)),
+        modifier = modifier
+    ) {
+        Text(
+            text = message,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LisaBlue,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
