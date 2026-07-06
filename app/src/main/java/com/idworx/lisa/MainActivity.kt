@@ -733,10 +733,61 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 return
             }
             refreshTrainingActiveState()
+            syncLessonPartialSequenceTimeout()
         } else if (trainingSession.shouldShowTraining()) {
             trainingSession.updateWinkDots(leftWinks, rightWinks)
         }
         scheduleSequenceStateUpdate()
+    }
+
+    private val lessonPartialSequenceTimeoutRunnable = Runnable {
+        if (!trainingSession.isCommunicationLessonPhase()) return@Runnable
+        if (leftWinks == 0 && rightWinks == 0) return@Runnable
+        if (!trainingSession.isPartialSequenceInProgress(leftWinks, rightWinks, currentBlinkOrder())) {
+            return@Runnable
+        }
+        resetSequence()
+        trainingSession.applyPartialSequenceTimeout()
+        refreshTrainingActiveState()
+    }
+
+    private fun syncLessonPartialSequenceTimeout() {
+        if (!trainingSession.isCommunicationLessonPhase()) {
+            cancelLessonPartialSequenceTimeout()
+            return
+        }
+        if (leftWinks == 0 && rightWinks == 0) {
+            cancelLessonPartialSequenceTimeout()
+            return
+        }
+        if (!trainingSession.isPartialSequenceInProgress(leftWinks, rightWinks, currentBlinkOrder())) {
+            cancelLessonPartialSequenceTimeout()
+            return
+        }
+        mainHandler.removeCallbacks(lessonPartialSequenceTimeoutRunnable)
+        mainHandler.postDelayed(
+            lessonPartialSequenceTimeoutRunnable,
+            com.idworx.lisa.features.onboardingguide.lessoninteraction.LessonInteractionEngine.PARTIAL_SEQUENCE_IDLE_MS
+        )
+    }
+
+    private fun cancelLessonPartialSequenceTimeout() {
+        mainHandler.removeCallbacks(lessonPartialSequenceTimeoutRunnable)
+    }
+
+    private fun shouldDeferLessonFinalize(): Boolean =
+        trainingSession.isPartialSequenceInProgress(leftWinks, rightWinks, currentBlinkOrder())
+
+    private fun rejectLessonWrongEyeBlink(isLeft: Boolean): Boolean {
+        if (!trainingSession.isCommunicationLessonPhase()) return false
+        if (!trainingSession.isWrongEyeBlink(isLeft, leftWinks, rightWinks, currentBlinkOrder())) {
+            return false
+        }
+        resetSequence()
+        cancelLessonPartialSequenceTimeout()
+        trainingSession.applyWrongEyeFeedback()
+        refreshTrainingActiveState()
+        return true
     }
 
     private fun openPanel(panel: LisaPanel) {
@@ -1001,6 +1052,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun simulateTrainingWink(isLeft: Boolean) {
+        if (rejectLessonWrongEyeBlink(isLeft)) return
         if (isLeft) {
             leftWinks = (leftWinks + 1).coerceAtMost(7)
         } else {
@@ -1008,9 +1060,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         uiDiagLeftCount.value = leftWinks
         uiDiagRightCount.value = rightWinks
-        trainingSession.updateWinkDots(leftWinks, rightWinks)
+        if (trainingSession.isCommunicationLessonPhase()) {
+            onWinkCounted(isLeft)
+            if (trainingSession.isPartialSequenceInProgress(leftWinks, rightWinks, currentBlinkOrder())) {
+                return
+            }
+        } else {
+            trainingSession.updateWinkDots(leftWinks, rightWinks)
+        }
         if (isSequenceEligibleForSpeech(leftWinks, rightWinks)) {
-            recordWinkSide(isLeft)
             handleTrainingSequence(leftWinks, rightWinks)
             resetSequence()
         }
@@ -1811,6 +1869,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         updateDiagnostics(leftProb, rightProb, result)
 
         if (result.acceptLeft) {
+            if (rejectLessonWrongEyeBlink(isLeft = true)) return
             flashAcceptedBlink(isLeft = true)
             leftWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
@@ -1822,6 +1881,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         if (result.acceptRight) {
+            if (rejectLessonWrongEyeBlink(isLeft = false)) return
             flashAcceptedBlink(isLeft = false)
             rightWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
@@ -1851,7 +1911,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
 
         if (finalize) {
-            finalizeSequence()
+            if (shouldDeferLessonFinalize()) {
+                syncLessonPartialSequenceTimeout()
+            } else {
+                finalizeSequence()
+            }
         }
     }
 
@@ -2085,6 +2149,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         findExactMapping(l, r, mappingsState)?.localizedPhrase(activeLanguage())
 
     private fun resetSequence() {
+        cancelLessonPartialSequenceTimeout()
         leftWinks = 0
         rightWinks = 0
         lastWinkTimeMs = 0L

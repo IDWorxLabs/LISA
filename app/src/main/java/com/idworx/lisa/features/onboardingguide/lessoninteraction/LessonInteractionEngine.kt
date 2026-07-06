@@ -5,11 +5,75 @@ import com.idworx.lisa.features.onboardingguide.model.CommunicationLesson
 
 object LessonInteractionEngine {
 
+    /** Idle time before an incomplete lesson sequence resets with visual feedback. */
+    const val PARTIAL_SEQUENCE_IDLE_MS: Long = 5_000L
+
     fun successVisualMessage(lessonIndex: Int): String =
         if (lessonIndex % 2 == 0) "Well done" else "You did it"
 
     fun retryVisualMessage(failureCount: Int): String =
         if (failureCount % 2 == 0) "Try again" else "That blink was not part of this one"
+
+    fun partialTimeoutVisualMessage(timeoutCount: Int): String =
+        if (timeoutCount % 2 == 0) "Try again" else "Let's start that one again"
+
+    fun wrongEyeRestartFeedbackMessage(
+        lesson: CommunicationLesson,
+        restartCount: Int
+    ): String {
+        val startLeft = expectedNextBlinkSide(lesson, emptyList(), 0, 0)
+        return when (startLeft) {
+            true -> if (restartCount % 2 == 0) {
+                "Wrong eye — blink left to start again"
+            } else {
+                "Wrong eye — start again"
+            }
+            false -> if (restartCount % 2 == 0) {
+                "Wrong eye — blink right to start again"
+            } else {
+                "Wrong eye — start again"
+            }
+            null -> "Wrong eye — start again"
+        }
+    }
+
+    fun isWrongEyeBlink(
+        isLeft: Boolean,
+        left: Int,
+        right: Int,
+        blinkOrder: List<Boolean>,
+        lesson: CommunicationLesson
+    ): Boolean {
+        val expectedLeft = expectedNextBlinkSide(lesson, blinkOrder, left, right) ?: return false
+        return isLeft != expectedLeft
+    }
+
+    fun isPartialSequenceInProgress(
+        left: Int,
+        right: Int,
+        blinkOrder: List<Boolean>,
+        lesson: CommunicationLesson
+    ): Boolean {
+        if (left == 0 && right == 0) return false
+        return !lessonMatchesGesture(lesson, left, right, blinkOrder)
+    }
+
+    fun expectedNextBlinkSide(
+        lesson: CommunicationLesson,
+        blinkOrder: List<Boolean>,
+        left: Int,
+        right: Int
+    ): Boolean? {
+        if (lessonMatchesGesture(lesson, left, right, blinkOrder)) return null
+        expectedSideOrder(lesson)?.let { expected ->
+            if (blinkOrder.size >= expected.size) return null
+            return expected[blinkOrder.size]
+        }
+        if (left >= lesson.left && right >= lesson.right) return null
+        if (left < lesson.left) return true
+        if (right < lesson.right) return false
+        return null
+    }
 
     fun expectedSideOrder(lesson: CommunicationLesson): List<Boolean>? {
         val required = lesson.blinkOrder ?: return null

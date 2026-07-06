@@ -74,6 +74,8 @@ class TrainingSessionController(
     var onRecalibrationConfirmed: (() -> Unit)? = null
 
     private var pendingInteractiveLessonSuccess: PendingInteractiveLessonSuccess? = null
+    private var partialTimeoutCount = 0
+    private var wrongEyeRestartCount = 0
 
     private data class PendingInteractiveLessonSuccess(
         val phrase: String,
@@ -123,11 +125,69 @@ class TrainingSessionController(
                 liveLeftBlinks = left,
                 liveRightBlinks = right,
                 retryVisualMessage = null,
-                successVisualMessage = null
+                successVisualMessage = null,
+                wrongEyeMessage = null
             )
         )
         onPersist(state)
         return false
+    }
+
+    fun isPartialSequenceInProgress(left: Int, right: Int, blinkOrder: List<Boolean>): Boolean {
+        if (!isCommunicationLessonPhase()) return false
+        val lesson = currentCommunicationLesson() ?: return false
+        if (state.lessonInteraction.awaitingSuccessSpeech) return false
+        return LessonInteractionEngine.isPartialSequenceInProgress(left, right, blinkOrder, lesson)
+    }
+
+    fun isWrongEyeBlink(isLeft: Boolean, left: Int, right: Int, blinkOrder: List<Boolean>): Boolean {
+        if (!isCommunicationLessonPhase()) return false
+        val lesson = currentCommunicationLesson() ?: return false
+        if (state.lessonInteraction.awaitingSuccessSpeech) return false
+        return LessonInteractionEngine.isWrongEyeBlink(isLeft, left, right, blinkOrder, lesson)
+    }
+
+    fun applyWrongEyeFeedback() {
+        val lesson = currentCommunicationLesson() ?: return
+        val message = LessonInteractionEngine.wrongEyeRestartFeedbackMessage(lesson, wrongEyeRestartCount++)
+        state = state.copy(
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = LessonInteractionState(
+                wrongEyeMessage = message,
+                detectedProgress = null,
+                liveLeftBlinks = 0,
+                liveRightBlinks = 0
+            )
+        )
+        onPersist(state)
+        mainThreadDelayed(WRONG_EYE_FEEDBACK_CLEAR_MS) {
+            if (state.lessonInteraction.wrongEyeMessage == message) {
+                state = state.copy(
+                    lessonInteraction = state.lessonInteraction.copy(wrongEyeMessage = null)
+                )
+                onPersist(state)
+            }
+        }
+    }
+
+    fun applyPartialSequenceTimeout() {
+        if (!isCommunicationLessonPhase()) return
+        val msg = LessonInteractionEngine.partialTimeoutVisualMessage(partialTimeoutCount++)
+        state = state.copy(
+            feedback = TrainingFeedback.Retry,
+            feedbackMessage = msg,
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = LessonInteractionState(
+                retryVisualMessage = msg,
+                detectedProgress = null,
+                liveLeftBlinks = 0,
+                liveRightBlinks = 0
+            )
+        )
+        onPersist(state)
+        mainThreadDelayed(RETRY_FEEDBACK_CLEAR_MS) { clearLessonInteractionFeedback() }
     }
 
     fun clearLessonInteractionFeedback() {
@@ -1134,6 +1194,7 @@ class TrainingSessionController(
         const val SETUP_STEP_READY: Int = 1
         private const val SUCCESS_VISUAL_BEFORE_SPEECH_MS: Long = 500L
         private const val RETRY_FEEDBACK_CLEAR_MS: Long = 2_500L
+        private const val WRONG_EYE_FEEDBACK_CLEAR_MS: Long = 2_500L
 
         val ACTIVE_TRAINING_PHASES: Set<TrainingPhase> = setOf(
             TrainingPhase.FirstLaunchChoice,

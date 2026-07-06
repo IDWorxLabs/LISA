@@ -42,6 +42,7 @@ import com.idworx.lisa.features.onboardingguide.state.LessonInteractionState
 import com.idworx.lisa.features.onboardingguide.state.TrainingFeedback
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
+import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 
@@ -152,6 +153,19 @@ fun CommunicationLessonScreen(
                     .fillMaxWidth(0.82f)
                     .padding(bottom = 20.dp)
             )
+            if (lessonInteraction.wrongEyeMessage != null) {
+                Text(
+                    text = lessonInteraction.wrongEyeMessage,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaEmergencyRed,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 28.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                )
+            }
             if (lessonInteraction.successVisualMessage == null &&
                 lessonInteraction.retryVisualMessage == null &&
                 lessonInteraction.detectedProgress != null
@@ -192,7 +206,7 @@ fun CommunicationLessonScreen(
                     text = lessonInteraction.retryVisualMessage,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = LisaBlueDark.copy(alpha = 0.85f),
+                    color = LisaEmergencyRed.copy(alpha = 0.78f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()

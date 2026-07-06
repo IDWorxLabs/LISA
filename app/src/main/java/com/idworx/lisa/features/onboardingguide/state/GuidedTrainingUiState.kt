@@ -19,6 +19,7 @@ data class LessonInteractionState(
     val detectedProgress: String? = null,
     val successVisualMessage: String? = null,
     val retryVisualMessage: String? = null,
+    val wrongEyeMessage: String? = null,
     val liveLeftBlinks: Int = 0,
     val liveRightBlinks: Int = 0,
     val awaitingSuccessSpeech: Boolean = false

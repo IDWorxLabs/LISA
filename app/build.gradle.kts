@@ -567,4 +567,34 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaGuidedPartialTimeoutAndWrongEyeFeedbackV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_PARTIAL_TIMEOUT_AND_WRONG_EYE_FEEDBACK_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedPartialTimeoutAndWrongEyeFeedbackAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedWrongBlinkRestartsSequenceV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_WRONG_BLINK_RESTARTS_SEQUENCE_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedWrongBlinkRestartsSequenceAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }
