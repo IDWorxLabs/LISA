@@ -107,7 +107,7 @@ object GuidedPartialTimeoutAndWrongEyeFeedbackAuditor {
         return main.contains("shouldFinalizeSequence") &&
             SEQUENCE_IDLE_TIMEOUT_MS == 3000L &&
             controller.contains("beginInteractiveLessonSuccess") &&
-            controller.contains("SUCCESS_VISUAL_BEFORE_SPEECH_MS")
+            controller.contains("SUCCESS_VISUAL_PAUSE_MS")
     }
 
     fun noNonPhraseNarrationInLessonPath(): Boolean =

@@ -555,9 +555,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun onSpeechFinished() {
         if (trainingSession.hasPendingInteractiveLessonSuccess()) {
-            trainingSession.completePendingInteractiveLessonSuccess()
-            refreshTrainingActiveState()
-            setCommunicationState(LisaCommunicationState.Listening)
+            trainingSession.onPhraseSpeechFinished {
+                refreshTrainingActiveState()
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
             return
         }
         if (emergencyActive) return

@@ -276,24 +276,23 @@ class TrainingSessionController(
         mainThreadDelayed(RETRY_FEEDBACK_CLEAR_MS) { clearLessonInteractionFeedback() }
     }
 
+    /**
+     * Sequence finalized and matched. Speaks the translated phrase first, while the lesson
+     * phrase/gesture stays visible (no "Well done" yet) so the visual never gets ahead of the
+     * speech. [onPhraseSpeechFinished] reveals "Well done" only after the phrase is spoken.
+     */
     private fun beginInteractiveLessonSuccess(
         phrase: String,
         lesson: CommunicationLesson,
         phase: TrainingPhase
     ) {
-        val successMsg = LessonInteractionEngine.successVisualMessage(
-            when (phase) {
-                TrainingPhase.CommunicationMastery -> state.progress.masteryRoundIndex
-                else -> state.progress.communicationLessonIndex
-            }
-        )
         pendingInteractiveLessonSuccess = PendingInteractiveLessonSuccess(phrase, lesson, phase)
         state = state.copy(
-            feedback = TrainingFeedback.Success,
-            feedbackMessage = successMsg,
+            feedback = TrainingFeedback.None,
+            feedbackMessage = null,
             showCelebration = false,
             lessonInteraction = LessonInteractionState(
-                successVisualMessage = successMsg,
+                successVisualMessage = null,
                 awaitingSuccessSpeech = true,
                 detectedProgress = null,
                 liveLeftBlinks = 0,
@@ -305,8 +304,37 @@ class TrainingSessionController(
             coachUiState = null
         )
         onPersist(state)
-        mainThreadDelayed(SUCCESS_VISUAL_BEFORE_SPEECH_MS) {
-            speakPhrase(phrase)
+        speakPhrase(phrase)
+    }
+
+    /**
+     * Called once TTS finishes speaking the translated phrase. Reveals "Well done", holds it
+     * briefly so the visual and speech never contradict each other, then advances the lesson.
+     */
+    fun onPhraseSpeechFinished(onAdvanced: () -> Unit = {}) {
+        val pending = pendingInteractiveLessonSuccess
+        if (pending == null) {
+            onAdvanced()
+            return
+        }
+        val successMsg = LessonInteractionEngine.successVisualMessage(
+            when (pending.phase) {
+                TrainingPhase.CommunicationMastery -> state.progress.masteryRoundIndex
+                else -> state.progress.communicationLessonIndex
+            }
+        )
+        state = state.copy(
+            feedback = TrainingFeedback.Success,
+            feedbackMessage = successMsg,
+            lessonInteraction = state.lessonInteraction.copy(
+                successVisualMessage = successMsg,
+                awaitingSuccessSpeech = true
+            )
+        )
+        onPersist(state)
+        mainThreadDelayed(SUCCESS_VISUAL_PAUSE_MS) {
+            completePendingInteractiveLessonSuccess()
+            onAdvanced()
         }
     }
 
@@ -1192,7 +1220,8 @@ class TrainingSessionController(
     companion object {
         const val SETUP_STEP_EYE_DETECTION: Int = 0
         const val SETUP_STEP_READY: Int = 1
-        private const val SUCCESS_VISUAL_BEFORE_SPEECH_MS: Long = 500L
+        /** Brief pause showing "Well done" after phrase speech, before advancing to the next lesson. */
+        const val SUCCESS_VISUAL_PAUSE_MS: Long = 900L
         private const val RETRY_FEEDBACK_CLEAR_MS: Long = 2_500L
         private const val WRONG_EYE_FEEDBACK_CLEAR_MS: Long = 2_500L
 

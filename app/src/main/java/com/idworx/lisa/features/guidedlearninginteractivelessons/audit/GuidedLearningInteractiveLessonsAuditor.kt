@@ -41,9 +41,10 @@ object GuidedLearningInteractiveLessonsAuditor {
     fun completedSequenceUsesInteractiveSuccessFlow(): Boolean {
         val controller = readController() ?: return false
         return controller.contains("beginInteractiveLessonSuccess") &&
+            controller.contains("onPhraseSpeechFinished") &&
             controller.contains("completePendingInteractiveLessonSuccess") &&
             controller.contains("hasPendingInteractiveLessonSuccess") &&
-            controller.contains("SUCCESS_VISUAL_BEFORE_SPEECH_MS")
+            controller.contains("SUCCESS_VISUAL_PAUSE_MS")
     }
 
     fun successShowsVisualWellDone(): Boolean {
@@ -57,7 +58,7 @@ object GuidedLearningInteractiveLessonsAuditor {
         return controller.contains("LisaSpeechPolicy.PHRASE_TRANSLATION_ONLY") &&
             controller.contains("beginInteractiveLessonSuccess") &&
             controller.contains("speakPhrase(phrase)") &&
-            main.contains("completePendingInteractiveLessonSuccess")
+            main.contains("onPhraseSpeechFinished")
     }
 
     fun noCoachingNarrationInInteractivePath(): Boolean {
@@ -80,8 +81,10 @@ object GuidedLearningInteractiveLessonsAuditor {
 
     fun lessonAdvancesAfterSpeech(): Boolean {
         val main = readMainActivity() ?: return false
+        val controller = readController() ?: return false
         return main.contains("hasPendingInteractiveLessonSuccess") &&
-            main.contains("completePendingInteractiveLessonSuccess")
+            main.contains("onPhraseSpeechFinished") &&
+            controller.contains("completePendingInteractiveLessonSuccess")
     }
 
     fun progressesFromPhrasesToNavigation(): Boolean {
