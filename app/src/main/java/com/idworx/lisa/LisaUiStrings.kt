@@ -94,6 +94,268 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val practiceAlmost: String get() = t("Almost. Try again.", "Amper. Probeer weer.", "Cishe. Zama futhi.")
     val practiceTryAgain: String get() = t("Try again", "Probeer weer", "Zama futhi")
     val practiceCloseHint: String get() = t("L4 R0 closes practice", "L4 R0 sluit oefening", "L4 R0 ivala ukuqeqeshwa")
+
+    // Guided Vocabulary Mode
+    val guidedModeTitle: String get() = t("Guided Vocabulary", "Begeleide Woordeskat", "Ulimi Olukhokhelwayo")
+    val guidedVocabularyTitle: String get() = t("Vocabulary", "Woordeskat", "Ulimi")
+    val guidedCategoryMenuMode: String get() = t("Choose Category", "Kies Kategorie", "Khetha Isigaba")
+    val guidedCategoryMenuTitle: String get() = t("Choose a Category", "Kies 'n Kategorie", "Khetha Isigaba")
+    val guidedChooseCategoryAction: String get() = t("Choose Category", "Kies Kategorie", "Khetha Isigaba")
+    val guidedSelectEnter: String get() = t("Select / Enter", "Kies / Enter", "Khetha / Ngena")
+    val guidedSelectEnterHint: String get() = t("1 Left + 1 Right", "1 Links + 1 Regs", "1 Kwesokunxele + 1 Kwesokudla")
+    val guidedBack: String get() = t("Back", "Terug", "Emuva")
+    val guidedBackHint: String get() = t("2 Left + 2 Right", "2 Links + 2 Regs", "2 Kwesokunxele + 2 Kwesokudla")
+    val guidedMoveUpCategory: String get() = t("Move Up Category", "Skuif Kategorie Op", "Hambisa Isigaba Phezulu")
+    val guidedMoveDownCategory: String get() = t("Move Down Category", "Skuif Kategorie Af", "Hambisa Isigaba Phansi")
+    val guidedOpenSelectedCategory: String get() = t("Open Selected Category", "Open Gekose Kategorie", "Vula Isigaba Esikhethiwe")
+    val guidedBackToPhrases: String get() = t("Back to Phrases", "Terug na Frases", "Buyela Emagameni")
+    fun guidedPhrasePageIndicator(page: Int, total: Int): String =
+        t("Phrases $page / $total", "Frases $page / $total", "Amagama $page / $total")
+    fun guidedCategoryIndicator(category: Int, total: Int): String =
+        t("Category $category / $total", "Kategorie $category / $total", "Isigaba $category / $total")
+    val guidedOpenMode: String get() = t("Open Guided Vocabulary", "Open Begeleide Woordeskat", "Vula Ulimi Olukhokhelwayo")
+    fun guidedPageIndicator(page: Int, total: Int): String =
+        t("Page $page / $total", "Bladsy $page / $total", "Ikhasi $page / $total")
+    val guidedScrollForMore: String get() = t(
+        "Scroll for more phrases",
+        "Blaai vir meer frases",
+        "Skrolela ukuze uthole amagama amaningi"
+    )
+    val guidedScrollUp: String get() = t("Scroll Up", "Blaai Op", "Skrolela Phezulu")
+    val guidedPreviousPhrasePage: String get() = t("Previous Phrase Page", "Vorige Frasebladsy", "Ikhasi Lamagama Langaphambili")
+    val guidedScrollUpHint: String get() = t("2 Left Winks", "2 Linkerknippe", "Ukucwayiza Okubili Kwesokunxele")
+    val guidedScrollDown: String get() = t("Scroll Down", "Blaai Af", "Skrolela Phansi")
+    val guidedNextPhrasePage: String get() = t("Next Phrase Page", "Volgende Frasebladsy", "Ikhasi Lamagama Elilandelayo")
+    val guidedScrollDownHint: String get() = t("2 Right Winks", "2 Regterknippe", "Ukucwayiza Okubili Kwesokudla")
+    val guidedEmergencyNavTitle: String get() = t("Emergency", "Nood", "Usizo Oluphuthumayo")
+    val guidedEmergencyNavHint: String get() = t("L6 R0", "L6 R0", "L6 R0")
+    val guidedCategoriesNavTitle: String get() = t("Categories", "Kategorieë", "Izigaba")
+    val guidedCategoriesNavHint: String get() = t("4 Left + 4 Right", "4 Links + 4 Regs", "4 Kwesokunxele + 4 Kwesokudla")
+    val guidedEyeTrackingActive: String get() = t("Eyes tracked", "Oë dopgehou", "Amehlo alandwa")
+    val guidedEyeTrackingWaiting: String get() = t("Waiting for face", "Wag vir gesig", "Ilinde ubuso")
+    val guidedPhraseConfirmed: String get() = t("Spoken", "Gesê", "Kukhulunyiwe")
+    val guidedActionConfirmed: String get() = t("Done", "Klaar", "Kwenziwe")
+    val guidedHelpSpoken: String get() = t(
+        "Blink the sequence beside a phrase to speak it. L4 R4 opens categories. L2 R0 and L0 R2 scroll pages. L2 R2 goes back.",
+        "Knip die reeks langs 'n frase om dit te sê. L4 R4 open kategorieë. L2 R0 en L0 R2 blaai bladsye. L2 R2 gaan terug.",
+        "Cwayiza uchungechunge oluseceleni kwesigwebo ukukukhuluma. I-L4 R4 ivula izigaba. I-L2 R0 ne-L0 R2 iskrolela amakhasi. I-L2 R2 ibuyela emuva."
+    )
+    val workspaceCommunicationTitle: String get() = t("Communication Workspace", "Kommunikasiewerkruimte", "Indawo Yokuxhumana")
+    val workspaceCaregiverHelpTitle: String get() = t("Gesture guide", "Gebaregids", "Umhlahlandlela wezgestures")
+    val workspaceCaregiverHelpLegend: String get() = t(
+        "L2 R0 up · L0 R2 down · L1 R1 select · L2 R2 back · L4 R4 categories · L6 R0 emergency",
+        "L2 R0 op · L0 R2 af · L1 R1 kies · L2 R2 terug · L4 R4 kategorieë · L6 R0 nood",
+        "L2 R0 phezulu · L0 R2 phansi · L1 R1 khetha · L2 R2 emuva · L4 R4 izigaba · L6 R0 usizo oluphuthumayo"
+    )
+    val workspacePatienceHint: String get() = t("Take your time — no rush", "Neem jou tyd — geen haastigheid", "Thatha isikhathi sakho — akukho ukuphuthuma")
+    fun workspaceContextHintVocabulary(): String = t(
+        "Blink a phrase to speak · L4 R4 categories · L2 R2 back",
+        "Knip 'n frase om te praat · L4 R4 kategorieë · L2 R2 terug",
+        "Cwayiza igama ukukhuluma · L4 R4 izigaba · L2 R2 emuva"
+    )
+    fun workspaceContextHintCategoryMenu(): String = t(
+        "L2/R2 move · L1 R1 open · L2 R2 back to phrases",
+        "L2/R2 beweeg · L1 R1 open · L2 R2 terug na frases",
+        "L2/R2 hambisa · L1 R1 vula · L2 R2 buyela emagameni"
+    )
+    fun workspaceContextHintAdjustment(): String = t(
+        "L3 R1 decrease · L1 R3 increase · L1 R1 save · L2 R2 back",
+        "L3 R1 verminder · L1 R3 verhoog · L1 R1 stoor · L2 R2 terug",
+        "L3 R1 nciphisa · L1 R3 khulisa · L1 R1 londoloza · L2 R2 emuva"
+    )
+
+    fun guidedCategoryTitle(category: GuidedVocabularyCategory): String = when (category) {
+        GuidedVocabularyCategory.Conversation -> t("Conversation", "Gesprek", "Ingxoxo")
+        GuidedVocabularyCategory.BasicNeeds -> t("Basic Needs", "Basiese Behoeftes", "Izidingo Eziyisisekelo")
+        GuidedVocabularyCategory.Medical -> t("Medical", "Medies", "Ezesimpilo")
+        GuidedVocabularyCategory.Family -> t("Family", "Familie", "Umndeni")
+        GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
+        GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
+    }
+
+    fun guidedCurrentResponseTime(seconds: Int): String =
+        t("Current response time: $seconds seconds", "Huidige reaksietyd: $seconds sekondes", "Isikhathi sokuphendula samanje: $seconds imizuzwana")
+
+    fun guidedSetResponseTimeTo(seconds: Int): String =
+        t("Set response time to $seconds seconds", "Stel reaksietyd op $seconds sekondes", "Setha isikhathi sokuphendula ku-$seconds imizuzwana")
+
+    fun guidedCurrentSensitivity(level: Int): String =
+        t("Current sensitivity: $level", "Huidige sensitiwiteit: $level", "Ukuzwela kwamanje: $level")
+
+    fun guidedSetSensitivityTo(level: Int): String =
+        t("Set sensitivity to $level", "Stel sensitiwiteit op $level", "Setha ukuzwela ku-$level")
+
+    val guidedDecreaseSensitivity: String get() = t("Decrease sensitivity", "Verminder sensitiwiteit", "Nciphisa ukuzwela")
+    val guidedIncreaseSensitivity: String get() = t("Increase sensitivity", "Verhoog sensitiwiteit", "Khulisa ukuzwela")
+    val guidedAdjustResponseTime: String get() = t("Adjust response time", "Stel reaksietyd", "Lungisa isikhathi sokuphendula")
+    val guidedAdjustSensitivity: String get() = t("Adjust sensitivity", "Stel sensitiwiteit", "Lungisa ukuzwela")
+    val guidedResponseTimeTitle: String get() = t("Response Time", "Reaksietyd", "Isikhathi Sokuphendula")
+    val guidedSensitivityTitle: String get() = t("Sensitivity", "Sensitiwiteit", "Ukuzwela")
+    val guidedDecreaseValue: String get() = t("Decrease value", "Verminder waarde", "Nciphisa inani")
+    val guidedIncreaseValue: String get() = t("Increase value", "Verhoog waarde", "Khulisa inani")
+    val guidedSaveSelectedValue: String get() = t("Save selected value", "Stoor gekose waarde", "Londoloza inani elikhethiwe")
+    val guidedCancelAdjustment: String get() = t("Cancel / Back", "Kanselleer / Terug", "Khansela / Emuva")
+    val guidedDecreaseResponseTime: String get() = t("Decrease response time", "Verminder reaksietyd", "Nciphisa isikhathi sokuphendula")
+    val guidedIncreaseResponseTime: String get() = t("Increase response time", "Verhoog reaksietyd", "Khulisa isikhathi sokuphendula")
+    val guidedSaveResponseTime: String get() = t("Select / Save response time", "Kies / Stoor reaksietyd", "Khetha / Londoloza isikhathi sokuphendula")
+    val guidedSaveSensitivity: String get() = t("Select / Save sensitivity", "Kies / Stoor sensitiwiteit", "Khetha / Londoloza ukuzwela")
+    val guidedCancelToPreferences: String get() = t("Cancel / Back to Preferences", "Kanselleer / Terug na Voorkeure", "Khansela / Buyela Kokuncanyelwayo")
+    fun guidedDraftResponseTime(seconds: Int): String =
+        t("$seconds seconds", "$seconds sekondes", "$seconds imizuzwana")
+    fun guidedDraftSensitivity(level: Int): String = level.toString()
+    fun guidedAdjustmentCurrentValueResponseTime(seconds: Int): String =
+        t("Current value: $seconds seconds", "Huidige waarde: $seconds sekondes", "Inani lamanje: $seconds imizuzwana")
+    fun guidedAdjustmentCurrentValueSensitivity(level: Int): String =
+        t("Current value: $level", "Huidige waarde: $level", "Inani lamanje: $level")
+
+    fun listeningStatusLine(sensitivityLevel: Int, responseTimeSec: Int): String =
+        t(
+            "Sensitivity: $sensitivityLevel · Response time: ${responseTimeSec}s",
+            "Sensitiwiteit: $sensitivityLevel · Reaksietyd: ${responseTimeSec}s",
+            "Ukuzwela: $sensitivityLevel · Isikhathi sokuphendula: ${responseTimeSec}s"
+        )
+
+    fun guidedPreferenceLabel(
+        labelKey: String,
+        responseTimeSec: Int,
+        sensitivityLevel: Int,
+        value: Int?
+    ): String = when (labelKey) {
+        "current_response_time" -> guidedCurrentResponseTime(responseTimeSec)
+        "current_sensitivity" -> guidedCurrentSensitivity(sensitivityLevel)
+        "adjust_response_time" -> guidedAdjustResponseTime
+        "adjust_sensitivity" -> guidedAdjustSensitivity
+        "decrease_sensitivity" -> guidedDecreaseSensitivity
+        "increase_sensitivity" -> guidedIncreaseSensitivity
+        else -> labelKey
+    }
+
+    fun guidedPreferenceLabelEnglish(
+        labelKey: String,
+        responseTimeSec: Int,
+        sensitivityLevel: Int,
+        value: Int?
+    ): String? {
+        if (language == PreferredLanguage.English) return null
+        return when (labelKey) {
+            "current_response_time" -> "Current response time: $responseTimeSec seconds"
+            "current_sensitivity" -> "Current sensitivity: $sensitivityLevel"
+            "adjust_response_time" -> "Adjust response time"
+            "adjust_sensitivity" -> "Adjust sensitivity"
+            "decrease_sensitivity" -> "Decrease sensitivity"
+            "increase_sensitivity" -> "Increase sensitivity"
+            else -> null
+        }
+    }
+
+    fun guidedPhrase(phraseKey: String): String = when (phraseKey) {
+        "stop" -> t("Stop", "Stop", "Misa")
+        "i_am_okay" -> t("I am okay", "Ek is oukei", "Ngiyaphila")
+        "please_repeat_that" -> t("Please repeat that", "Herhaal dit asseblief", "Ngicela uphinde lokho")
+        "i_need_some_water" -> t("I need some water.", "Ek het water nodig.", "Ngidinga amanzi.")
+        "i_am_hungry" -> t("I am hungry.", "Ek is honger.", "Ngilambile.")
+        "i_need_to_use_the_bathroom" -> t("I need to use the bathroom.", "Ek moet die badkamer toe.", "Ngidinga ukusebenzisa indlu yangasese.")
+        "i_am_tired" -> t("I am tired.", "Ek is moeg.", "Ngikhathele.")
+        "i_am_cold" -> t("I am cold.", "Ek is koud.", "Ngiyabanda.")
+        "i_am_hot" -> t("I am hot.", "Ek is warm.", "Ngiyashisa.")
+        "please_help_me_move" -> t("Please help me move.", "Help my om te beweeg asseblief.", "Ngicela ungisize ngihambe.")
+        "please_reposition_me" -> t("Please reposition me.", "Herposisioneer my asseblief.", "Ngicela ungibeka ngendlela efanele.")
+        "i_am_uncomfortable" -> t("I am uncomfortable.", "Ek voel ongemaklik.", "Angizolile.")
+        "i_would_like_some_privacy" -> t("I would like some privacy.", "Ek wil graag privaatheid hê.", "Ngingathanda ubumfihlo.")
+        "i_am_in_pain" -> t("I am in pain.", "Ek het pyn.", "Ngibuhlungu.")
+        "please_call_the_nurse" -> t("Please call the nurse.", "Bel die verpleegster asseblief.", "Ngicela ubize umongikazi.")
+        "i_need_my_medication" -> t("I need my medication.", "Ek het my medisyne nodig.", "Ngidinga umuthi wami.")
+        "i_am_having_difficulty_breathing" -> t("I am having difficulty breathing.", "Ek sukkel om asem te haal.", "Ngina nzima ukuphefumula.")
+        "i_feel_dizzy" -> t("I feel dizzy.", "Ek voel duizelig.", "Ngizizwa ngidizela.")
+        "my_chest_hurts" -> t("My chest hurts.", "My bors seer.", "Ngibuhlungu esifubeni.")
+        "i_do_not_feel_well" -> t("I do not feel well.", "Ek voel nie lekker nie.", "Angiphilile kahle.")
+        "please_call_the_doctor" -> t("Please call the doctor.", "Bel die dokter asseblief.", "Ngicela ubize udokotela.")
+        "please_check_my_body" -> t("Please check my body.", "Kyk my liggaam asseblief.", "Ngicela uhlale umzimba wami.")
+        "please_help_me_now" -> t("Please help me now.", "Help my nou asseblief.", "Ngicela ungisize manje.")
+        "i_want_to_see_my_mom" -> t("I want to see my mom.", "Ek wil my ma sien.", "Ngifuna ukubona umama wami.")
+        "i_want_to_see_my_dad" -> t("I want to see my dad.", "Ek wil my pa sien.", "Ngifuna ukubona ubaba wami.")
+        "i_want_to_see_my_wife" -> t("I want to see my wife.", "Ek wil my vrou sien.", "Ngifuna ukubona umkakazi wami.")
+        "i_want_to_see_my_husband" -> t("I want to see my husband.", "Ek wil my man sien.", "Ngifuna ukubona umyeni wami.")
+        "i_want_to_see_my_child" -> t("I want to see my child.", "Ek wil my kind sien.", "Ngifuna ukubona ingane yami.")
+        "i_want_to_see_my_friend" -> t("I want to see my friend.", "Ek wil my vriend sien.", "Ngifuna ukubona umngane wami.")
+        "call_my_family" -> t("Call my family.", "Bel my familie.", "Shayela umndeni wami.")
+        "i_miss_you" -> t("I miss you.", "Ek mis jou.", "Ngiyakukhumbula.")
+        "stay_with_me" -> t("Stay with me.", "Bly by my.", "Hlala kimi.")
+        "i_want_to_talk" -> t("I want to talk.", "Ek wil praat.", "Ngifuna ukukhuluma.")
+        else -> phraseKey
+    }
+
+    fun guidedPhraseEnglish(phraseKey: String): String? {
+        if (language == PreferredLanguage.English) return null
+        return when (phraseKey) {
+            "stop" -> "Stop"
+            "i_am_okay" -> "I am okay"
+            "please_repeat_that" -> "Please repeat that"
+            "i_need_some_water" -> "I need some water."
+            "i_am_hungry" -> "I am hungry."
+            "i_need_to_use_the_bathroom" -> "I need to use the bathroom."
+            "i_am_tired" -> "I am tired."
+            "i_am_cold" -> "I am cold."
+            "i_am_hot" -> "I am hot."
+            "please_help_me_move" -> "Please help me move."
+            "please_reposition_me" -> "Please reposition me."
+            "i_am_uncomfortable" -> "I am uncomfortable."
+            "i_would_like_some_privacy" -> "I would like some privacy."
+            "i_am_in_pain" -> "I am in pain."
+            "please_call_the_nurse" -> "Please call the nurse."
+            "i_need_my_medication" -> "I need my medication."
+            "i_am_having_difficulty_breathing" -> "I am having difficulty breathing."
+            "i_feel_dizzy" -> "I feel dizzy."
+            "my_chest_hurts" -> "My chest hurts."
+            "i_do_not_feel_well" -> "I do not feel well."
+            "please_call_the_doctor" -> "Please call the doctor."
+            "please_check_my_body" -> "Please check my body."
+            "please_help_me_now" -> "Please help me now."
+            "i_want_to_see_my_mom" -> "I want to see my mom."
+            "i_want_to_see_my_dad" -> "I want to see my dad."
+            "i_want_to_see_my_wife" -> "I want to see my wife."
+            "i_want_to_see_my_husband" -> "I want to see my husband."
+            "i_want_to_see_my_child" -> "I want to see my child."
+            "i_want_to_see_my_friend" -> "I want to see my friend."
+            "call_my_family" -> "Call my family."
+            "i_miss_you" -> "I miss you."
+            "stay_with_me" -> "Stay with me."
+            "i_want_to_talk" -> "I want to talk."
+            else -> null
+        }
+    }
+
+    fun guidedSystemLabel(labelKey: String): String = when (labelKey) {
+        "repeat_last" -> t("Repeat the last message.", "Herhaal die laaste boodskap.", "Phinda umlayezo wakamuva.")
+        "increase_volume" -> t("Increase the speaking volume.", "Verhoog die spraakvolume.", "Khuphula ivolumu yokukhuluma.")
+        "decrease_volume" -> t("Decrease the speaking volume.", "Verlaag die spraakvolume.", "Nciphisa ivolumu yokukhuluma.")
+        "slower_speech" -> t("Speak more slowly.", "Praat stadiger.", "Khuluma kancane.")
+        "faster_speech" -> t("Speak faster.", "Praat vinniger.", "Khuluma ngokushesha.")
+        "pause_listening" -> t("Pause listening.", "Pauzeer luister.", "Misa ukulalela.")
+        "resume_listening" -> t("Resume listening.", "Hervat luister.", "Qhubeka ukulalela.")
+        "open_menu" -> t("Open the menu.", "Open die kieslys.", "Vula imenyu.")
+        "reset_sequence" -> t("Reset my input.", "Herstel my invoer.", "Setha kabusha okokufaka kwami.")
+        "help" -> t("Show help.", "Wys hulp.", "Bonisa usizo.")
+        else -> labelKey
+    }
+
+    fun guidedSystemLabelEnglish(labelKey: String): String? {
+        if (language == PreferredLanguage.English) return null
+        return when (labelKey) {
+            "repeat_last" -> "Repeat the last message."
+            "increase_volume" -> "Increase the speaking volume."
+            "decrease_volume" -> "Decrease the speaking volume."
+            "slower_speech" -> "Speak more slowly."
+            "faster_speech" -> "Speak faster."
+            "pause_listening" -> "Pause listening."
+            "resume_listening" -> "Resume listening."
+            "open_menu" -> "Open the menu."
+            "reset_sequence" -> "Reset my input."
+            "help" -> "Show help."
+            else -> null
+        }
+    }
+
     val waiting: String get() = t("WAITING...", "WAG...", "IYALINDA...")
     val continueYourSequence: String get() = t(
         "You can continue",

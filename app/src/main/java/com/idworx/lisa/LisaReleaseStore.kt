@@ -56,6 +56,13 @@ class LisaReleaseStore(context: Context) {
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
     }
 
+    fun isWorkspaceEntryIntroCompleted(): Boolean =
+        prefs.getBoolean(KEY_WORKSPACE_ENTRY_INTRO, false)
+
+    fun setWorkspaceEntryIntroCompleted(completed: Boolean = true) {
+        prefs.edit().putBoolean(KEY_WORKSPACE_ENTRY_INTRO, completed).apply()
+    }
+
     fun wasCameraPermissionRequested(): Boolean =
         prefs.getBoolean(KEY_CAMERA_REQUESTED_ONCE, false)
 
@@ -113,6 +120,7 @@ class LisaReleaseStore(context: Context) {
 
     companion object {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+        private const val KEY_WORKSPACE_ENTRY_INTRO = "workspace_entry_intro_completed"
         private const val KEY_CAMERA_REQUESTED_ONCE = "camera_requested_once"
         private const val KEY_TESTING_CHECKLIST = "testing_checklist"
         private const val KEY_FEEDBACK_JSON = "feedback_json"

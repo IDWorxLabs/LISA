@@ -33,6 +33,38 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.idworx.lisa.ui.theme.LISATheme
+import com.idworx.lisa.features.onboardingguide.audio.OnboardingNarrationController
+import com.idworx.lisa.features.onboardingguide.model.NavigationAction
+import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
+import com.idworx.lisa.features.onboardingguide.navigation.NavigationTrainingGestureHandler
+import com.idworx.lisa.features.onboardingguide.services.TrainingProgressStore
+import com.idworx.lisa.features.onboardingguide.services.TrainingSessionController
+import com.idworx.lisa.features.experiencepolish.communicationworkspace.CommunicationWorkspaceEntryHandler
+import com.idworx.lisa.features.experiencepolish.emotionalpresence.EmotionalPresenceEngine
+import com.idworx.lisa.features.experiencepolish.emotionalpresence.model.PresenceSessionTracker
+import com.idworx.lisa.features.experiencepolish.caregiverconfidence.CaregiverConfidenceEngine
+import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
+import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
+import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics
+import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionProcessor
+import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
+import com.idworx.lisa.features.blinkdetectionreliability.BlinkEyeProbabilities
+import com.idworx.lisa.features.calibrationreliability.model.CalibrationHealthState
+import com.idworx.lisa.features.companionmemory.engine.CompanionMemoryEngines
+import com.idworx.lisa.features.companionmemory.integration.PersonalityMemoryAdapter
+import com.idworx.lisa.features.companionmemory.integration.PracticeMemoryAdapter
+import com.idworx.lisa.features.personality.model.AppFeature
+import com.idworx.lisa.features.personality.model.DialogueContext
+import com.idworx.lisa.features.personality.model.PresenceMoment
+import com.idworx.lisa.features.corecommunicationreliability.engine.CommunicationReliabilityContext
+import com.idworx.lisa.features.corecommunicationreliability.engine.CoreCommunicationReliabilityEngines
+import com.idworx.lisa.features.calibrationreliability.engine.CalibrationReliabilityEngines
+import com.idworx.lisa.features.communicationanalytics.integration.CommunicationAnalyticsBridge
+import com.idworx.lisa.features.corecommunicationreliability.model.CommunicationMode
+import com.idworx.lisa.features.corecommunicationreliability.model.CommunicationReliabilityOutcome
+import com.idworx.lisa.features.corecommunicationreliability.model.PhraseReliabilityAction
+import com.idworx.lisa.features.onboardingguide.state.GuidedTrainingUiState
+import com.idworx.lisa.features.onboardingguide.state.TrainingEvent
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
@@ -45,8 +77,6 @@ import kotlin.math.abs
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     companion object {
-        private const val WINK_COOLDOWN_MS = 900L
-        private const val EYE_PROB_JUMP_THRESHOLD = 0.28f
         private const val COUNTDOWN_TICK_MS = 1000L
         private const val NO_PHRASE_MATCHED_DISPLAY_MS = 1800L
     }
@@ -55,23 +85,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var sequenceIdleTimeoutMs = SEQUENCE_IDLE_TIMEOUT_MS
     private var sequenceMaxWindowMs = ResponseSpeed.default.maxSequenceWindowMs()
 
-    private data class SensitivitySettings(
-        val closedEyeThreshold: Float,
-        val openEyeThreshold: Float,
-        val requiredWinkFrames: Int
-    )
+    private val sensitivityPresets = (MIN_SENSITIVITY_LEVEL..MAX_SENSITIVITY_LEVEL).associateWith { level ->
+        BlinkDetectionTuning.forSensitivityLevel(level)
+    }
 
-    private val sensitivityPresets = mapOf(
-        1 to SensitivitySettings(0.15f, 0.85f, 5),
-        2 to SensitivitySettings(0.20f, 0.80f, 4),
-        3 to SensitivitySettings(0.25f, 0.75f, 3),
-        4 to SensitivitySettings(0.32f, 0.68f, 2),
-        5 to SensitivitySettings(0.40f, 0.60f, 1)
-    )
+    private fun sensitivitySettingsForLevel(level: Int): BlinkDetectionTuning =
+        sensitivityPresets.getValue(level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL))
 
-    private var closedEyeThreshold = sensitivityPresets.getValue(DEFAULT_SENSITIVITY_LEVEL).closedEyeThreshold
-    private var openEyeThreshold = sensitivityPresets.getValue(DEFAULT_SENSITIVITY_LEVEL).openEyeThreshold
-    private var requiredWinkFrames = sensitivityPresets.getValue(DEFAULT_SENSITIVITY_LEVEL).requiredWinkFrames
+    private val blinkProcessor = BlinkDetectionProcessor(BlinkDetectionTuning.default)
+
+    private var closedEyeThreshold = BlinkDetectionTuning.default.closedEyeThreshold
+    private var openEyeThreshold = BlinkDetectionTuning.default.openEyeThreshold
+    private var requiredWinkFrames = BlinkDetectionTuning.default.requiredWinkFrames
 
     private var tts: TextToSpeech? = null
     private lateinit var cameraExecutor: ExecutorService
@@ -92,17 +117,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var lastWinkTimeMs = 0L
     private var sequenceStartMs = 0L
 
-    private var leftWinkFrameStreak = 0
-    private var rightWinkFrameStreak = 0
-    private var leftWinkGestureCounted = false
-    private var rightWinkGestureCounted = false
-    private var lastLeftWinkCountedMs = 0L
-    private var lastRightWinkCountedMs = 0L
-
-    private var prevLeftProb: Float? = null
-    private var prevRightProb: Float? = null
-    private var wasLeftWinkCandidate = false
-    private var wasRightWinkCandidate = false
+    private val uiBlinkDiagnostics = mutableStateOf(BlinkDetectionDiagnostics())
 
     private var pendingPhrase: String? = null
     private var countdownActive = false
@@ -110,6 +125,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var countdownRightHandled = false
     private var savedSequenceLeft = 0
     private var savedSequenceRight = 0
+    private val winkSideOrder = mutableListOf<Boolean>()
+    private var workspaceIntroLines: List<String> = emptyList()
+    private var workspaceIntroIndex: Int = 0
+    private var presenceTracker = PresenceSessionTracker()
+    private var pausedAtMs = 0L
+    private val uiCaregiverSupport = mutableStateOf<CaregiverSupportUiState?>(null)
+    private var lastReliabilityAttemptId: String? = null
+    private var lastReliabilityPhraseId: String? = null
+
+    private val communicationReliability = CoreCommunicationReliabilityEngines.default
+    private val calibrationReliability = CalibrationReliabilityEngines.default
 
     // Face detector (FAST + eye open probabilities)
     private val detector by lazy {
@@ -125,6 +151,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     // UI states (Compose)
     private val uiCommunicationState = mutableStateOf<LisaCommunicationState>(LisaCommunicationState.WaitingForFace)
     private val uiFacePresent = mutableStateOf(false)
+    private val uiEyesDetected = mutableStateOf(false)
     private val uiEmergencyActive = mutableStateOf(false)
     private val uiLastSpoken = mutableStateOf("")
     private val uiDiagLeftEye = mutableStateOf("--")
@@ -139,6 +166,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
+    private val uiAcceptedBlinkFlash = mutableStateOf<String?>(null)
     private val uiProfiles = mutableStateListOf<LisaUserProfile>()
     private val uiActiveProfileId = mutableStateOf("")
     private val uiTextSizeScale = mutableStateOf(1.0f)
@@ -159,7 +187,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiPracticeModeOpen = mutableStateOf(false)
     private val uiPracticeItemIndex = mutableStateOf(0)
     private val uiPracticeFeedback = mutableStateOf<PracticeFeedback?>(null)
+    private val uiGuidedNavigationState = mutableStateOf(GuidedNavigationState())
+    private val uiSequenceProcessingDelaySec = mutableStateOf(SequenceProcessingDelay.DEFAULT_SECONDS)
+    private val uiGuidedConfirmedPhrase = mutableStateOf<String?>(null)
+    private val uiGuidedConfirmedLeft = mutableStateOf<Int?>(null)
+    private val uiGuidedConfirmedRight = mutableStateOf<Int?>(null)
     private val uiListeningPaused = mutableStateOf(false)
+
+    private lateinit var trainingProgressStore: TrainingProgressStore
+    private lateinit var trainingSession: TrainingSessionController
+    private var trainingNarration: OnboardingNarrationController? = null
+    private val uiGuidedTrainingState = mutableStateOf(GuidedTrainingUiState())
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
@@ -201,7 +239,37 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         refreshCaregiversForActiveProfile()
 
         releaseStore = LisaReleaseStore(this)
-        uiOnboardingCompleted.value = releaseStore.isOnboardingCompleted()
+        trainingProgressStore = TrainingProgressStore(this)
+        CompanionMemoryEngines.init(this)
+        CommunicationAnalyticsBridge.attach()
+        CompanionMemoryEngines.default.startSession()
+        trainingNarration = OnboardingNarrationController(
+            ttsProvider = { tts },
+            preferencesProvider = { uiGuidedTrainingState.value.progress.preferences },
+            onSpeakingChanged = { speaking ->
+                uiGuidedTrainingState.value = uiGuidedTrainingState.value.copy(narrationSpeaking = speaking)
+            }
+        )
+        trainingSession = TrainingSessionController(
+            store = trainingProgressStore,
+            narration = trainingNarration!!,
+            speakPhrase = { text -> speakTranslatedPhrase(text) },
+            onPersist = { state -> uiGuidedTrainingState.value = state },
+            onTrainingFinished = { refreshTrainingActiveState() },
+            onCompleteSetupOnboarding = { completeOnboarding() }
+        )
+        trainingNarration!!.onSequenceComplete = {
+            runOnUiThread { trainingSession.onNarrationSequenceComplete() }
+        }
+        trainingSession.attachDelayedHandler { delayMs, block ->
+            mainHandler.postDelayed({ block() }, delayMs)
+        }
+        trainingSession.onEmergencyConfirmed = { startEmergencyMode() }
+        trainingSession.onRecalibrationConfirmed = {
+            trainingSession.startRecalibrationFlow()
+            refreshTrainingActiveState()
+        }
+        applyColdLaunchSessionState()
         uiTestingChecklist.value = releaseStore.loadChecklist()
         uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
         refreshCameraPermissionState()
@@ -226,9 +294,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         activePanel = uiActivePanel.value,
                         lastSpoken = uiLastSpoken.value,
                         countdownActive = countdownActive,
-                        sensitivityLevel = uiSensitivityLevel.value,
+                        sensitivityLevel = uiGuidedNavigationState.value.displaySensitivityLevel(uiSensitivityLevel.value),
+                        responseTimeSec = uiGuidedNavigationState.value.displayResponseTimeSec(uiSequenceProcessingDelaySec.value),
                         settingsState = uiSettingsState.value.copy(
                             sensitivityLevel = uiSensitivityLevel.value,
+                            sequenceProcessingDelaySec = uiSequenceProcessingDelaySec.value,
                             developerMode = uiDeveloperMode.value
                         ),
                         textSizeScale = uiTextSizeScale.value,
@@ -330,6 +400,77 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onQuickControlsTogglePause = { toggleListeningPaused() },
                         onQuickControlsOpenPractice = { openPracticeMode() },
                         onPracticeClose = { closePracticeMode() },
+                        guidedNavigationState = uiGuidedNavigationState.value,
+                        guidedCategoryPage = guidedCurrentCategoryPage(),
+                        guidedCategoryMenuTitles = GuidedVocabularyCatalog.categoryMenuTitles(guidedUiStrings()),
+                        guidedConfirmedPhrase = uiGuidedConfirmedPhrase.value,
+                        guidedConfirmedLeft = uiGuidedConfirmedLeft.value,
+                        guidedConfirmedRight = uiGuidedConfirmedRight.value,
+                        onGuidedNavigateUp = { applyGuidedTouchNavigation(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT) },
+                        onGuidedSelectEnter = { applyGuidedTouchNavigation(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT) },
+                        onGuidedBack = { applyGuidedTouchNavigation(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT) },
+                        onGuidedNavigateDown = { applyGuidedTouchNavigation(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT) },
+                        onGuidedEmergency = { triggerGuidedEmergencyTouch() },
+                        onGuidedCategories = { applyGuidedTouchNavigation(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT) },
+                        onGuidedDecreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT) },
+                        onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
+                        onGuidedChooseCategory = { applyGuidedTouchNavigation(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT) },
+                        onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
+                        onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
+                        guidedTrainingActive = trainingSession.shouldShowTraining(),
+                        guidedTrainingState = uiGuidedTrainingState.value,
+                        guidedTrainingSetupStep = uiGuidedTrainingState.value.setupStep,
+                        guidedTrainingReturningUser = trainingSession.isReturningUser(),
+                        trainingEyeTracking = trainingEyeTrackingState(),
+                        trainingBlinkDiagnostics = uiBlinkDiagnostics.value,
+                        showBlinkDiagnostics = uiDeveloperMode.value,
+                        caregiverSupport = uiCaregiverSupport.value,
+                        onTrainingEvent = { event -> handleTrainingEvent(event) },
+                        onTrainingWelcomeNarration = { trainingSession.welcomeNarration() },
+                        onTrainingFirstLaunchNarration = { trainingSession.firstLaunchChoiceNarration() },
+                        onTrainingSkipConfirmNarration = { trainingSession.skipConfirmNarration() },
+                        onTrainingCompletionNarration = { trainingSession.completionNarration() },
+                        onTrainingLessonNarration = { phrase, instruction ->
+                            trainingSession.coachBeginLesson(phrase, instruction)
+                        },
+                        onTrainingNavigationNarration = { title, instruction ->
+                            trainingSession.navigationNarration(title, instruction)
+                        },
+                        onTrainingSetupStepChange = { step ->
+                            trainingSession.setSetupStep(step)
+                            refreshTrainingActiveState()
+                        },
+                        onTrainingCalibrationStarted = { trainingSession.startCalibrationIfNeeded() },
+                        onTrainingAdvanceCalibrationDot = { trainingSession.advanceCalibrationDot() },
+                        onTrainingTouchLeftWink = { simulateTrainingWink(isLeft = true) },
+                        onTrainingTouchRightWink = { simulateTrainingWink(isLeft = false) },
+                        onTrainingReduceSensitivity = { changeSensitivity(-1) },
+                        onTrainingIncreaseSensitivity = { changeSensitivity(1) },
+                        guidedTrainingSensitivityLevel = uiSensitivityLevel.value,
+                        onTrainingReplayTutorial = {
+                            closeAllPanels()
+                            trainingSession.beginAwaitingBrain1Decision(
+                                com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ReplayLearning
+                            )
+                            refreshTrainingActiveState()
+                        },
+                        onTrainingPracticeCommunication = {
+                            closeAllPanels()
+                            handleTrainingEvent(TrainingEvent.PracticeCommunication)
+                        },
+                        onTrainingPracticeNavigation = {
+                            closeAllPanels()
+                            handleTrainingEvent(TrainingEvent.PracticeNavigation)
+                        },
+                        onTrainingResetProgress = {
+                            trainingSession.beginAwaitingBrain1Decision(
+                                com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ResetLearningProgress
+                            )
+                            refreshTrainingActiveState()
+                        },
+                        onTrainingPreferencesChange = { prefs ->
+                            trainingSession.updatePreferences { prefs }
+                        },
                         cameraView = {
                             CameraPreview(
                                 onFrame = { imageProxy -> processFrame(imageProxy) }
@@ -341,15 +482,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        pausedAtMs = System.currentTimeMillis()
+    }
+
     override fun onResume() {
         super.onResume()
         refreshCameraPermissionState()
         activeProfile()?.let { applyTtsForProfile(it) }
         refreshVoiceSettingsState()
+        maybeSpeakWarmReturnAfterBackground()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        CompanionMemoryEngines.default.endSession()
         mainHandler.removeCallbacksAndMessages(null)
         emergencyAlarmController.stop()
         cameraExecutor.shutdown()
@@ -363,9 +511,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 ?: applyTtsForLanguage(uiActiveLanguage.value)
             refreshVoiceSettingsState()
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
+                override fun onStart(utteranceId: String?) {
+                    trainingNarration?.handleUtteranceStart(utteranceId)
+                }
 
                 override fun onDone(utteranceId: String?) {
+                    if (OnboardingNarrationController.isNarrationUtterance(utteranceId)) {
+                        trainingNarration?.handleUtteranceDone(utteranceId)
+                        return
+                    }
                     if (utteranceId == "LISA_SPEAK") {
                         runOnUiThread { onSpeechFinished() }
                     }
@@ -373,6 +527,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
+                    if (OnboardingNarrationController.isNarrationUtterance(utteranceId)) {
+                        trainingNarration?.handleUtteranceDone(utteranceId)
+                        return
+                    }
                     if (utteranceId == "LISA_SPEAK") {
                         runOnUiThread { onSpeechFinished() }
                     }
@@ -381,12 +539,27 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun speak(text: String) {
+    private fun speakTranslatedPhrase(text: String) {
+        if (!LisaSpeechPolicy.allowsPhraseTranslation()) return
         val params = Bundle()
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_SPEAK")
     }
 
+    private fun speakNarration(text: String) {
+        if (!LisaSpeechPolicy.allowsNarration()) return
+        val params = Bundle()
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_NARRATION")
+    }
+
+    private fun speak(text: String) = speakTranslatedPhrase(text)
+
     private fun onSpeechFinished() {
+        if (trainingSession.hasPendingInteractiveLessonSuccess()) {
+            trainingSession.completePendingInteractiveLessonSuccess()
+            refreshTrainingActiveState()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
         if (emergencyActive) return
         setCommunicationState(LisaCommunicationState.MessageDelivered)
         mainHandler.postDelayed({ updateReadyOrWaitingState() }, 1800L)
@@ -461,11 +634,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun speakPendingPhraseAndFinish() {
         val phrase = pendingPhrase ?: return
+        val seqLeft = savedSequenceLeft
+        val seqRight = savedSequenceRight
         clearCountdown()
         resetSequence()
         uiLastSpoken.value = phrase
         setCommunicationState(LisaCommunicationState.Speaking(phrase))
+        communicationReliability.speechAdapter().onSpeechRequested(
+            phraseText = phrase,
+            phraseId = lastReliabilityPhraseId,
+            ttsAvailable = tts != null
+        )
         speak(phrase)
+        communicationReliability.recordSpeechDelivery(
+            attemptId = lastReliabilityAttemptId ?: "unknown",
+            phraseText = phrase,
+            phraseId = lastReliabilityPhraseId,
+            sequenceLeft = seqLeft,
+            sequenceRight = seqRight,
+            mode = CommunicationMode.MAIN,
+            emergency = false,
+            success = true
+        )
     }
 
     private fun cancelCountdown() {
@@ -495,10 +685,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             uiDiagRightCount.value = restoreRight
             lastWinkTimeMs = System.currentTimeMillis()
             sequenceStartMs = System.currentTimeMillis()
-            leftWinkFrameStreak = 0
-            rightWinkFrameStreak = 0
-            leftWinkGestureCounted = false
-            rightWinkGestureCounted = false
+            blinkProcessor.resetGestureFlags()
             setCommunicationState(LisaCommunicationState.WaitingForNextWink)
         } else {
             savedSequenceLeft = 0
@@ -520,7 +707,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         mainHandler.postDelayed(sequenceStateRunnable, 400L)
     }
 
+    private fun currentBlinkOrder(): List<Boolean> = winkSideOrder.toList()
+
+    private fun recordWinkSide(isLeft: Boolean) {
+        winkSideOrder.add(isLeft)
+    }
+
     private fun onWinkCounted(isLeft: Boolean) {
+        recordWinkSide(isLeft)
         lastWinkTimeMs = System.currentTimeMillis()
         val totalBefore = leftWinks + rightWinks - 1
         if (totalBefore == 0) {
@@ -532,34 +726,65 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (isLeft) LisaCommunicationState.LeftWinkDetected
             else LisaCommunicationState.RightWinkDetected
         )
+        if (trainingSession.isCommunicationLessonPhase()) {
+            if (trainingSession.onLessonWink(isLeft, leftWinks, rightWinks, currentBlinkOrder())) {
+                resetSequence()
+                refreshTrainingActiveState()
+                return
+            }
+            refreshTrainingActiveState()
+        } else if (trainingSession.shouldShowTraining()) {
+            trainingSession.updateWinkDots(leftWinks, rightWinks)
+        }
         scheduleSequenceStateUpdate()
     }
 
     private fun openPanel(panel: LisaPanel) {
         uiActivePanel.value = panel
+        when (panel) {
+            LisaPanel.Menu -> verifyTrainingNavigation(NavigationAction.OpenMenu)
+            LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
+            LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
+            LisaPanel.CaregiverLinking -> verifyTrainingNavigation(NavigationAction.OpenCaregiver)
+            else -> Unit
+        }
         if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
             refreshVoiceSettingsState()
         }
     }
 
     private fun closeAllPanels() {
+        if (uiActivePanel.value != LisaPanel.None) {
+            verifyTrainingNavigation(NavigationAction.CloseMenu)
+        }
         uiActivePanel.value = LisaPanel.None
     }
 
     private fun toggleMenuPanel() {
+        val wasMenu = uiActivePanel.value == LisaPanel.Menu
         uiActivePanel.value = when (uiActivePanel.value) {
             LisaPanel.Menu -> LisaPanel.None
             else -> LisaPanel.Menu
         }
+        if (wasMenu) {
+            verifyTrainingNavigation(NavigationAction.CloseMenu)
+        } else {
+            verifyTrainingNavigation(NavigationAction.OpenMenu)
+        }
     }
 
     private fun performReset() {
+        verifyTrainingNavigation(NavigationAction.ResetSequence)
         emergencyAlarmController.stop()
         emergencyActive = false
         uiEmergencyActive.value = false
         uiEmergencyNotifyNames.value = emptyList()
         closeQuickControls()
         closePracticeMode()
+        uiGuidedNavigationState.value = GuidedNavigationState()
+        uiGuidedConfirmedPhrase.value = null
+        uiGuidedConfirmedLeft.value = null
+        uiGuidedConfirmedRight.value = null
         tts?.stop()
         clearCountdown()
         savedSequenceLeft = 0
@@ -603,6 +828,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
         } else if (granted) {
             uiCameraPermissionPermanentlyDenied.value = false
+            maybePlayWorkspaceEntryIntro()
         }
     }
 
@@ -619,10 +845,233 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
     }
 
+    private fun trainingEyeTrackingState(): com.idworx.lisa.features.onboardingguide.ui.TrainingEyeTrackingState {
+        val interaction = uiGuidedTrainingState.value.lessonInteraction
+        return com.idworx.lisa.features.onboardingguide.ui.TrainingEyeTrackingState(
+            cameraActive = uiCameraPermissionGranted.value,
+            faceDetected = uiFacePresent.value,
+            eyesDetected = uiEyesDetected.value,
+            leftBlinkCount = maxOf(leftWinks, interaction.liveLeftBlinks),
+            rightBlinkCount = maxOf(rightWinks, interaction.liveRightBlinks),
+            acceptedBlinkLabel = uiAcceptedBlinkFlash.value
+        )
+    }
+
+    private val clearAcceptedBlinkRunnable = Runnable {
+        uiAcceptedBlinkFlash.value = null
+    }
+
+    private fun flashAcceptedBlink(isLeft: Boolean) {
+        uiAcceptedBlinkFlash.value = if (isLeft) "Left blink accepted" else "Right blink accepted"
+        mainHandler.removeCallbacks(clearAcceptedBlinkRunnable)
+        mainHandler.postDelayed(clearAcceptedBlinkRunnable, 900L)
+    }
+
+    private fun applyColdLaunchSessionState() {
+        uiOnboardingCompleted.value = false
+        uiGuidedNavigationState.value = GuidedNavigationState()
+        uiQuickControlsOpen.value = false
+        uiPracticeModeOpen.value = false
+        uiGuidedConfirmedPhrase.value = null
+        uiGuidedConfirmedLeft.value = null
+        uiGuidedConfirmedRight.value = null
+        uiListeningPaused.value = false
+        resetSequence()
+        closeAllPanels()
+        uiGuidedTrainingState.value = trainingSession.state
+    }
+
     private fun completeOnboarding() {
         releaseStore.setOnboardingCompleted(true)
         uiOnboardingCompleted.value = true
         refreshCameraPermissionState()
+        maybePlayWorkspaceEntryIntro()
+    }
+
+    private fun refreshCaregiverSupport() {
+        if (trainingSession.shouldShowTraining() || emergencyActive) {
+            uiCaregiverSupport.value = null
+            return
+        }
+        val health = calibrationReliability.currentHealth()
+        val facePresent = uiFacePresent.value
+        if (facePresent && health == CalibrationHealthState.Healthy) {
+            uiCaregiverSupport.value = null
+            return
+        }
+        uiCaregiverSupport.value = CaregiverConfidenceEngine.communicationSupport(
+            facePresent = facePresent,
+            calibrationHealth = health
+        )
+    }
+
+    private fun maybePlayWorkspaceEntryIntro() {
+        if (!LisaSpeechPolicy.allowsNarration()) {
+            if (CommunicationWorkspaceEntryHandler.shouldPlayEntryIntro(
+                    releaseStore,
+                    uiOnboardingCompleted.value,
+                    uiCameraPermissionGranted.value
+                )
+            ) {
+                CommunicationWorkspaceEntryHandler.markEntryIntroComplete(releaseStore)
+            }
+            return
+        }
+        if (!CommunicationWorkspaceEntryHandler.shouldPlayEntryIntro(
+                releaseStore,
+                uiOnboardingCompleted.value,
+                uiCameraPermissionGranted.value
+            )
+        ) {
+            return
+        }
+        CommunicationWorkspaceEntryHandler.markEntryIntroComplete(releaseStore)
+        val presenceLines = sessionStartPresenceLines()
+        workspaceIntroLines = presenceLines + CommunicationWorkspaceEntryHandler.entryDialogues()
+        workspaceIntroIndex = 0
+        speakNextWorkspaceIntroLine()
+    }
+
+    private fun sessionStartPresenceLines(): List<String> {
+        val ctx = presenceDialogueContext()
+        val moment = if (ctx.returningUser || ctx.daysSinceLastSession > 0) {
+            PresenceMoment.WarmReturnGreeting
+        } else {
+            PresenceMoment.SessionOpening
+        }
+        if (!EmotionalPresenceEngine.shouldSpeak(moment, ctx, presenceTracker)) return emptyList()
+        val lines = EmotionalPresenceEngine.dialogueTexts(ctx, moment)
+        if (lines.isEmpty()) return emptyList()
+        presenceTracker = EmotionalPresenceEngine.recordSpoken(presenceTracker, moment)
+        return lines
+    }
+
+    private fun presenceDialogueContext(idleDurationMs: Long = 0L): DialogueContext =
+        PersonalityMemoryAdapter.enrichDialogueContext(
+            DialogueContext(
+                feature = AppFeature.Communication,
+                locale = "en",
+                idleDurationMs = idleDurationMs
+            ),
+            CompanionMemoryEngines.default.getGreetingContext()
+        )
+
+    private fun maybeSpeakWarmReturnAfterBackground() {
+        if (pausedAtMs == 0L) return
+        val awayMs = System.currentTimeMillis() - pausedAtMs
+        pausedAtMs = 0L
+        if (awayMs < 60_000L) return
+        if (trainingSession.shouldShowTraining()) return
+        if (countdownActive || emergencyActive) return
+        val ctx = presenceDialogueContext()
+        if (!EmotionalPresenceEngine.shouldSpeak(PresenceMoment.WarmReturnGreeting, ctx, presenceTracker)) return
+        val lines = EmotionalPresenceEngine.dialogueTexts(ctx, PresenceMoment.WarmReturnGreeting)
+        if (lines.isEmpty()) return
+        speakNarration(lines.first())
+        presenceTracker = EmotionalPresenceEngine.recordSpoken(presenceTracker, PresenceMoment.WarmReturnGreeting)
+    }
+
+    private fun maybeSpeakLongPauseEncouragement(idleMs: Long) {
+        if (uiCommunicationState.value != LisaCommunicationState.WaitingForNextWink) return
+        if (leftWinks == 0 && rightWinks == 0) return
+        if (trainingSession.shouldShowTraining() || countdownActive || emergencyActive) return
+        val ctx = presenceDialogueContext(idleDurationMs = idleMs)
+        if (!EmotionalPresenceEngine.shouldSpeak(PresenceMoment.LongPauseEncouragement, ctx, presenceTracker)) return
+        val lines = EmotionalPresenceEngine.dialogueTexts(ctx, PresenceMoment.LongPauseEncouragement)
+        if (lines.isEmpty()) return
+        speakNarration(lines.first())
+        presenceTracker = EmotionalPresenceEngine.recordSpoken(presenceTracker, PresenceMoment.LongPauseEncouragement)
+    }
+
+    private fun speakNextWorkspaceIntroLine() {
+        if (workspaceIntroIndex >= workspaceIntroLines.size) return
+        speakNarration(workspaceIntroLines[workspaceIntroIndex++])
+        if (workspaceIntroIndex < workspaceIntroLines.size) {
+            mainHandler.postDelayed({ speakNextWorkspaceIntroLine() }, 3200L)
+        }
+    }
+
+    private fun refreshTrainingActiveState() {
+        uiGuidedTrainingState.value = trainingSession.state
+    }
+
+    private fun handleTrainingEvent(event: TrainingEvent) {
+        trainingSession.dispatch(event)
+        refreshTrainingActiveState()
+    }
+
+    private fun simulateTrainingWink(isLeft: Boolean) {
+        if (isLeft) {
+            leftWinks = (leftWinks + 1).coerceAtMost(7)
+        } else {
+            rightWinks = (rightWinks + 1).coerceAtMost(7)
+        }
+        uiDiagLeftCount.value = leftWinks
+        uiDiagRightCount.value = rightWinks
+        trainingSession.updateWinkDots(leftWinks, rightWinks)
+        if (isSequenceEligibleForSpeech(leftWinks, rightWinks)) {
+            recordWinkSide(isLeft)
+            handleTrainingSequence(leftWinks, rightWinks)
+            resetSequence()
+        }
+    }
+
+    private fun handleTrainingSequence(left: Int, right: Int) {
+        val order = currentBlinkOrder()
+        if (trainingSession.handleBrain1Interaction(left, right, order)) {
+            refreshTrainingActiveState()
+            return
+        }
+        if (trainingSession.isNavigationTrainingActive()) {
+            handleNavigationTrainingSequence(left, right)
+            refreshTrainingActiveState()
+            return
+        }
+        trainingSession.handleSequence(left, right, activeLanguage(), order)
+        refreshTrainingActiveState()
+    }
+
+    private fun handleNavigationTrainingSequence(left: Int, right: Int) {
+        when {
+            isEmergencySequence(left, right) -> {
+                trainingSession.beginEmergencyConfirm()
+            }
+            NavigationTrainingGestureHandler.opensCategories(left, right) -> {
+                if (guidedOverlayActive()) {
+                    applyGuidedTouchNavigation(left, right)
+                } else {
+                    uiGuidedNavigationState.value = GuidedNavigationController.openCategoryMenu(
+                        uiGuidedNavigationState.value
+                    )
+                    verifyTrainingNavigation(NavigationAction.OpenCategories)
+                }
+            }
+            guidedOverlayActive() && GuidedModeNavigation.isGlobalNavigationSequence(left, right) -> {
+                handleGuidedOverlaySequence(left, right)
+                when {
+                    GuidedModeNavigation.isSelectSequence(left, right) ->
+                        verifyTrainingNavigation(NavigationAction.SelectCategory)
+                    GuidedModeNavigation.isBackSequence(left, right) ->
+                        verifyTrainingNavigation(NavigationAction.CloseMenu)
+                }
+            }
+            GuidedModeNavigation.isSelectSequence(left, right) ->
+                verifyTrainingNavigation(NavigationAction.SelectCategory)
+            GuidedModeNavigation.isBackSequence(left, right) ->
+                verifyTrainingNavigation(NavigationAction.CloseMenu)
+            LisaSystemLanguage.resolveQuickControlCommand(left, right) == SystemCommandAction.RepeatLastPhrase ->
+                executeQuickControlAction(SystemCommandAction.RepeatLastPhrase)
+            LisaSystemLanguage.resolveGlobalCommand(left, right) == SystemCommandAction.OpenQuickControls -> {
+                openQuickControls()
+                verifyTrainingNavigation(NavigationAction.OpenQuickControls)
+            }
+            else -> Unit
+        }
+    }
+
+    private fun verifyTrainingNavigation(action: NavigationAction) {
+        trainingSession.verifyNavigation(action)
+        refreshTrainingActiveState()
     }
 
     private fun saveFeedbackEntry(
@@ -652,11 +1101,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiActiveLanguage.value = profile.preferredLanguage
         applyTtsForProfile(profile)
         refreshVoiceSettingsState()
-        applySensitivityLevel(profile.sensitivityLevel)
+        applySensitivityLevel(profile.sensitivityLevel, persist = false)
         uiDeveloperMode.value = profile.developerMode
         saveDeveloperMode(this, profile.developerMode)
         countdownDurationSec = profile.confirmationCountdownSec
-        applyResponseSpeed(profile.responseSpeed)
+        applySequenceProcessingDelay(profile.sequenceProcessingDelaySec, persist = false)
         uiTextSizeScale.value = profile.textSizeScale
         emergencyAlarmController.setAlarmVolume(profile.emergencyVolume)
         uiSettingsState.value = profile.toSettingsUiState()
@@ -666,16 +1115,41 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyResponseSpeed(speed: ResponseSpeed) {
-        sequenceIdleTimeoutMs = speed.idleTimeoutMs
-        sequenceMaxWindowMs = speed.maxSequenceWindowMs()
+        applySequenceProcessingDelay(speed.toProcessingDelaySeconds(), persist = false)
     }
 
     private fun setResponseSpeed(speed: ResponseSpeed) {
-        updateActiveProfile { it.copy(responseSpeed = speed) }
+        applySequenceProcessingDelay(speed.toProcessingDelaySeconds())
+    }
+
+    private fun applySequenceProcessingDelay(seconds: Int, persist: Boolean = true) {
+        val sec = SequenceProcessingDelay.coerce(seconds)
+        sequenceIdleTimeoutMs = SequenceProcessingDelay.toMillis(sec)
+        sequenceMaxWindowMs = ResponseSpeed.fromProcessingDelaySeconds(sec).maxSequenceWindowMs()
+        uiSequenceProcessingDelaySec.value = sec
+        uiSettingsState.value = uiSettingsState.value.copy(
+            sequenceProcessingDelaySec = sec,
+            sequenceIdleTimeoutSec = sec.toFloat(),
+            responseSpeed = ResponseSpeed.fromProcessingDelaySeconds(sec)
+        )
+        if (persist) {
+            updateActiveProfile {
+                it.copy(
+                    sequenceProcessingDelaySec = sec,
+                    responseSpeed = ResponseSpeed.fromProcessingDelaySeconds(sec),
+                    sequenceTimeoutSec = sec.toFloat()
+                )
+            }
+        }
+    }
+
+    private fun setSequenceProcessingDelay(seconds: Int) {
+        applySequenceProcessingDelay(seconds)
     }
 
     private fun openQuickControls() {
         uiQuickControlsOpen.value = true
+        verifyTrainingNavigation(NavigationAction.OpenQuickControls)
     }
 
     private fun closeQuickControls() {
@@ -687,11 +1161,243 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiPracticeModeOpen.value = true
         uiPracticeItemIndex.value = 0
         uiPracticeFeedback.value = null
+        PracticeMemoryAdapter.onPracticeSessionStarted(CompanionMemoryEngines.default)
     }
 
     private fun closePracticeMode() {
+        if (uiPracticeModeOpen.value) {
+            PracticeMemoryAdapter.onPracticeSessionEnded(CompanionMemoryEngines.default)
+        }
         uiPracticeModeOpen.value = false
         uiPracticeFeedback.value = null
+    }
+
+    private fun guidedUiStrings(): LisaUiStrings =
+        LisaUiStrings.forLanguage(activeLanguage())
+
+    private fun guidedCatalogContext(): GuidedCatalogContext =
+        GuidedCatalogContext(
+            responseTimeSec = uiSequenceProcessingDelaySec.value,
+            sensitivityLevel = uiSensitivityLevel.value
+        )
+
+    private fun guidedVisibleEntryCap(): Int =
+        GuidedVocabularyCatalog.visibleEntryCount(
+            screenWidthDp = resources.configuration.screenWidthDp,
+            screenHeightDp = resources.configuration.screenHeightDp
+        )
+
+    private fun workspaceContinuationMappings(): List<WinkMapping> =
+        WorkspacePhraseResolver.continuationMappings(
+            state = uiGuidedNavigationState.value,
+            language = activeLanguage(),
+            uiStrings = guidedUiStrings(),
+            catalogContext = guidedCatalogContext(),
+            visibleEntryCap = guidedVisibleEntryCap()
+        )
+
+    private fun mappingsForSequenceContinuation(): List<WinkMapping> =
+        if (guidedOverlayActive()) workspaceContinuationMappings() else mappingsState.toList()
+
+    private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
+        GuidedVocabularyCatalog.categoryAt(
+            pageIndex = uiGuidedNavigationState.value.categoryIndex,
+            language = activeLanguage(),
+            uiStrings = guidedUiStrings(),
+            catalogContext = guidedCatalogContext()
+        )
+
+    private fun guidedOverlayActive(): Boolean =
+        GuidedVocabularyOverlayVisibility.shouldShowOverlay(
+            onboardingCompleted = uiOnboardingCompleted.value,
+            cameraPermissionGranted = uiCameraPermissionGranted.value,
+            emergencyActive = emergencyActive,
+            practiceModeOpen = uiPracticeModeOpen.value,
+            quickControlsOpen = uiQuickControlsOpen.value
+        )
+
+    private fun applyGuidedTouchNavigation(left: Int, right: Int) {
+        if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
+            verifyTrainingNavigation(NavigationAction.OpenCategories)
+        }
+        handleGuidedOverlaySequence(left, right)
+    }
+
+    private fun openGuidedCategoryFromTouch(categoryIndex: Int) {
+        uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+            uiGuidedNavigationState.value,
+            categoryIndex
+        )
+        verifyTrainingNavigation(NavigationAction.SelectCategory)
+        val uiStrings = guidedUiStrings()
+        uiGuidedConfirmedPhrase.value =
+            GuidedVocabularyCatalog.categoryAt(
+                categoryIndex,
+                activeLanguage(),
+                uiStrings,
+                guidedCatalogContext()
+            )?.title
+        uiGuidedConfirmedLeft.value = GuidedModeNavigation.SELECT_LEFT
+        uiGuidedConfirmedRight.value = GuidedModeNavigation.SELECT_RIGHT
+        setCommunicationState(LisaCommunicationState.Listening)
+        mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+        mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+    }
+
+    private fun triggerGuidedEmergencyTouch() {
+        leftWinks = EMERGENCY_LEFT_WINKS
+        rightWinks = EMERGENCY_RIGHT_WINKS
+        resetSequence()
+        trainingSession.beginEmergencyConfirm()
+        refreshTrainingActiveState()
+    }
+
+    private fun executeGuidedOverlayAction(action: GuidedOverlayAction) {
+        when (action) {
+            GuidedOverlayAction.RepeatLastPhrase -> {
+                val phrase = uiLastSpoken.value
+                if (phrase.isNotBlank()) speak(phrase)
+            }
+            GuidedOverlayAction.DecreaseSensitivity -> changeSensitivity(-1)
+            GuidedOverlayAction.IncreaseSensitivity -> changeSensitivity(1)
+            GuidedOverlayAction.SetSpeedFast -> setResponseSpeed(ResponseSpeed.Fast)
+            GuidedOverlayAction.SetSpeedSlow -> setResponseSpeed(ResponseSpeed.Slow)
+            GuidedOverlayAction.TogglePauseListening -> toggleListeningPaused()
+            GuidedOverlayAction.OpenMenu -> toggleMenuPanel()
+            GuidedOverlayAction.ResetSequence -> {
+                resetSequence()
+                updateReadyOrWaitingState()
+            }
+            GuidedOverlayAction.ShowHelp -> speakNarration(guidedUiStrings().guidedHelpSpoken)
+            GuidedOverlayAction.ShowCurrentResponseTime -> speakNarration(
+                guidedUiStrings().guidedCurrentResponseTime(uiSequenceProcessingDelaySec.value)
+            )
+            GuidedOverlayAction.ShowCurrentSensitivity -> speakNarration(
+                guidedUiStrings().guidedCurrentSensitivity(uiSensitivityLevel.value)
+            )
+            GuidedOverlayAction.OpenAdjustResponseTime,
+            GuidedOverlayAction.OpenAdjustSensitivity -> Unit
+        }
+    }
+
+    private fun executeGuidedPreferenceAction(entry: GuidedVocabularyEntry) {
+        when (entry.guidedAction) {
+            GuidedOverlayAction.ShowCurrentResponseTime -> speakNarration(
+                guidedUiStrings().guidedCurrentResponseTime(uiSequenceProcessingDelaySec.value)
+            )
+            GuidedOverlayAction.ShowCurrentSensitivity -> speakNarration(
+                guidedUiStrings().guidedCurrentSensitivity(uiSensitivityLevel.value)
+            )
+            else -> entry.guidedAction?.let { executeGuidedOverlayAction(it) }
+        }
+    }
+
+    private fun handleGuidedOverlaySequence(left: Int, right: Int) {
+        if (uiListeningPaused.value && !GuidedModeNavigation.isGlobalNavigationSequence(left, right)) {
+            resetSequence()
+            updateReadyOrWaitingState()
+            return
+        }
+
+        val uiStrings = guidedUiStrings()
+        val catalogContext = guidedCatalogContext()
+        val result = GuidedNavigationController.processSequence(
+            left = left,
+            right = right,
+            state = uiGuidedNavigationState.value,
+            language = activeLanguage(),
+            uiStrings = uiStrings,
+            visibleEntryCap = guidedVisibleEntryCap(),
+            catalogContext = catalogContext
+        )
+        resetSequence()
+        applyGuidedSequenceResult(result, left, right, uiStrings)
+    }
+
+    private fun applyGuidedSequenceResult(
+        result: GuidedSequenceResult,
+        left: Int,
+        right: Int,
+        uiStrings: LisaUiStrings
+    ) {
+        when (result) {
+            is GuidedSequenceResult.Navigate -> {
+                uiGuidedNavigationState.value = result.newState
+                when {
+                    GuidedModeNavigation.isSelectSequence(left, right) &&
+                        result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
+                        uiGuidedConfirmedPhrase.value = uiStrings.guidedChooseCategoryAction
+                        uiGuidedConfirmedLeft.value = left
+                        uiGuidedConfirmedRight.value = right
+                        mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                        mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+                    }
+                    GuidedModeNavigation.isSelectSequence(left, right) &&
+                        result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary -> {
+                        uiGuidedConfirmedPhrase.value =
+                            GuidedVocabularyCatalog.categoryAt(
+                                result.newState.categoryIndex,
+                                activeLanguage(),
+                                uiStrings
+                            )?.title
+                        uiGuidedConfirmedLeft.value = left
+                        uiGuidedConfirmedRight.value = right
+                        mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                        mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+                    }
+                    else -> {
+                        uiGuidedConfirmedPhrase.value = null
+                        uiGuidedConfirmedLeft.value = null
+                        uiGuidedConfirmedRight.value = null
+                    }
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            is GuidedSequenceResult.SystemAction -> {
+                result.entry.systemAction?.let { executeQuickControlAction(it) }
+                if (result.entry.guidedAction != null) {
+                    executeGuidedPreferenceAction(result.entry)
+                }
+                uiGuidedConfirmedPhrase.value = result.entry.phrase
+                uiGuidedConfirmedLeft.value = result.entry.left
+                uiGuidedConfirmedRight.value = result.entry.right
+                setCommunicationState(LisaCommunicationState.Listening)
+                mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                mainHandler.postDelayed(guidedConfirmationClearRunnable, 2000L)
+            }
+            is GuidedSequenceResult.Speak -> {
+                val phrase = result.entry.phrase
+                uiLastSpoken.value = phrase
+                uiGuidedConfirmedPhrase.value = phrase
+                uiGuidedConfirmedLeft.value = result.entry.left
+                uiGuidedConfirmedRight.value = result.entry.right
+                setCommunicationState(LisaCommunicationState.Speaking(phrase))
+                speak(phrase)
+                mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                mainHandler.postDelayed(guidedConfirmationClearRunnable, 2500L)
+            }
+            is GuidedSequenceResult.SavePreferencesAdjustment -> {
+                uiGuidedNavigationState.value = result.newState
+                result.responseTimeSec?.let { setSequenceProcessingDelay(it) }
+                result.sensitivityLevel?.let { applySensitivityLevel(it) }
+                uiGuidedConfirmedPhrase.value = uiStrings.guidedActionConfirmed
+                uiGuidedConfirmedLeft.value = GuidedModeNavigation.SELECT_LEFT
+                uiGuidedConfirmedRight.value = GuidedModeNavigation.SELECT_RIGHT
+                setCommunicationState(LisaCommunicationState.Listening)
+                mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+            }
+            GuidedSequenceResult.Unmatched -> {
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+        }
+    }
+
+    private val guidedConfirmationClearRunnable = Runnable {
+        uiGuidedConfirmedPhrase.value = null
+        uiGuidedConfirmedLeft.value = null
+        uiGuidedConfirmedRight.value = null
+        updateReadyOrWaitingState()
     }
 
     private fun toggleListeningPaused() {
@@ -709,6 +1415,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             SystemCommandAction.DecreaseSensitivity -> changeSensitivity(-1)
             SystemCommandAction.IncreaseSensitivity -> changeSensitivity(1)
             SystemCommandAction.RepeatLastPhrase -> {
+                verifyTrainingNavigation(NavigationAction.RepeatLastPhrase)
                 val phrase = uiLastSpoken.value
                 if (phrase.isNotBlank()) speak(phrase)
             }
@@ -734,7 +1441,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun handlePracticeSequence(left: Int, right: Int) {
         if (isEmergencySequence(left, right)) {
             closePracticeMode()
-            startEmergencyMode()
+            trainingSession.beginEmergencyConfirm()
+            refreshTrainingActiveState()
             return
         }
         if (isCloseHelpSequence(left, right)) {
@@ -748,6 +1456,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         when {
             left == item.left && right == item.right -> {
                 uiPracticeFeedback.value = PracticeFeedback.Correct
+                PracticeMemoryAdapter.onPracticeExerciseCompleted(
+                    CompanionMemoryEngines.default,
+                    exerciseId = "practice_${uiPracticeItemIndex.value}",
+                    successful = true
+                )
                 mainHandler.postDelayed({
                     if (uiPracticeItemIndex.value < PracticeModeCatalog.items.lastIndex) {
                         uiPracticeItemIndex.value += 1
@@ -918,30 +1631,58 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show()
     }
 
-    private fun applySensitivityLevel(level: Int) {
-        val settings = sensitivityPresets.getValue(level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL))
-        closedEyeThreshold = settings.closedEyeThreshold
-        openEyeThreshold = settings.openEyeThreshold
-        requiredWinkFrames = settings.requiredWinkFrames
-        uiSensitivityLevel.value = level
-        uiSettingsState.value = uiSettingsState.value.copy(sensitivityLevel = level)
+    private fun applySensitivityLevel(level: Int, persist: Boolean = true) {
+        val clamped = level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+        val tuning = sensitivitySettingsForLevel(clamped)
+        blinkProcessor.tuning = tuning
+        closedEyeThreshold = tuning.closedEyeThreshold
+        openEyeThreshold = tuning.openEyeThreshold
+        requiredWinkFrames = tuning.requiredWinkFrames
+        uiSensitivityLevel.value = clamped
+        uiSettingsState.value = uiSettingsState.value.copy(sensitivityLevel = clamped)
+        if (persist) {
+            updateActiveProfile { it.copy(sensitivityLevel = clamped) }
+        }
+        calibrationReliability.notifySensitivityAdjusted(clamped)
     }
 
     private fun changeSensitivity(delta: Int) {
         val newLevel = (uiSensitivityLevel.value + delta).coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         if (newLevel == uiSensitivityLevel.value) return
-        updateActiveProfile { it.copy(sensitivityLevel = newLevel) }
-        leftWinkFrameStreak = 0
-        rightWinkFrameStreak = 0
-        leftWinkGestureCounted = false
-        rightWinkGestureCounted = false
+        applySensitivityLevel(newLevel)
+        blinkProcessor.resetGestureFlags()
     }
 
-    private fun updateDiagnostics(leftProb: Float?, rightProb: Float?) {
+    private fun publishBlinkDiagnostics(
+        leftProb: Float?,
+        rightProb: Float?,
+        result: com.idworx.lisa.features.blinkdetectionreliability.BlinkProcessResult? = null
+    ) {
+        uiBlinkDiagnostics.value = BlinkDetectionDiagnostics(
+            cameraActive = uiCameraPermissionGranted.value,
+            eyesDetected = uiEyesDetected.value,
+            leftEyeSignal = leftProb?.let { "%.2f".format(it) } ?: "--",
+            rightEyeSignal = rightProb?.let { "%.2f".format(it) } ?: "--",
+            leftCandidate = result?.leftCandidate ?: blinkProcessor.lastLeftCandidate,
+            rightCandidate = result?.rightCandidate ?: blinkProcessor.lastRightCandidate,
+            leftStreak = result?.leftStreak ?: uiDevLeftStreak.value,
+            rightStreak = result?.rightStreak ?: uiDevRightStreak.value,
+            acceptedLeftCount = leftWinks,
+            acceptedRightCount = rightWinks,
+            skippedForJitter = result?.skippedForJitter == true
+        )
+    }
+
+    private fun updateDiagnostics(
+        leftProb: Float?,
+        rightProb: Float?,
+        result: com.idworx.lisa.features.blinkdetectionreliability.BlinkProcessResult? = null
+    ) {
         uiDiagLeftEye.value = leftProb?.let { "%.2f".format(it) } ?: "--"
         uiDiagRightEye.value = rightProb?.let { "%.2f".format(it) } ?: "--"
         uiDiagLeftCount.value = leftWinks
         uiDiagRightCount.value = rightWinks
+        publishBlinkDiagnostics(leftProb, rightProb, result)
     }
 
     // --------- Camera + ML processing ----------
@@ -962,15 +1703,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
                 if (faces.isEmpty()) {
                     uiFacePresent.value = false
-                    prevLeftProb = null
-                    prevRightProb = null
+                    uiEyesDetected.value = false
+                    refreshCaregiverSupport()
+                    blinkProcessor.clearPreviousProbabilities()
                     updateDiagnostics(null, null)
+                    if (trainingSession.state.phase == TrainingPhase.Setup) {
+                        trainingSession.onFaceLostDuringSetup()
+                    }
                     if (leftWinks == 0 && rightWinks == 0) {
                         setCommunicationState(LisaCommunicationState.WaitingForFace)
                     }
                     return@addOnSuccessListener
                 }
                 uiFacePresent.value = true
+                refreshCaregiverSupport()
+                if (trainingSession.state.phase == TrainingPhase.Setup) {
+                    trainingSession.onFaceDetectedDuringSetup()
+                }
                 val face = faces[0]
                 if (leftWinks == 0 && rightWinks == 0 && lastWinkTimeMs == 0L && !countdownActive) {
                     val current = uiCommunicationState.value
@@ -987,8 +1736,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             .addOnFailureListener {
                 uiFacePresent.value = false
-                prevLeftProb = null
-                prevRightProb = null
+                uiEyesDetected.value = false
+                refreshCaregiverSupport()
+                blinkProcessor.clearPreviousProbabilities()
                 updateDiagnostics(null, null)
                 if (!emergencyActive && leftWinks == 0 && rightWinks == 0) {
                     setCommunicationState(LisaCommunicationState.WaitingForFace)
@@ -1004,9 +1754,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val eyes = userEyeProbabilities(face)
         if (eyes == null) {
+            uiEyesDetected.value = false
             updateDiagnostics(null, null)
             return
         }
+        uiEyesDetected.value = true
         val leftProb = eyes.userLeft
         val rightProb = eyes.userRight
 
@@ -1019,70 +1771,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun handleCountdownWinks(leftProb: Float, rightProb: Float) {
-        val leftUncertain = leftProb in closedEyeThreshold..openEyeThreshold
-        val rightUncertain = rightProb in closedEyeThreshold..openEyeThreshold
-        if (leftUncertain && rightUncertain) {
-            updateDiagnostics(leftProb, rightProb)
-            return
-        }
-
-        val prevLeft = prevLeftProb
-        val prevRight = prevRightProb
-        if (prevLeft != null && prevRight != null) {
-            val unstable = abs(leftProb - prevLeft) > EYE_PROB_JUMP_THRESHOLD ||
-                abs(rightProb - prevRight) > EYE_PROB_JUMP_THRESHOLD
-            if (unstable) {
-                prevLeftProb = leftProb
-                prevRightProb = rightProb
-                updateDiagnostics(leftProb, rightProb)
-                return
-            }
-        }
-        prevLeftProb = leftProb
-        prevRightProb = rightProb
-
-        val leftWinkCandidate = leftProb < closedEyeThreshold && rightProb > openEyeThreshold
-        val rightWinkCandidate = rightProb < closedEyeThreshold && leftProb > openEyeThreshold
         val now = System.currentTimeMillis()
+        val result = blinkProcessor.processFrame(
+            BlinkEyeProbabilities(leftProb, rightProb),
+            now,
+            acceptedLeftCount = if (countdownLeftHandled) 1 else 0,
+            acceptedRightCount = if (countdownRightHandled) 1 else 0
+        )
+        uiDevLeftStreak.value = result.leftStreak
+        uiDevRightStreak.value = result.rightStreak
+        updateDiagnostics(leftProb, rightProb, result)
 
-        if (leftWinkCandidate) {
-            leftWinkFrameStreak += 1
-        } else {
-            leftWinkFrameStreak = 0
-            leftWinkGestureCounted = false
-        }
-
-        if (rightWinkCandidate) {
-            rightWinkFrameStreak += 1
-        } else {
-            rightWinkFrameStreak = 0
-            rightWinkGestureCounted = false
-        }
-
-        uiDevLeftStreak.value = leftWinkFrameStreak
-        uiDevRightStreak.value = rightWinkFrameStreak
-        updateDiagnostics(leftProb, rightProb)
-
-        if (leftWinkFrameStreak >= requiredWinkFrames &&
-            !countdownLeftHandled &&
-            !leftWinkGestureCounted &&
-            now - lastLeftWinkCountedMs >= WINK_COOLDOWN_MS
-        ) {
-            leftWinkGestureCounted = true
+        if (result.acceptLeft && !countdownLeftHandled) {
             countdownLeftHandled = true
-            lastLeftWinkCountedMs = now
             cancelCountdown()
             return
         }
 
-        if (rightWinkFrameStreak >= requiredWinkFrames &&
-            !countdownRightHandled &&
-            !rightWinkGestureCounted &&
-            now - lastRightWinkCountedMs >= WINK_COOLDOWN_MS
-        ) {
-            rightWinkGestureCounted = true
+        if (result.acceptRight && !countdownRightHandled) {
             countdownRightHandled = true
-            lastRightWinkCountedMs = now
             speakPendingPhraseAndFinish()
         }
     }
@@ -1091,55 +1798,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (countdownActive) return
         if (emergencyActive) return
 
-        val leftUncertain = leftProb in closedEyeThreshold..openEyeThreshold
-        val rightUncertain = rightProb in closedEyeThreshold..openEyeThreshold
-        if (leftUncertain && rightUncertain) {
-            updateDiagnostics(leftProb, rightProb)
-            updateSequencePauseState(leftProb, rightProb)
-            return
-        }
-
-        val prevLeft = prevLeftProb
-        val prevRight = prevRightProb
-        if (prevLeft != null && prevRight != null) {
-            val unstable = abs(leftProb - prevLeft) > EYE_PROB_JUMP_THRESHOLD ||
-                abs(rightProb - prevRight) > EYE_PROB_JUMP_THRESHOLD
-            if (unstable) {
-                prevLeftProb = leftProb
-                prevRightProb = rightProb
-                updateDiagnostics(leftProb, rightProb)
-                updateSequencePauseState(leftProb, rightProb)
-                return
-            }
-        }
-        prevLeftProb = leftProb
-        prevRightProb = rightProb
-
-        val leftWinkCandidate = leftProb < closedEyeThreshold && rightProb > openEyeThreshold
-        val rightWinkCandidate = rightProb < closedEyeThreshold && leftProb > openEyeThreshold
-
         val now = System.currentTimeMillis()
+        val result = blinkProcessor.processFrame(
+            BlinkEyeProbabilities(leftProb, rightProb),
+            now,
+            acceptedLeftCount = leftWinks,
+            acceptedRightCount = rightWinks
+        )
 
-        if (leftWinkCandidate) {
-            leftWinkFrameStreak += 1
-        } else {
-            leftWinkFrameStreak = 0
-            leftWinkGestureCounted = false
-        }
+        uiDevLeftStreak.value = result.leftStreak
+        uiDevRightStreak.value = result.rightStreak
+        updateDiagnostics(leftProb, rightProb, result)
 
-        if (rightWinkCandidate) {
-            rightWinkFrameStreak += 1
-        } else {
-            rightWinkFrameStreak = 0
-            rightWinkGestureCounted = false
-        }
-
-        if (leftWinkFrameStreak >= requiredWinkFrames &&
-            !leftWinkGestureCounted &&
-            now - lastLeftWinkCountedMs >= WINK_COOLDOWN_MS
-        ) {
-            leftWinkGestureCounted = true
-            lastLeftWinkCountedMs = now
+        if (result.acceptLeft) {
+            flashAcceptedBlink(isLeft = true)
             leftWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             onWinkCounted(isLeft = true)
@@ -1149,12 +1821,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
 
-        if (rightWinkFrameStreak >= requiredWinkFrames &&
-            !rightWinkGestureCounted &&
-            now - lastRightWinkCountedMs >= WINK_COOLDOWN_MS
-        ) {
-            rightWinkGestureCounted = true
-            lastRightWinkCountedMs = now
+        if (result.acceptRight) {
+            flashAcceptedBlink(isLeft = false)
             rightWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             onWinkCounted(isLeft = false)
@@ -1165,17 +1833,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0
-        wasLeftWinkCandidate = leftWinkCandidate
-        wasRightWinkCandidate = rightWinkCandidate
-
-        uiDevLeftStreak.value = leftWinkFrameStreak
-        uiDevRightStreak.value = rightWinkFrameStreak
-        updateDiagnostics(leftProb, rightProb)
+        val activelyWinking = result.leftCandidate || result.rightCandidate
         updateSequencePauseState(leftProb, rightProb)
 
         if (lastWinkTimeMs == 0L) return
 
-        val activelyWinking = leftWinkCandidate || rightWinkCandidate
         val idleMs = now - lastWinkTimeMs
         val totalWindowMs = now - sequenceStartMs
         val finalize = hasCountedWinks && !activelyWinking &&
@@ -1231,12 +1893,41 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
         if (finalize) return
 
+        if (communicationReliability.shouldBlockFinalizationForContinuation(
+                leftWinks, rightWinks, mappingsForSequenceContinuation()
+            )
+        ) {
+            if (trainingSession.isNavigationTrainingActive()) {
+                setCommunicationState(LisaCommunicationState.WaitingForNextWink)
+                return
+            }
+            val partial = if (guidedOverlayActive()) {
+                WorkspacePhraseResolver.visibleEntriesForState(
+                    state = uiGuidedNavigationState.value,
+                    language = activeLanguage(),
+                    uiStrings = guidedUiStrings(),
+                    catalogContext = guidedCatalogContext(),
+                    visibleEntryCap = guidedVisibleEntryCap()
+                ).firstOrNull { it.left == leftWinks && it.right == rightWinks }?.phrase
+            } else {
+                findPhraseFor(leftWinks, rightWinks)
+            }
+            if (partial != null) {
+                setCommunicationState(LisaCommunicationState.PossibleMatch(partial))
+            } else {
+                setCommunicationState(LisaCommunicationState.WaitingForNextWink)
+            }
+            return
+        }
+
         setCommunicationState(LisaCommunicationState.WaitingForNextWink)
+        maybeSpeakLongPauseEncouragement(idleMs)
     }
 
     private fun finalizeSequence() {
         val capturedLeft = leftWinks
         val capturedRight = rightWinks
+        val capturedOrder = currentBlinkOrder()
 
         if (!isSequenceEligibleForSpeech(capturedLeft, capturedRight)) {
             resetSequence()
@@ -1247,9 +1938,59 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setCommunicationState(LisaCommunicationState.ProcessingSequence)
 
         if (isEmergencySequence(capturedLeft, capturedRight)) {
+            val emergencyCtx = reliabilityContext(CommunicationMode.EMERGENCY)
+            CommunicationAnalyticsBridge.setObservationContext(emergencyCtx)
+            val emergencyReport = communicationReliability.evaluateEmergency(
+                emergencyCtx,
+                capturedLeft,
+                capturedRight
+            )
+            if (trainingSession.isNavigationTrainingActive()) {
+                handleTrainingSequence(capturedLeft, capturedRight)
+                setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
+            if (emergencyReport.finalOutcome == CommunicationReliabilityOutcome.BLOCKED) {
+                resetSequence()
+                updateReadyOrWaitingState()
+                return
+            }
             closeQuickControls()
             closePracticeMode()
-            startEmergencyMode()
+            if (trainingSession.handleBrain1Interaction(capturedLeft, capturedRight, capturedOrder)) {
+                refreshTrainingActiveState()
+                resetSequence()
+                setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
+            trainingSession.beginEmergencyConfirm()
+            refreshTrainingActiveState()
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+
+        if (trainingSession.hasActiveBrain1Decision()) {
+            handleTrainingSequence(capturedLeft, capturedRight)
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+
+        if (trainingSession.isNavigationTrainingActive()) {
+            handleNavigationTrainingSequence(capturedLeft, capturedRight)
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+
+        if (trainingSession.shouldShowTraining() &&
+            (trainingSession.state.progress.currentPhase == TrainingPhase.CommunicationLesson ||
+                trainingSession.state.progress.currentPhase == TrainingPhase.CommunicationMastery)
+        ) {
+            handleTrainingSequence(capturedLeft, capturedRight)
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
             return
         }
 
@@ -1267,6 +2008,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        if (guidedOverlayActive()) {
+            handleGuidedOverlaySequence(capturedLeft, capturedRight)
+            return
+        }
+
         LisaSystemLanguage.resolveGlobalCommand(capturedLeft, capturedRight)?.let { action ->
             resetSequence()
             executeGlobalSystemAction(action)
@@ -1279,21 +2025,61 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        val phrase = findPhraseFor(capturedLeft, capturedRight)
+        val ctx = reliabilityContext()
+        CommunicationAnalyticsBridge.setObservationContext(ctx)
+        val reliabilityReport = communicationReliability.evaluatePhrasePath(
+            ctx,
+            capturedLeft,
+            capturedRight
+        )
         resetSequence()
 
-        if (phrase != null) {
-            startCountdown(phrase, capturedLeft, capturedRight)
-        } else {
-            setCommunicationState(LisaCommunicationState.NoPhraseMatched)
-            mainHandler.removeCallbacks(noPhraseMatchedRunnable)
-            mainHandler.postDelayed(noPhraseMatchedRunnable, NO_PHRASE_MATCHED_DISPLAY_MS)
+        when (reliabilityReport.attemptResult.action) {
+            PhraseReliabilityAction.PROCEED_TO_CONFIRMATION,
+            PhraseReliabilityAction.PROCEED_IMMEDIATE -> {
+                val phrase = reliabilityReport.matchedPhraseText
+                if (phrase != null) {
+                    lastReliabilityAttemptId = reliabilityReport.attemptId
+                    lastReliabilityPhraseId = reliabilityReport.matchedPhraseId
+                    startCountdown(phrase, capturedLeft, capturedRight)
+                } else {
+                    setCommunicationState(LisaCommunicationState.NoPhraseMatched)
+                    mainHandler.removeCallbacks(noPhraseMatchedRunnable)
+                    mainHandler.postDelayed(noPhraseMatchedRunnable, NO_PHRASE_MATCHED_DISPLAY_MS)
+                }
+            }
+            PhraseReliabilityAction.NO_PHRASE -> {
+                setCommunicationState(LisaCommunicationState.NoPhraseMatched)
+                mainHandler.removeCallbacks(noPhraseMatchedRunnable)
+                mainHandler.postDelayed(noPhraseMatchedRunnable, NO_PHRASE_MATCHED_DISPLAY_MS)
+            }
+            PhraseReliabilityAction.BLOCK -> {
+                setCommunicationState(LisaCommunicationState.NoPhraseMatched)
+                mainHandler.removeCallbacks(noPhraseMatchedRunnable)
+                mainHandler.postDelayed(noPhraseMatchedRunnable, NO_PHRASE_MATCHED_DISPLAY_MS)
+            }
+            else -> updateReadyOrWaitingState()
         }
     }
 
     private val noPhraseMatchedRunnable = Runnable {
         updateReadyOrWaitingState()
     }
+
+    private fun reliabilityContext(mode: CommunicationMode = CommunicationMode.MAIN): CommunicationReliabilityContext =
+        CommunicationReliabilityContext(
+            mode = mode,
+            mappings = mappingsState.toList(),
+            language = activeLanguage(),
+            listeningPaused = uiListeningPaused.value,
+            navigationTrainingActive = trainingSession.isNavigationTrainingActive(),
+            communicationTrainingActive = trainingSession.shouldShowTraining() &&
+                trainingSession.state.progress.currentPhase == TrainingPhase.CommunicationLesson,
+            practiceMode = uiPracticeModeOpen.value,
+            ttsAvailable = tts != null,
+            calibrationHealthState = calibrationReliability.currentHealth(),
+            calibrationAllowsCommunication = calibrationReliability.allowsCommunication()
+        )
 
     private fun findPhraseFor(l: Int, r: Int): String? =
         findExactMapping(l, r, mappingsState)?.localizedPhrase(activeLanguage())
@@ -1303,15 +2089,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         rightWinks = 0
         lastWinkTimeMs = 0L
         sequenceStartMs = 0L
-        leftWinkFrameStreak = 0
-        rightWinkFrameStreak = 0
-        leftWinkGestureCounted = false
-        rightWinkGestureCounted = false
-        wasLeftWinkCandidate = false
-        wasRightWinkCandidate = false
+        blinkProcessor.resetSequence()
         uiDiagLeftCount.value = 0
         uiDiagRightCount.value = 0
+        winkSideOrder.clear()
+        presenceTracker = EmotionalPresenceEngine.resetSequencePause(presenceTracker)
         mainHandler.removeCallbacks(sequenceStateRunnable)
+        publishBlinkDiagnostics(null, null)
     }
 }
 

@@ -38,7 +38,7 @@ data class WinkMapping(
 /** Minimum total winks (left + right) required before a sequence can produce speech. */
 const val MIN_SEQUENCE_WINKS = 2
 const val MIN_SENSITIVITY_LEVEL = 1
-const val MAX_SENSITIVITY_LEVEL = 5
+const val MAX_SENSITIVITY_LEVEL = 10
 const val DEFAULT_SENSITIVITY_LEVEL = 3
 
 fun isSequenceEligibleForSpeech(left: Int, right: Int): Boolean =
@@ -77,6 +77,9 @@ object LisaCoreVocabulary {
         Entry("i_want_to_lie_down", 5, 1, MultilingualPhrase("I want to lie down", "Ek wil lê", "Ngifuna ukulala")),
         Entry("call_my_caregiver", 5, 2, MultilingualPhrase("Call my caregiver", "Bel my versorger", "Shaya umnakekeli wami")),
         Entry("call_my_family", 5, 3, MultilingualPhrase("Call my family", "Bel my familie", "Shaya umndeni wami")),
+        Entry("good_morning", 3, 0, MultilingualPhrase("Good morning", "Goeie more", "Livukile")),
+        Entry("good_night", 5, 0, MultilingualPhrase("Good night", "Goeie nag", "Ulale kahle")),
+        Entry("i_am_okay", 5, 0, MultilingualPhrase("I am okay", "Ek is oukei", "Ngiyaphila")),
         Entry("emergency", 6, 0, MultilingualPhrase("Emergency", "Noodgeval", "Usizo oluphuthumayo"))
     )
 
@@ -119,5 +122,7 @@ fun defaultLanguageMappings(): List<WinkMapping> = listOf(
     WinkMapping(5, 1, "i_want_to_lie_down"),
     WinkMapping(5, 2, "call_my_caregiver"),
     WinkMapping(5, 3, "call_my_family"),
+    WinkMapping(3, 0, "good_morning"),
+    WinkMapping(5, 0, "good_night"),
     WinkMapping(6, 0, "emergency")
 )

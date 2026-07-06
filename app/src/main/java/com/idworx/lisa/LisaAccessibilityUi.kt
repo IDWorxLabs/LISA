@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -29,14 +30,28 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
+import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
+import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
+import com.idworx.lisa.features.experiencepolish.caregiverconfidence.ui.CaregiverSupportStrip
+import com.idworx.lisa.features.onboardingguide.state.GuidedTrainingUiState
+import com.idworx.lisa.features.onboardingguide.state.TrainingEvent
+import com.idworx.lisa.features.onboardingguide.ui.GuidedTrainingFlow
+import com.idworx.lisa.features.onboardingguide.ui.TrainingEyeTrackingState
+import com.idworx.lisa.features.onboardingguide.ui.NavigationLessonScreen
+import com.idworx.lisa.features.onboardingguide.ui.NavigationLessonContent
+import com.idworx.lisa.features.onboardingguide.ui.TrainingSettingsSection
+import com.idworx.lisa.features.onboardingguide.ui.trainingBlocksMainUi
+import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
+import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.ui.theme.LisaBlue
-import java.util.Locale
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import java.util.Locale
 
 @Composable
 fun LisaRootUI(
@@ -49,6 +64,7 @@ fun LisaRootUI(
     lastSpoken: String,
     countdownActive: Boolean,
     sensitivityLevel: Int,
+    responseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     settingsState: LisaSettingsUiState,
     textSizeScale: Float = 1.0f,
     profiles: List<LisaUserProfile> = emptyList(),
@@ -105,9 +121,94 @@ fun LisaRootUI(
     onQuickControlsTogglePause: () -> Unit = {},
     onQuickControlsOpenPractice: () -> Unit = {},
     onPracticeClose: () -> Unit = {},
+    guidedNavigationState: GuidedNavigationState = GuidedNavigationState(),
+    guidedCategoryPage: GuidedCategoryPage? = null,
+    guidedCategoryMenuTitles: List<String> = emptyList(),
+    guidedConfirmedPhrase: String? = null,
+    guidedConfirmedLeft: Int? = null,
+    guidedConfirmedRight: Int? = null,
+    onGuidedNavigateUp: () -> Unit = {},
+    onGuidedSelectEnter: () -> Unit = {},
+    onGuidedBack: () -> Unit = {},
+    onGuidedNavigateDown: () -> Unit = {},
+    onGuidedEmergency: () -> Unit = {},
+    onGuidedCategories: () -> Unit = {},
+    onGuidedDecreaseValue: () -> Unit = {},
+    onGuidedIncreaseValue: () -> Unit = {},
+    onGuidedChooseCategory: () -> Unit = {},
+    onGuidedPhraseEntry: (GuidedVocabularyEntry) -> Unit = {},
+    onGuidedCategoryRow: (Int) -> Unit = {},
+    guidedTrainingActive: Boolean = false,
+    guidedTrainingState: GuidedTrainingUiState = GuidedTrainingUiState(),
+    guidedTrainingSetupStep: Int = 0,
+    guidedTrainingReturningUser: Boolean = false,
+    trainingEyeTracking: TrainingEyeTrackingState = TrainingEyeTrackingState(),
+    trainingBlinkDiagnostics: com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics =
+        com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics(),
+    showBlinkDiagnostics: Boolean = false,
+    caregiverSupport: CaregiverSupportUiState? = null,
+    onTrainingEvent: (TrainingEvent) -> Unit = {},
+    onTrainingWelcomeNarration: () -> Unit = {},
+    onTrainingFirstLaunchNarration: () -> Unit = {},
+    onTrainingSkipConfirmNarration: () -> Unit = {},
+    onTrainingCompletionNarration: () -> Unit = {},
+    onTrainingLessonNarration: (String, String) -> Unit = { _, _ -> },
+    onTrainingNavigationNarration: (String, String) -> Unit = { _, _ -> },
+    onTrainingSetupStepChange: (Int) -> Unit = {},
+    onTrainingCalibrationStarted: () -> Unit = {},
+    onTrainingAdvanceCalibrationDot: () -> Unit = {},
+    onTrainingTouchLeftWink: () -> Unit = {},
+    onTrainingTouchRightWink: () -> Unit = {},
+    onTrainingReduceSensitivity: () -> Unit = {},
+    onTrainingIncreaseSensitivity: () -> Unit = {},
+    guidedTrainingSensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    onTrainingReplayTutorial: () -> Unit = {},
+    onTrainingPracticeCommunication: () -> Unit = {},
+    onTrainingPracticeNavigation: () -> Unit = {},
+    onTrainingResetProgress: () -> Unit = {},
+    onTrainingPreferencesChange: (TrainingPreferences) -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
-    if (!onboardingCompleted) {
+    if (guidedTrainingActive && trainingBlocksMainUi(guidedTrainingState.phase)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                Box(modifier = Modifier.matchParentSize().alpha(0f)) {
+                    cameraView()
+                }
+            }
+            GuidedTrainingFlow(
+                state = guidedTrainingState,
+                uiStrings = uiStrings,
+                language = uiStrings.language,
+                primaryUserName = primaryUserName,
+                isReturningUser = guidedTrainingReturningUser,
+                onEvent = onTrainingEvent,
+                onWelcomeNarration = onTrainingWelcomeNarration,
+                onFirstLaunchNarration = onTrainingFirstLaunchNarration,
+                onSkipConfirmNarration = onTrainingSkipConfirmNarration,
+                onCompletionNarration = onTrainingCompletionNarration,
+                onLessonNarration = onTrainingLessonNarration,
+                onNavigationNarration = onTrainingNavigationNarration,
+                onPrimaryUserNameChange = onPrimaryUserNameChange,
+                onRequestCameraPermission = onRequestCameraPermission,
+                onTouchLeftWink = onTrainingTouchLeftWink,
+                onTouchRightWink = onTrainingTouchRightWink,
+                onReduceSensitivity = onTrainingReduceSensitivity,
+                onIncreaseSensitivity = onTrainingIncreaseSensitivity,
+                sensitivityLevel = guidedTrainingSensitivityLevel,
+                setupStep = guidedTrainingSetupStep,
+                onSetupStepChange = onTrainingSetupStepChange,
+                eyeTracking = trainingEyeTracking,
+                blinkDiagnostics = trainingBlinkDiagnostics,
+                showBlinkDiagnostics = showBlinkDiagnostics,
+                onCalibrationStarted = onTrainingCalibrationStarted,
+                onAdvanceCalibrationDot = onTrainingAdvanceCalibrationDot
+            )
+        }
+        return
+    }
+
+    if (!onboardingCompleted && !guidedTrainingActive) {
         OnboardingFlow(
             uiStrings = uiStrings,
             primaryUserName = primaryUserName,
@@ -120,6 +221,13 @@ fun LisaRootUI(
 
     val canRepeat = lastSpoken.isNotBlank()
     val density = LocalDensity.current
+    val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
+        onboardingCompleted = onboardingCompleted,
+        cameraPermissionGranted = cameraPermissionGranted,
+        emergencyActive = emergencyActive,
+        practiceModeOpen = practiceModeOpen,
+        quickControlsOpen = quickControlsOpen
+    )
     Box(modifier = Modifier.fillMaxSize()) {
         if (cameraPermissionGranted) {
             cameraView()
@@ -134,6 +242,30 @@ fun LisaRootUI(
 
         if (emergencyActive) {
             EmergencyOverlay(uiStrings = uiStrings, notifyNames = emergencyNotifyNames)
+        }
+
+        if (guidedTrainingActive && guidedTrainingState.phase == TrainingPhase.NavigationLesson) {
+            val navLesson = TrainingLessonCatalog.navigationLessonAt(guidedTrainingState.progress.navigationLessonIndex)
+            if (navLesson != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    NavigationLessonScreen(
+                        title = NavigationLessonContent.title(navLesson.action, uiStrings),
+                        instruction = NavigationLessonContent.instruction(navLesson.action, uiStrings),
+                        awaitingAction = guidedTrainingState.awaitingNavigationAction,
+                        onNarration = {
+                            onTrainingNavigationNarration(
+                                NavigationLessonContent.title(navLesson.action, uiStrings),
+                                NavigationLessonContent.instruction(navLesson.action, uiStrings)
+                            )
+                        }
+                    )
+                }
+            }
         }
 
         if (practiceModeOpen) {
@@ -211,9 +343,9 @@ fun LisaRootUI(
         CompositionLocalProvider(
             LocalDensity provides Density(density.density, density.fontScale * textSizeScale)
         ) {
+        Column(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -238,6 +370,7 @@ fun LisaRootUI(
             CompactSensitivityControls(
                 uiStrings = uiStrings,
                 sensitivityLevel = sensitivityLevel,
+                responseTimeSec = responseTimeSec,
                 onDecrease = onSensitivityDecrease,
                 onIncrease = onSensitivityIncrease
             )
@@ -251,16 +384,48 @@ fun LisaRootUI(
                 )
             }
 
+            caregiverSupport?.let { support ->
+                Spacer(Modifier.height(4.dp))
+                CaregiverSupportStrip(
+                    support = support,
+                    lightBackground = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             if (developerMode) {
                 Spacer(Modifier.height(4.dp))
                 DeveloperPanel(info = developerInfo)
             }
         }
-        }
+
+        GuidedVocabularyOverlay(
+            uiStrings = uiStrings,
+            navigationState = guidedNavigationState,
+            categoryPage = guidedCategoryPage,
+            categoryMenuTitles = guidedCategoryMenuTitles,
+            confirmedPhrase = guidedConfirmedPhrase,
+            confirmedLeft = guidedConfirmedLeft,
+            confirmedRight = guidedConfirmedRight,
+            visible = showGuidedVocabularyOverlay,
+            onNavigateUp = onGuidedNavigateUp,
+            onSelectEnter = onGuidedSelectEnter,
+            onBack = onGuidedBack,
+            onNavigateDown = onGuidedNavigateDown,
+            onEmergency = onGuidedEmergency,
+            onCategories = onGuidedCategories,
+            onDecreaseValue = onGuidedDecreaseValue,
+            onIncreaseValue = onGuidedIncreaseValue,
+            onChooseCategory = onGuidedChooseCategory,
+            onPhraseEntry = onGuidedPhraseEntry,
+            onCategoryRow = onGuidedCategoryRow,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        )
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -373,10 +538,17 @@ fun LisaRootUI(
                     LisaPanel.Settings -> SettingsPanel(
                         uiStrings = uiStrings,
                         settingsState = settingsState,
+                        trainingPreferences = guidedTrainingState.progress.preferences,
+                        learningProgress = guidedTrainingState.progress,
                         onDeveloperModeChange = onDeveloperModeChange,
                         onSensitivityDecrease = onSensitivityDecrease,
                         onSensitivityIncrease = onSensitivityIncrease,
                         onPlaceholderChange = onSettingsPlaceholderChange,
+                        onTrainingReplayTutorial = onTrainingReplayTutorial,
+                        onTrainingPracticeCommunication = onTrainingPracticeCommunication,
+                        onTrainingPracticeNavigation = onTrainingPracticeNavigation,
+                        onTrainingResetProgress = onTrainingResetProgress,
+                        onTrainingPreferencesChange = onTrainingPreferencesChange,
                         onBack = onBackToMenu
                     )
                     LisaPanel.DeveloperTools -> DeveloperToolsPanel(
@@ -401,6 +573,8 @@ fun LisaRootUI(
                     LisaPanel.None -> Unit
                 }
             }
+        }
+        }
         }
     }
 }
@@ -437,38 +611,52 @@ private fun CompactTimelineChip(uiStrings: LisaUiStrings, activeStage: Communica
 private fun CompactSensitivityControls(
     uiStrings: LisaUiStrings,
     sensitivityLevel: Int,
+    responseTimeSec: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Color.Black.copy(alpha = 0.35f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        OutlinedButton(
-            onClick = onDecrease,
-            enabled = sensitivityLevel > MIN_SENSITIVITY_LEVEL,
-            modifier = Modifier.height(30.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-        ) { Text(uiStrings.sensitivityDecrease, fontSize = 10.sp) }
         Text(
-            text = "${uiStrings.sensitivity}: $sensitivityLevel",
+            text = uiStrings.listeningStatusLine(sensitivityLevel, responseTimeSec),
             color = LisaWhite,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
-        OutlinedButton(
-            onClick = onIncrease,
-            enabled = sensitivityLevel < MAX_SENSITIVITY_LEVEL,
-            modifier = Modifier.height(30.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-        ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            OutlinedButton(
+                onClick = onDecrease,
+                enabled = sensitivityLevel > MIN_SENSITIVITY_LEVEL,
+                modifier = Modifier.height(30.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+            ) { Text(uiStrings.sensitivityDecrease, fontSize = 10.sp) }
+            Text(
+                text = "${uiStrings.sensitivity}: $sensitivityLevel",
+                color = LisaWhite,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            OutlinedButton(
+                onClick = onIncrease,
+                enabled = sensitivityLevel < MAX_SENSITIVITY_LEVEL,
+                modifier = Modifier.height(30.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+            ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
+        }
     }
 }
 
@@ -1060,10 +1248,17 @@ private fun SettingsToggleRow(
 private fun SettingsPanel(
     uiStrings: LisaUiStrings,
     settingsState: LisaSettingsUiState,
+    trainingPreferences: TrainingPreferences = TrainingPreferences(),
+    learningProgress: TrainingProgress? = null,
     onDeveloperModeChange: (Boolean) -> Unit,
     onSensitivityDecrease: () -> Unit,
     onSensitivityIncrease: () -> Unit,
     onPlaceholderChange: (LisaSettingsUiState) -> Unit,
+    onTrainingReplayTutorial: () -> Unit = {},
+    onTrainingPracticeCommunication: () -> Unit = {},
+    onTrainingPracticeNavigation: () -> Unit = {},
+    onTrainingResetProgress: () -> Unit = {},
+    onTrainingPreferencesChange: (TrainingPreferences) -> Unit = {},
     onBack: () -> Unit
 ) {
     LisaPanelShell(title = "Settings", onBack = onBack) {
@@ -1152,6 +1347,16 @@ private fun SettingsPanel(
                 subtitle = "Show calibration and debug data",
                 checked = settingsState.developerMode,
                 onCheckedChange = onDeveloperModeChange
+            )
+
+            TrainingSettingsSection(
+                preferences = trainingPreferences,
+                learningProgress = learningProgress,
+                onReplayTutorial = onTrainingReplayTutorial,
+                onPracticeCommunication = onTrainingPracticeCommunication,
+                onPracticeNavigation = onTrainingPracticeNavigation,
+                onResetProgress = onTrainingResetProgress,
+                onPreferencesChange = onTrainingPreferencesChange
             )
 
             SettingsSectionLabel("Data")

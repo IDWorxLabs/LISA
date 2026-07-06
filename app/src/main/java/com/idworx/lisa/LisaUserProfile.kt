@@ -41,7 +41,8 @@ data class LisaUserProfile(
     val textSizeScale: Float = 1.0f,
     val confirmationCountdownSec: Int = 3,
     val responseSpeed: ResponseSpeed = ResponseSpeed.default,
-    val sequenceTimeoutSec: Float = ResponseSpeed.default.idleTimeoutMs / 1000f,
+    val sequenceProcessingDelaySec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
+    val sequenceTimeoutSec: Float = SequenceProcessingDelay.DEFAULT_SECONDS.toFloat(),
     val emergencyVolume: Float = 1.0f,
     val developerMode: Boolean = false,
     val selectedTtsVoiceName: String? = null,
@@ -53,7 +54,8 @@ data class LisaUserProfile(
         textSizeScale = textSizeScale,
         countdownDurationSec = confirmationCountdownSec,
         responseSpeed = responseSpeed,
-        sequenceIdleTimeoutSec = responseSpeed.idleTimeoutMs / 1000f,
+        sequenceProcessingDelaySec = sequenceProcessingDelaySec,
+        sequenceIdleTimeoutSec = sequenceProcessingDelaySec.toFloat(),
         emergencyAlarmVolume = emergencyVolume,
         developerMode = developerMode
     )
@@ -63,7 +65,8 @@ data class LisaUserProfile(
         textSizeScale = settings.textSizeScale,
         confirmationCountdownSec = settings.countdownDurationSec,
         responseSpeed = settings.responseSpeed,
-        sequenceTimeoutSec = settings.responseSpeed.idleTimeoutMs / 1000f,
+        sequenceProcessingDelaySec = settings.sequenceProcessingDelaySec,
+        sequenceTimeoutSec = settings.sequenceProcessingDelaySec.toFloat(),
         emergencyVolume = settings.emergencyAlarmVolume,
         developerMode = settings.developerMode,
         updatedAt = System.currentTimeMillis()
@@ -92,7 +95,8 @@ data class LisaUserProfile(
         put("textSizeScale", textSizeScale.toDouble())
         put("confirmationCountdownSec", confirmationCountdownSec)
         put("responseSpeed", responseSpeed.name)
-        put("sequenceTimeoutSec", responseSpeed.idleTimeoutMs / 1000.0)
+        put("sequenceProcessingDelaySec", sequenceProcessingDelaySec)
+        put("sequenceTimeoutSec", sequenceProcessingDelaySec.toDouble())
         put("emergencyVolume", emergencyVolume.toDouble())
         put("developerMode", developerMode)
         if (selectedTtsVoiceName != null) {
@@ -114,12 +118,22 @@ data class LisaUserProfile(
             confirmationCountdownSec = obj.optInt("confirmationCountdownSec", 3).coerceIn(2, 5),
             responseSpeed = ResponseSpeed.fromStored(
                 stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
-                legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", ResponseSpeed.default.idleTimeoutMs / 1000.0).toFloat()
+                legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", SequenceProcessingDelay.DEFAULT_SECONDS.toDouble()).toFloat()
             ),
-            sequenceTimeoutSec = ResponseSpeed.fromStored(
-                stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
-                legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", ResponseSpeed.default.idleTimeoutMs / 1000.0).toFloat()
-            ).idleTimeoutMs / 1000f,
+            sequenceProcessingDelaySec = SequenceProcessingDelay.fromStored(
+                value = obj.optInt("sequenceProcessingDelaySec", -1),
+                legacySpeed = ResponseSpeed.fromStored(
+                    stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
+                    legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", SequenceProcessingDelay.DEFAULT_SECONDS.toDouble()).toFloat()
+                )
+            ),
+            sequenceTimeoutSec = SequenceProcessingDelay.fromStored(
+                value = obj.optInt("sequenceProcessingDelaySec", -1),
+                legacySpeed = ResponseSpeed.fromStored(
+                    stored = obj.optString("responseSpeed").takeIf { it.isNotBlank() },
+                    legacyTimeoutSec = obj.optDouble("sequenceTimeoutSec", SequenceProcessingDelay.DEFAULT_SECONDS.toDouble()).toFloat()
+                )
+            ).toFloat(),
             emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
             developerMode = obj.optBoolean("developerMode", false),
             selectedTtsVoiceName = obj.optString("selectedTtsVoiceName").takeIf { it.isNotBlank() },
