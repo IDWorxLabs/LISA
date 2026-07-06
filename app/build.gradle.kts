@@ -612,4 +612,19 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaGuidedLessonProgressLabelV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_LESSON_PROGRESS_LABEL_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedLessonProgressLabelAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }

@@ -90,6 +90,8 @@ fun CommunicationLessonScreen(
     onDecreaseSensitivity: () -> Unit = {},
     onIncreaseSensitivity: () -> Unit = {},
     coachPacingBlocked: Boolean = false,
+    lessonNumber: Int? = null,
+    totalLessons: Int? = null,
     onLessonNarration: () -> Unit
 ) {
     LaunchedEffect(phrase, coachPacingBlocked) {
@@ -216,6 +218,13 @@ fun CommunicationLessonScreen(
             if (lessonInteraction.successVisualMessage == null &&
                 lessonInteraction.retryVisualMessage == null
             ) {
+                if (lessonNumber != null && totalLessons != null) {
+                    GuidedLessonProgressLabel(
+                        current = lessonNumber,
+                        total = totalLessons,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
                 GuidedLessonPhraseTitle(
                     phrase = phrase,
                     modifier = Modifier.padding(bottom = 28.dp)
@@ -242,6 +251,8 @@ fun NavigationLessonScreen(
     title: String,
     instruction: String,
     awaitingAction: Boolean,
+    lessonNumber: Int? = null,
+    totalLessons: Int? = null,
     onNarration: () -> Unit
 ) {
     LaunchedEffect(title) {
@@ -256,6 +267,13 @@ fun NavigationLessonScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            if (lessonNumber != null && totalLessons != null) {
+                GuidedLessonProgressLabel(
+                    current = lessonNumber,
+                    total = totalLessons,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
             Text(
                 text = title,
                 fontSize = 28.sp,

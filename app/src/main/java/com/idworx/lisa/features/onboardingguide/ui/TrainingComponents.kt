@@ -152,6 +152,26 @@ data class TrainingEyeTrackingState(
     val acceptedBlinkLabel: String? = null
 )
 
+/**
+ * Minimal "Lesson X of Y" label shown above the phrase/navigation title on every Guided
+ * Learning lesson. Deliberately text-only — no progress bar, no percentage.
+ */
+@Composable
+fun GuidedLessonProgressLabel(
+    current: Int,
+    total: Int,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = "Lesson $current of $total",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = LisaBlueDark.copy(alpha = 0.75f),
+        textAlign = TextAlign.Center,
+        modifier = modifier.fillMaxWidth()
+    )
+}
+
 /** Responsive phrase title for Guided Learning — wraps long phrases across up to 3 lines. */
 @Composable
 fun GuidedLessonPhraseTitle(

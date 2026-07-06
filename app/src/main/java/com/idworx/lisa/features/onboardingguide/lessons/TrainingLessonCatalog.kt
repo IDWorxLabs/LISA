@@ -7,6 +7,8 @@ import com.idworx.lisa.features.onboardingguide.model.CommunicationLesson
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.NavigationLesson
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
+import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
+import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 
 object TrainingLessonCatalog {
 
@@ -108,6 +110,31 @@ object TrainingLessonCatalog {
                 communicationFundamentals.size + TrainingMetadata.MASTERY_ROUND_COUNT + navIndex + 1
             else -> 0
         }
+
+    /**
+     * Current lesson number and total lesson count for the simple "Lesson X of Y" label shown
+     * on every Guided Learning lesson screen. Mirrors the path actually taken given
+     * [LisaSpeechPolicy.PHRASE_TRANSLATION_ONLY]: Communication Mastery rounds are only counted
+     * when that policy allows the full curriculum (mastery is otherwise skipped), so navigation
+     * lessons continue the numbering straight after the essential phrases. Returns null outside
+     * the three lesson phases (nothing to display on Welcome/Setup/Calibration/Completion).
+     */
+    fun guidedLessonProgress(progress: TrainingProgress): Pair<Int, Int>? {
+        val phraseCount = if (LisaSpeechPolicy.PHRASE_TRANSLATION_ONLY) {
+            TrainingMetadata.GUIDED_LEARNING_ESSENTIAL_PHRASE_COUNT
+        } else {
+            TrainingMetadata.COMMUNICATION_LESSON_COUNT
+        }
+        val masteryCount = if (LisaSpeechPolicy.PHRASE_TRANSLATION_ONLY) 0 else TrainingMetadata.MASTERY_ROUND_COUNT
+        val total = phraseCount + masteryCount + TrainingMetadata.NAVIGATION_LESSON_COUNT
+        val current = when (progress.currentPhase) {
+            TrainingPhase.CommunicationLesson -> progress.communicationLessonIndex + 1
+            TrainingPhase.CommunicationMastery -> phraseCount + progress.masteryRoundIndex + 1
+            TrainingPhase.NavigationLesson -> phraseCount + masteryCount + progress.navigationLessonIndex + 1
+            else -> return null
+        }
+        return current to total
+    }
 
     fun stageLabel(phase: TrainingPhase): String = when (phase) {
         TrainingPhase.FirstLaunchChoice -> "Getting Started"

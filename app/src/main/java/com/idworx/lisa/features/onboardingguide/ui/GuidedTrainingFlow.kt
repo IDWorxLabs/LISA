@@ -192,6 +192,7 @@ fun GuidedTrainingFlow(
             val lesson = TrainingLessonCatalog.communicationLessonAt(progress.communicationLessonIndex)
             if (lesson != null) {
                 val phrase = LisaCoreVocabulary.text(lesson.vocabularyId, language)
+                val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(progress)
                 CommunicationLessonScreen(
                     phrase = phrase,
                     left = lesson.left,
@@ -207,6 +208,8 @@ fun GuidedTrainingFlow(
                     onDecreaseSensitivity = onReduceSensitivity,
                     onIncreaseSensitivity = onIncreaseSensitivity,
                     coachPacingBlocked = state.coachPacingBlocked,
+                    lessonNumber = lessonProgress?.first,
+                    totalLessons = lessonProgress?.second,
                     onLessonNarration = {
                         onLessonNarration(phrase, formatWinkInstruction(lesson.left, lesson.right))
                     }
@@ -221,6 +224,7 @@ fun GuidedTrainingFlow(
             )
             if (lesson != null) {
                 val phrase = LisaCoreVocabulary.text(lesson.vocabularyId, language)
+                val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(progress)
                 CommunicationLessonScreen(
                     phrase = phrase,
                     left = lesson.left,
@@ -236,6 +240,8 @@ fun GuidedTrainingFlow(
                     onDecreaseSensitivity = onReduceSensitivity,
                     onIncreaseSensitivity = onIncreaseSensitivity,
                     coachPacingBlocked = state.coachPacingBlocked,
+                    lessonNumber = lessonProgress?.first,
+                    totalLessons = lessonProgress?.second,
                     onLessonNarration = {
                         onLessonNarration(phrase, formatWinkInstruction(lesson.left, lesson.right))
                     }
@@ -246,10 +252,13 @@ fun GuidedTrainingFlow(
         TrainingPhase.NavigationLesson -> {
             val lesson = TrainingLessonCatalog.navigationLessonAt(progress.navigationLessonIndex)
             if (lesson != null) {
+                val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(progress)
                 NavigationLessonScreen(
                     title = NavigationLessonContent.title(lesson.action, uiStrings),
                     instruction = NavigationLessonContent.instruction(lesson.action, uiStrings),
                     awaitingAction = state.awaitingNavigationAction,
+                    lessonNumber = lessonProgress?.first,
+                    totalLessons = lessonProgress?.second,
                     onNarration = {
                         onNavigationNarration(
                             NavigationLessonContent.title(lesson.action, uiStrings),
