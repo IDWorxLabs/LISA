@@ -89,6 +89,9 @@ fun CommunicationLessonScreen(
     sensitivityLevel: Int = com.idworx.lisa.DEFAULT_SENSITIVITY_LEVEL,
     onDecreaseSensitivity: () -> Unit = {},
     onIncreaseSensitivity: () -> Unit = {},
+    responseTimeSec: Int = com.idworx.lisa.SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
+    onDecreaseResponseTime: () -> Unit = {},
+    onIncreaseResponseTime: () -> Unit = {},
     coachPacingBlocked: Boolean = false,
     lessonNumber: Int? = null,
     totalLessons: Int? = null,
@@ -158,6 +161,9 @@ fun CommunicationLessonScreen(
                 sensitivityLevel = sensitivityLevel,
                 onDecrease = onDecreaseSensitivity,
                 onIncrease = onIncreaseSensitivity,
+                responseTimeSec = responseTimeSec,
+                onDecreaseResponseTime = onDecreaseResponseTime,
+                onIncreaseResponseTime = onIncreaseResponseTime,
                 modifier = Modifier
                     .fillMaxWidth(0.82f)
                     .padding(bottom = 20.dp)

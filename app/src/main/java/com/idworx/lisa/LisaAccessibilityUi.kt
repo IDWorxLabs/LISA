@@ -164,6 +164,8 @@ fun LisaRootUI(
     onTrainingReduceSensitivity: () -> Unit = {},
     onTrainingIncreaseSensitivity: () -> Unit = {},
     guidedTrainingSensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    onTrainingDecreaseResponseTime: () -> Unit = {},
+    onTrainingIncreaseResponseTime: () -> Unit = {},
     onTrainingReplayTutorial: () -> Unit = {},
     onTrainingPracticeCommunication: () -> Unit = {},
     onTrainingPracticeNavigation: () -> Unit = {},
@@ -198,6 +200,8 @@ fun LisaRootUI(
                 onReduceSensitivity = onTrainingReduceSensitivity,
                 onIncreaseSensitivity = onTrainingIncreaseSensitivity,
                 sensitivityLevel = guidedTrainingSensitivityLevel,
+                onDecreaseResponseTime = onTrainingDecreaseResponseTime,
+                onIncreaseResponseTime = onTrainingIncreaseResponseTime,
                 setupStep = guidedTrainingSetupStep,
                 onSetupStepChange = onTrainingSetupStepChange,
                 eyeTracking = trainingEyeTracking,
@@ -363,7 +367,11 @@ fun LisaRootUI(
                 sensitivityLevel = sensitivityLevel,
                 responseTimeSec = responseTimeSec,
                 onDecrease = onSensitivityDecrease,
-                onIncrease = onSensitivityIncrease
+                onIncrease = onSensitivityIncrease,
+                guidedResponseTimeControlsVisible = guidedWorkspaceTrainingActive,
+                guidedResponseTimeSec = guidedTrainingState.progress.preferences.guidedResponseTimeSec,
+                onDecreaseGuidedResponseTime = onTrainingDecreaseResponseTime,
+                onIncreaseGuidedResponseTime = onTrainingIncreaseResponseTime
             )
 
             if (!developerMode && (userDisplay.leftWinkDots > 0 || userDisplay.rightWinkDots > 0)) {
@@ -590,6 +598,7 @@ fun LisaRootUI(
                 totalLessons = lessonProgress?.second,
                 title = GuidedWorkspaceTrainingSpec.lessonCardTitle(activeNavigationLesson.action, uiStrings),
                 gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(activeNavigationLesson.action),
+                feedbackMessage = guidedTrainingState.navigationFeedbackMessage,
                 modifier = Modifier
                     .align(cardAlignment)
                     .padding(horizontal = 10.dp, vertical = 84.dp)
@@ -632,7 +641,12 @@ private fun CompactSensitivityControls(
     sensitivityLevel: Int,
     responseTimeSec: Int,
     onDecrease: () -> Unit,
-    onIncrease: () -> Unit
+    onIncrease: () -> Unit,
+    /** Shown only during Guided Training, next to Sensitivity, so its own settle time is adjustable. */
+    guidedResponseTimeControlsVisible: Boolean = false,
+    guidedResponseTimeSec: Int = SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
+    onDecreaseGuidedResponseTime: () -> Unit = {},
+    onIncreaseGuidedResponseTime: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -675,6 +689,34 @@ private fun CompactSensitivityControls(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
             ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
+        }
+        if (guidedResponseTimeControlsVisible) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedButton(
+                    onClick = onDecreaseGuidedResponseTime,
+                    enabled = guidedResponseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
+                    modifier = Modifier.height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+                ) { Text("−", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                Text(
+                    text = "Response time: ${guidedResponseTimeSec}s",
+                    color = LisaWhite,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                OutlinedButton(
+                    onClick = onIncreaseGuidedResponseTime,
+                    enabled = guidedResponseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
+                    modifier = Modifier.height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+                ) { Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            }
         }
     }
 }

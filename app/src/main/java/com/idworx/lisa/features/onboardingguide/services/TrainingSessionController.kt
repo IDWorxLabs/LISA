@@ -8,6 +8,7 @@ import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedTrainingNavigator
 import com.idworx.lisa.features.onboardingguide.lessoninteraction.LessonInteractionEngine
+import com.idworx.lisa.features.onboardingguide.lessoninteraction.GuidedFeedbackPhrases
 import com.idworx.lisa.features.onboardingguide.model.CommunicationLesson
 import com.idworx.lisa.features.onboardingguide.state.GuidedTrainingUiState
 import com.idworx.lisa.features.onboardingguide.state.LessonInteractionState
@@ -1167,11 +1168,74 @@ class TrainingSessionController(
 
     fun verifyNavigation(action: NavigationAction) {
         if (state.progress.currentPhase != TrainingPhase.NavigationLesson) return
+        // While the final lesson's completion feedback is being shown/spoken, the Completion
+        // transition is deliberately on hold — ignore any further gestures until it fires.
+        if (state.completionPendingFeedback) return
         val expected = navigator.expectedNavigationAction(state.progress) ?: return
         if (expected != action) return
         val lessonId = navigator.navigationActionId(state.progress) ?: return
-        dispatch(TrainingEvent.NavigationActionCompleted(lessonId))
-        mainThreadDelayed {
+        val completedLessonIndex = state.progress.navigationLessonIndex
+        val isFinalNavigationLesson =
+            TrainingLessonCatalog.navigationLessonAt(completedLessonIndex + 1) == null
+
+        if (isFinalNavigationLesson) {
+            beginFinalNavigationCompletionFeedback(completedLessonIndex, lessonId)
+        } else {
+            dispatch(TrainingEvent.NavigationActionCompleted(lessonId))
+            applyNavigationCompletionFeedback(completedLessonIndex)
+            mainThreadDelayed {
+                if (state.progress.currentPhase == TrainingPhase.Completion) {
+                    completionNarration()
+                }
+            }
+        }
+    }
+
+    /**
+     * Immediate, friendly acknowledgement ("Well done.", "Great job.", "You did it.") after a
+     * correct real-workspace navigation gesture — spoken through the existing narration/TTS
+     * system and shown briefly on the floating lesson card before the next instruction appears.
+     * Reusable for every navigation lesson; never tied to a specific lesson or screen.
+     */
+    private fun applyNavigationCompletionFeedback(completedLessonIndex: Int) {
+        val phrase = GuidedFeedbackPhrases.positive(completedLessonIndex)
+        state = state.copy(navigationFeedbackMessage = phrase)
+        onPersist(state)
+        if (LisaSpeechPolicy.allowsNarration()) {
+            narration.speak(phrase)
+        }
+        mainThreadDelayed(NAVIGATION_FEEDBACK_VISIBLE_MS) {
+            if (state.navigationFeedbackMessage == phrase) {
+                state = state.copy(navigationFeedbackMessage = null)
+                onPersist(state)
+            }
+        }
+    }
+
+    /**
+     * Reusable "post-success transition delay" for the FINAL navigation lesson only: the real
+     * workspace and floating lesson card stay exactly as they are — [TrainingProgress] is not
+     * advanced yet — while the positive acknowledgement is shown and spoken, so the user always
+     * sees/hears it before the Completion screen takes over. General for any lesson catalog
+     * length: driven by [TrainingLessonCatalog.navigationLessonAt], never a hardcoded lesson.
+     */
+    private fun beginFinalNavigationCompletionFeedback(completedLessonIndex: Int, lessonId: String) {
+        val phrase = GuidedFeedbackPhrases.positive(completedLessonIndex)
+        state = state.copy(
+            navigationFeedbackMessage = phrase,
+            completionPendingFeedback = true
+        )
+        onPersist(state)
+        if (LisaSpeechPolicy.allowsNarration()) {
+            narration.speak(phrase)
+        }
+        mainThreadDelayed(FINAL_NAVIGATION_COMPLETION_DELAY_MS) {
+            dispatch(TrainingEvent.NavigationActionCompleted(lessonId))
+            state = state.copy(
+                navigationFeedbackMessage = null,
+                completionPendingFeedback = false
+            )
+            onPersist(state)
             if (state.progress.currentPhase == TrainingPhase.Completion) {
                 completionNarration()
             }
@@ -1230,6 +1294,9 @@ class TrainingSessionController(
         const val SUCCESS_VISUAL_PAUSE_MS: Long = 900L
         private const val RETRY_FEEDBACK_CLEAR_MS: Long = 2_500L
         private const val WRONG_EYE_FEEDBACK_CLEAR_MS: Long = 2_500L
+        const val NAVIGATION_FEEDBACK_VISIBLE_MS: Long = 1_600L
+        /** How long the final navigation lesson's success feedback is held before Completion. */
+        const val FINAL_NAVIGATION_COMPLETION_DELAY_MS: Long = 1_800L
 
         val ACTIVE_TRAINING_PHASES: Set<TrainingPhase> = setOf(
             TrainingPhase.FirstLaunchChoice,

@@ -195,48 +195,73 @@ fun GuidedWorkspaceLessonCard(
     totalLessons: Int?,
     title: String,
     gestureLabel: String,
+    /**
+     * When non-null, the card shows this brief positive acknowledgement ("Well done.", etc.)
+     * instead of the lesson title/gesture — the user sees they succeeded before the next
+     * instruction is revealed. Null shows the normal lesson content.
+     */
+    feedbackMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.widthIn(max = 210.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = LisaWhite.copy(alpha = 0.98f)),
+        colors = CardDefaults.cardColors(
+            containerColor = if (feedbackMessage != null) {
+                LessonCardSuccessGreen.copy(alpha = 0.97f)
+            } else {
+                LisaWhite.copy(alpha = 0.98f)
+            }
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (lessonNumber != null && totalLessons != null) {
+            if (feedbackMessage != null) {
                 Text(
-                    text = "Lesson $lessonNumber of $totalLessons",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = LisaBlueDark.copy(alpha = 0.7f),
+                    text = "\u2713 $feedbackMessage",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LisaWhite,
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(2.dp))
-            }
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = LisaBlueDark,
-                textAlign = TextAlign.Center
-            )
-            if (gestureLabel.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
+            } else {
+                if (lessonNumber != null && totalLessons != null) {
+                    Text(
+                        text = "Lesson $lessonNumber of $totalLessons",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaBlueDark.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
                 Text(
-                    text = "Gesture: $gestureLabel",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LisaBlue,
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LisaBlueDark,
                     textAlign = TextAlign.Center
                 )
+                if (gestureLabel.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Gesture: $gestureLabel",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlue,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
 }
+
+/** Success green used only for the brief positive-feedback state of [GuidedWorkspaceLessonCard]. */
+private val LessonCardSuccessGreen = androidx.compose.ui.graphics.Color(0xFF3E8E51)
 
 /** Responsive phrase title for Guided Learning — wraps long phrases across up to 3 lines. */
 @Composable
@@ -440,6 +465,12 @@ fun AcceptedBlinkMessage(
     }
 }
 
+/**
+ * Top control area shown throughout Guided Mode / Guided Training (Setup and lesson screens).
+ * Sensitivity is always shown; Response Time controls appear in the same area right below it
+ * whenever [responseTimeSec] is supplied, so every guided lesson — not just one screen — can
+ * adjust its own settle time from Guided Mode/session settings (see [com.idworx.lisa.SequenceProcessingDelay]).
+ */
 @Composable
 fun TrainingSensitivityControls(
     sensitivityLevel: Int,
@@ -447,10 +478,46 @@ fun TrainingSensitivityControls(
     onIncrease: () -> Unit,
     modifier: Modifier = Modifier,
     minLevel: Int = com.idworx.lisa.MIN_SENSITIVITY_LEVEL,
-    maxLevel: Int = com.idworx.lisa.MAX_SENSITIVITY_LEVEL
+    maxLevel: Int = com.idworx.lisa.MAX_SENSITIVITY_LEVEL,
+    responseTimeSec: Int? = null,
+    onDecreaseResponseTime: () -> Unit = {},
+    onIncreaseResponseTime: () -> Unit = {},
+    responseTimeMinSeconds: Int = com.idworx.lisa.SequenceProcessingDelay.MIN_SECONDS,
+    responseTimeMaxSeconds: Int = com.idworx.lisa.SequenceProcessingDelay.MAX_SECONDS
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TrainingAdjustableValueRow(
+            label = "Sensitivity: $sensitivityLevel",
+            onDecrease = onDecrease,
+            onIncrease = onIncrease,
+            decreaseEnabled = sensitivityLevel > minLevel,
+            increaseEnabled = sensitivityLevel < maxLevel
+        )
+        if (responseTimeSec != null) {
+            TrainingAdjustableValueRow(
+                label = "Response time: ${responseTimeSec}s",
+                onDecrease = onDecreaseResponseTime,
+                onIncrease = onIncreaseResponseTime,
+                decreaseEnabled = responseTimeSec > responseTimeMinSeconds,
+                increaseEnabled = responseTimeSec < responseTimeMaxSeconds
+            )
+        }
+    }
+}
+
+@Composable
+private fun TrainingAdjustableValueRow(
+    label: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    decreaseEnabled: Boolean,
+    increaseEnabled: Boolean
 ) {
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(LisaWhite.copy(alpha = 0.92f))
@@ -459,7 +526,7 @@ fun TrainingSensitivityControls(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = "Sensitivity: $sensitivityLevel",
+            text = label,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = LisaBlueDark
@@ -467,7 +534,7 @@ fun TrainingSensitivityControls(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = onDecrease,
-                enabled = sensitivityLevel > minLevel,
+                enabled = decreaseEnabled,
                 modifier = Modifier.height(36.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
@@ -477,7 +544,7 @@ fun TrainingSensitivityControls(
             }
             OutlinedButton(
                 onClick = onIncrease,
-                enabled = sensitivityLevel < maxLevel,
+                enabled = increaseEnabled,
                 modifier = Modifier.height(36.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),

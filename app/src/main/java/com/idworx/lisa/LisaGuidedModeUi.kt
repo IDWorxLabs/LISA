@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -63,6 +64,15 @@ private fun Modifier.guidedTrainingHighlight(active: Boolean, radius: androidx.c
     } else {
         this
     }
+
+/**
+ * De-emphasises a control that is NOT this lesson's target while Guided Training has an active
+ * highlight, so it is unambiguous which single item the user should practice right now.
+ */
+private const val TrainingDimAlpha = 0.42f
+
+private fun Modifier.guidedTrainingDim(dimmed: Boolean): Modifier =
+    if (dimmed) this.alpha(TrainingDimAlpha) else this
 
 @Composable
 fun GuidedVocabularyOverlay(
@@ -112,6 +122,10 @@ fun GuidedVocabularyOverlay(
         phrasePageIndex = phrasePageIndex,
         visibleCap = visibleEntryCap
     )
+    // Guided Training clarity: while a lesson is spotlighting one real control, every other
+    // control on screen is quietly de-emphasised so it is unambiguous what to practice next.
+    val trainingDimActive = workspaceMode == com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode.GUIDED_TRAINING &&
+        trainingHighlight != null
 
     Box(
         modifier = modifier
@@ -204,13 +218,15 @@ fun GuidedVocabularyOverlay(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 if (!isPreferencesPage) {
+                                    val openCategoriesHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.OpenCategories
                                     GuidedCategoryMenuAccessRow(
                                         title = uiStrings.guidedChooseCategoryAction,
                                         sequenceLabel = "L4 R4",
                                         highlighted = confirmedLeft == GuidedModeNavigation.CATEGORIES_LEFT &&
                                             confirmedRight == GuidedModeNavigation.CATEGORIES_RIGHT &&
                                             confirmedPhrase == uiStrings.guidedChooseCategoryAction,
-                                        trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.OpenCategories,
+                                        trainingHighlighted = openCategoriesHighlighted,
+                                        trainingDimmed = trainingDimActive && !openCategoriesHighlighted,
                                         onClick = onChooseCategory
                                     )
                                 }
@@ -219,11 +235,13 @@ fun GuidedVocabularyOverlay(
                                     val highlighted = confirmedLeft == entry.left &&
                                         confirmedRight == entry.right &&
                                         confirmedPhrase == entry.phrase
+                                    val entryTrainingHighlighted = entryIndex == 0 &&
+                                        trainingHighlight == GuidedWorkspaceHighlightTarget.PhraseRow
                                     GuidedVocabularyEntryRow(
                                         entry = entry,
                                         highlighted = highlighted,
-                                        trainingHighlighted = entryIndex == 0 &&
-                                            trainingHighlight == GuidedWorkspaceHighlightTarget.PhraseRow,
+                                        trainingHighlighted = entryTrainingHighlighted,
+                                        trainingDimmed = trainingDimActive && !entryTrainingHighlighted,
                                         onClick = { onPhraseEntry(entry) }
                                     )
                                 }
@@ -246,13 +264,15 @@ fun GuidedVocabularyOverlay(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             categoryMenuTitles.forEachIndexed { index, title ->
+                                val rowTrainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
+                                    index == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
                                 GuidedCategoryMenuRow(
                                     title = title,
                                     index = index,
                                     sequenceLabel = GuidedCategoryShortcuts.sequenceLabelForCategory(index),
                                     selected = index == categoryMenuSelection,
-                                    trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
-                                        index == GuidedWorkspaceTrainingSpec.conversationCategoryIndex,
+                                    trainingHighlighted = rowTrainingHighlighted,
+                                    trainingDimmed = trainingDimActive && !rowTrainingHighlighted,
                                     onClick = { onCategoryRow(index) }
                                 )
                             }
@@ -403,6 +423,7 @@ private fun GuidedCategoryMenuAccessRow(
     sequenceLabel: String,
     highlighted: Boolean,
     trainingHighlighted: Boolean = false,
+    trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -412,6 +433,7 @@ private fun GuidedCategoryMenuAccessRow(
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (highlighted) EntryHighlight else LisaBlue.copy(alpha = 0.35f))
             .guidedTrainingHighlight(trainingHighlighted)
+            .guidedTrainingDim(trainingDimmed)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -452,6 +474,7 @@ private fun GuidedCategoryMenuRow(
     sequenceLabel: String,
     selected: Boolean,
     trainingHighlighted: Boolean = false,
+    trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -461,6 +484,7 @@ private fun GuidedCategoryMenuRow(
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (selected) CategoryMenuHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
+            .guidedTrainingDim(trainingDimmed)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -502,6 +526,7 @@ private fun GuidedVocabularyEntryRow(
     entry: GuidedVocabularyEntry,
     highlighted: Boolean,
     trainingHighlighted: Boolean = false,
+    trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -511,6 +536,7 @@ private fun GuidedVocabularyEntryRow(
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (highlighted) EntryHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
+            .guidedTrainingDim(trainingDimmed)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -587,6 +613,9 @@ private fun GuidedModeNavigationPanel(
         highlightTarget == GuidedWorkspaceHighlightTarget.Emergency,
         highlightTarget == GuidedWorkspaceHighlightTarget.NextPage
     )
+    // De-emphasise every other panel button while a lesson has a specific target to practice.
+    val dimActive = highlightTarget != null
+    val dimFlags = highlightFlags.map { isTarget -> dimActive && !isTarget }
 
     Column(
         modifier = Modifier
@@ -606,6 +635,7 @@ private fun GuidedModeNavigationPanel(
                     sequenceLabel = action.sequenceLabel,
                     compact = true,
                     trainingHighlighted = highlightFlags[index],
+                    trainingDimmed = dimFlags[index],
                     onClick = handlers[index]
                 )
             } else {
@@ -617,6 +647,7 @@ private fun GuidedModeNavigationPanel(
                     enabled = enabledFlags[index],
                     compact = true,
                     trainingHighlighted = highlightFlags[index],
+                    trainingDimmed = dimFlags[index],
                     onClick = handlers[index]
                 )
             }
@@ -632,6 +663,7 @@ private fun GuidedEmergencyNavButton(
     sequenceLabel: String,
     compact: Boolean = false,
     trainingHighlighted: Boolean = false,
+    trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
     Column(
@@ -641,6 +673,7 @@ private fun GuidedEmergencyNavButton(
             .clickable(role = Role.Button, onClick = onClick)
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
             .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
+            .guidedTrainingDim(trainingDimmed)
             .padding(
                 horizontal = 6.dp,
                 vertical = if (compact) 5.dp else 8.dp
@@ -692,6 +725,7 @@ private fun GuidedNavigationActionButton(
     enabled: Boolean,
     compact: Boolean = false,
     trainingHighlighted: Boolean = false,
+    trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
     val contentColor = if (enabled) LisaBlueDark else LisaGray
@@ -709,6 +743,7 @@ private fun GuidedNavigationActionButton(
             )
             .background(if (enabled) LisaBlue.copy(alpha = 0.10f) else LisaSoftGray.copy(alpha = 0.6f))
             .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
+            .guidedTrainingDim(trainingDimmed)
             .padding(
                 horizontal = 4.dp,
                 vertical = if (compact) 4.dp else 8.dp

@@ -30,6 +30,9 @@ fun TrainingSetupScreen(
     sensitivityLevel: Int = com.idworx.lisa.DEFAULT_SENSITIVITY_LEVEL,
     onDecreaseSensitivity: () -> Unit = {},
     onIncreaseSensitivity: () -> Unit = {},
+    responseTimeSec: Int = com.idworx.lisa.SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
+    onDecreaseResponseTime: () -> Unit = {},
+    onIncreaseResponseTime: () -> Unit = {},
     onRequestCameraPermission: () -> Unit,
     onAdvance: () -> Unit,
     onBack: () -> Unit
@@ -60,6 +63,9 @@ fun TrainingSetupScreen(
                 sensitivityLevel = sensitivityLevel,
                 onDecrease = onDecreaseSensitivity,
                 onIncrease = onIncreaseSensitivity,
+                responseTimeSec = responseTimeSec,
+                onDecreaseResponseTime = onDecreaseResponseTime,
+                onIncreaseResponseTime = onIncreaseResponseTime,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)

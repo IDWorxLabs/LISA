@@ -48,7 +48,22 @@ data class GuidedTrainingUiState(
     val calibrationPoorRetry: Boolean = false,
     val lessonInteraction: LessonInteractionState = LessonInteractionState(),
     val brain1Decision: com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionState =
-        com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionState()
+        com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionState(),
+    /**
+     * Brief positive acknowledgement ("Well done.", "Great job.", "You did it.") shown on the
+     * floating workspace lesson card right after a correct real-workspace navigation gesture,
+     * before the next instruction is revealed. Null when there is nothing to acknowledge.
+     */
+    val navigationFeedbackMessage: String? = null,
+    /**
+     * Reusable "post-success transition delay" flag: true only for the brief window after the
+     * FINAL navigation lesson is completed correctly, while [navigationFeedbackMessage] is being
+     * shown/spoken and [TrainingProgress] has deliberately not yet advanced to
+     * [TrainingPhase.Completion]. Keeps the real workspace and floating lesson card visible long
+     * enough for the user to see/hear the acknowledgement, and guards against re-processing
+     * further gestures during that window. General for any lesson catalog length.
+     */
+    val completionPendingFeedback: Boolean = false
 ) {
     val phase: TrainingPhase get() = progress.currentPhase
     val isActive: Boolean get() = !progress.isFinished || progress.practiceModeOnly

@@ -53,7 +53,13 @@ class TrainingProgressStore(context: Context) {
                 narrationEnabled = prefs.getBoolean(KEY_NARRATION_ENABLED, true),
                 narrationSpeed = prefs.getFloat(KEY_NARRATION_SPEED, 0.9f),
                 narrationVolume = prefs.getFloat(KEY_NARRATION_VOLUME, 1.0f),
-                narrationLanguage = prefs.getString(KEY_NARRATION_LANGUAGE, "en") ?: "en"
+                narrationLanguage = prefs.getString(KEY_NARRATION_LANGUAGE, "en") ?: "en",
+                guidedResponseTimeSec = com.idworx.lisa.SequenceProcessingDelay.coerce(
+                    prefs.getInt(
+                        KEY_GUIDED_RESPONSE_TIME,
+                        com.idworx.lisa.SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS
+                    )
+                )
             ),
             practiceModeOnly = prefs.getBoolean(KEY_PRACTICE_ONLY, false),
             practiceCommunication = prefs.getBoolean(KEY_PRACTICE_COMM, false),
@@ -146,6 +152,7 @@ class TrainingProgressStore(context: Context) {
             .putFloat(KEY_NARRATION_SPEED, progress.preferences.narrationSpeed)
             .putFloat(KEY_NARRATION_VOLUME, progress.preferences.narrationVolume)
             .putString(KEY_NARRATION_LANGUAGE, progress.preferences.narrationLanguage)
+            .putInt(KEY_GUIDED_RESPONSE_TIME, progress.preferences.guidedResponseTimeSec)
             .putBoolean(KEY_PRACTICE_ONLY, progress.practiceModeOnly)
             .putBoolean(KEY_PRACTICE_COMM, progress.practiceCommunication)
             .putBoolean(KEY_PRACTICE_NAV, progress.practiceNavigation)
@@ -201,6 +208,7 @@ class TrainingProgressStore(context: Context) {
         private const val KEY_NARRATION_SPEED = "guided_training_narration_speed"
         private const val KEY_NARRATION_VOLUME = "guided_training_narration_volume"
         private const val KEY_NARRATION_LANGUAGE = "guided_training_narration_language"
+        private const val KEY_GUIDED_RESPONSE_TIME = "guided_training_response_time_sec"
         private const val KEY_PRACTICE_ONLY = "guided_training_practice_only"
         private const val KEY_PRACTICE_COMM = "guided_training_practice_comm"
         private const val KEY_PRACTICE_NAV = "guided_training_practice_nav"

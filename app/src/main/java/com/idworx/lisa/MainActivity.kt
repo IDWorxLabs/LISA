@@ -447,6 +447,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onTrainingReduceSensitivity = { changeSensitivity(-1) },
                         onTrainingIncreaseSensitivity = { changeSensitivity(1) },
                         guidedTrainingSensitivityLevel = uiSensitivityLevel.value,
+                        onTrainingDecreaseResponseTime = { changeGuidedResponseTime(-1) },
+                        onTrainingIncreaseResponseTime = { changeGuidedResponseTime(1) },
                         onTrainingReplayTutorial = {
                             closeAllPanels()
                             trainingSession.beginAwaitingBrain1Decision(
@@ -778,6 +780,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun shouldDeferLessonFinalize(): Boolean =
         trainingSession.isPartialSequenceInProgress(leftWinks, rightWinks, currentBlinkOrder())
+
+    /**
+     * The idle-time "settle" window used to decide a blink sequence is finished. Guided Mode /
+     * Guided Training (any active lesson phase, including real-workspace navigation lessons) uses
+     * its own, slower, user-adjustable settle time from [com.idworx.lisa.features.onboardingguide.model.TrainingPreferences]
+     * so multi-step lesson gestures like L4 R4 are not cut off mid-sequence. Everyday workspace use
+     * outside Guided Mode is unaffected and keeps the general response-speed setting. Every new
+     * blink updates [lastWinkTimeMs], so this window naturally restarts on each new input — it is a
+     * completion timer, not a fixed timeout.
+     */
+    private fun effectiveSequenceIdleTimeoutMs(): Long =
+        if (trainingSession.shouldShowTraining()) {
+            SequenceProcessingDelay.toMillis(trainingSession.state.progress.preferences.guidedResponseTimeSec)
+        } else {
+            sequenceIdleTimeoutMs
+        }
+
+    private fun effectiveSequenceMaxWindowMs(): Long =
+        if (trainingSession.shouldShowTraining()) {
+            ResponseSpeed.fromProcessingDelaySeconds(
+                trainingSession.state.progress.preferences.guidedResponseTimeSec
+            ).maxSequenceWindowMs()
+        } else {
+            sequenceMaxWindowMs
+        }
 
     private fun rejectLessonWrongEyeBlink(isLeft: Boolean): Boolean {
         if (!trainingSession.isCommunicationLessonPhase()) return false
@@ -1759,6 +1786,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         blinkProcessor.resetGestureFlags()
     }
 
+    /**
+     * Adjusts Guided Mode/Training's own response (settle) time — independent of the everyday
+     * Communication Workspace's response speed control. Persisted in [com.idworx.lisa.features.onboardingguide.model.TrainingPreferences]
+     * so it applies generally to every guided lesson, never a single hardcoded lesson.
+     */
+    private fun changeGuidedResponseTime(deltaSeconds: Int) {
+        trainingSession.updatePreferences {
+            it.copy(guidedResponseTimeSec = SequenceProcessingDelay.coerce(it.guidedResponseTimeSec + deltaSeconds))
+        }
+        refreshTrainingActiveState()
+    }
+
     private fun publishBlinkDiagnostics(
         leftProb: Float?,
         rightProb: Float?,
@@ -1954,8 +1993,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 right = rightWinks,
                 idleMs = idleMs,
                 sequenceAgeMs = totalWindowMs,
-                idleTimeoutMs = sequenceIdleTimeoutMs,
-                maxWindowMs = sequenceMaxWindowMs
+                idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
+                maxWindowMs = effectiveSequenceMaxWindowMs()
             )
 
         if (finalize) {
@@ -2000,8 +2039,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             right = rightWinks,
             idleMs = idleMs,
             sequenceAgeMs = totalWindowMs,
-            idleTimeoutMs = sequenceIdleTimeoutMs,
-            maxWindowMs = sequenceMaxWindowMs
+            idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
+            maxWindowMs = effectiveSequenceMaxWindowMs()
         )
         if (finalize) return
 

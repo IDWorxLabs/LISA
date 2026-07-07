@@ -9,6 +9,14 @@ object SequenceProcessingDelay {
     const val MAX_SECONDS = 6
     const val DEFAULT_SECONDS = 3
 
+    /**
+     * Guided Mode/Training's default settle time — deliberately slower than the everyday
+     * Communication Workspace default (3s) so a multi-step lesson gesture (e.g. L4 R4) has time
+     * to finish before the sequence is evaluated. Sourced from [TrainingPreferences], never
+     * hardcoded per lesson.
+     */
+    const val GUIDED_DEFAULT_SECONDS = 5
+
     val allowedSeconds: IntRange = MIN_SECONDS..MAX_SECONDS
 
     fun coerce(seconds: Int): Int = seconds.coerceIn(MIN_SECONDS, MAX_SECONDS)

@@ -72,7 +72,14 @@ data class TrainingPreferences(
     val narrationEnabled: Boolean = true,
     val narrationSpeed: Float = 0.9f,
     val narrationVolume: Float = 1.0f,
-    val narrationLanguage: String = "en"
+    val narrationLanguage: String = "en",
+    /**
+     * Guided Mode/Training's own response (settle) time, in seconds — deliberately separate from
+     * the everyday Communication Workspace's response speed so a slower Guided Learning default
+     * never changes normal daily communication timing. Applies to every guided lesson (phrase
+     * lessons and workspace navigation lessons alike), never a single hardcoded lesson.
+     */
+    val guidedResponseTimeSec: Int = com.idworx.lisa.SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS
 )
 
 data class TrainingProgress(
