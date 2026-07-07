@@ -47,15 +47,21 @@ object TrainingLessonCatalog {
 
     val communicationLessons: List<CommunicationLesson> get() = communicationFundamentals
 
+    /**
+     * Real Communication Workspace training — every lesson below is taught inside the actual
+     * workspace (Guided Training Mode), never a standalone fake screen. Order mirrors how a new
+     * user would explore the real UI: open categories, pick one, speak a phrase, then learn the
+     * remaining real controls (back, paging, emergency, reset).
+     */
     val navigationLessons: List<NavigationLesson> = listOf(
         NavigationLesson("nav_categories", NavigationAction.OpenCategories, 1),
-        NavigationLesson("nav_open_category", NavigationAction.SelectCategory, 2),
-        NavigationLesson("nav_return", NavigationAction.CloseMenu, 3),
-        NavigationLesson("nav_repeat", NavigationAction.RepeatLastPhrase, 4),
-        NavigationLesson("nav_menu", NavigationAction.OpenMenu, 5),
-        NavigationLesson("nav_history", NavigationAction.OpenCommunicationHistory, 6),
-        NavigationLesson("nav_reset", NavigationAction.ResetSequence, 7),
-        NavigationLesson("nav_emergency", NavigationAction.TriggerEmergency, 8)
+        NavigationLesson("nav_select_category", NavigationAction.SelectCategory, 2),
+        NavigationLesson("nav_select_phrase", NavigationAction.SelectPhrase, 3),
+        NavigationLesson("nav_back", NavigationAction.CloseMenu, 4),
+        NavigationLesson("nav_next_page", NavigationAction.NextPage, 5),
+        NavigationLesson("nav_previous_page", NavigationAction.PreviousPage, 6),
+        NavigationLesson("nav_emergency", NavigationAction.TriggerEmergency, 7),
+        NavigationLesson("nav_reset", NavigationAction.ResetSequence, 8)
     )
 
     val totalLessons: Int get() =

@@ -19,11 +19,14 @@ import com.idworx.lisa.formatWinkSequenceShort
 object NavigationLessonContent {
     fun title(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
         NavigationAction.OpenCategories -> uiStrings.t("Categories", "Kategorieë", "Izigaba")
-        NavigationAction.SelectCategory -> uiStrings.t("Open Medical", "Open Medies", "Vula Imithi")
-        NavigationAction.CloseMenu -> uiStrings.t("Return", "Terug", "Buyela")
+        NavigationAction.SelectCategory -> uiStrings.t("Select Conversation", "Kies Gesprek", "Khetha Ingxoxo")
+        NavigationAction.SelectPhrase -> uiStrings.t("Select a Phrase", "Kies 'n Frase", "Khetha Umusho")
+        NavigationAction.CloseMenu -> uiStrings.t("Go Back", "Gaan Terug", "Buyela Emuva")
         NavigationAction.RepeatLastPhrase -> uiStrings.t("Repeat", "Herhaal", "Phinda")
         NavigationAction.OpenMenu -> uiStrings.t("Menu", "Kieslys", "Imenyu")
         NavigationAction.OpenCommunicationHistory -> uiStrings.t("History", "Geskiedenis", "Umlando")
+        NavigationAction.NextPage -> uiStrings.t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
+        NavigationAction.PreviousPage -> uiStrings.t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
         NavigationAction.ResetSequence -> uiStrings.t("Reset", "Herstel", "Setha kabusha")
         NavigationAction.TriggerEmergency -> uiStrings.t("Emergency", "Nood", "Usizo oluphuthumayo")
         NavigationAction.OpenQuickControls -> uiStrings.t("Quick Phrases", "Vinnige Kontroles", "Izilawuli Esisheshayo")
@@ -38,9 +41,14 @@ object NavigationLessonContent {
             "Lezi yizigaba zakho zokuxhumana."
         )
         NavigationAction.SelectCategory -> uiStrings.t(
-            "Let's open Medical. Select the category with your navigation gesture.",
-            "Kom ons open Medies.",
-            "Masivule Imithi."
+            "Let's open Conversation. Select the category with your select gesture.",
+            "Kom ons open Gesprek.",
+            "Masivule Ingxoxo."
+        )
+        NavigationAction.SelectPhrase -> uiStrings.t(
+            "Blink any phrase's own gesture to select and speak it.",
+            "Flikker enige frase se eie gebaar om dit te kies.",
+            "Cwayiza umlingo womusho ukukhetha uwukhulume."
         )
         NavigationAction.CloseMenu -> uiStrings.t(
             "Use Back (L2 R2) to return to categories.",
@@ -61,6 +69,16 @@ object NavigationLessonContent {
             "Open My Communication from the menu to view your history.",
             "Open My Kommunikasie.",
             "Vula umlando wakho wokuxhumana."
+        )
+        NavigationAction.NextPage -> uiStrings.t(
+            "Move to the next page with ${formatWinkSequenceShort(0, 2)}.",
+            "Beweeg na die volgende bladsy met L0 R2.",
+            "Yiya ekhasini elilandelayo nge-L0 R2."
+        )
+        NavigationAction.PreviousPage -> uiStrings.t(
+            "Move to the previous page with ${formatWinkSequenceShort(2, 0)}.",
+            "Beweeg na die vorige bladsy met L2 R0.",
+            "Yiya ekhasini elidlule nge-L2 R0."
         )
         NavigationAction.ResetSequence -> uiStrings.t(
             "Reset clears your current message. Practice Reset when you need a fresh start.",
@@ -147,7 +165,8 @@ fun GuidedTrainingFlow(
     when (progress.currentPhase) {
         TrainingPhase.FirstLaunchChoice -> TrainingFirstLaunchChoiceScreen(
             onStartGuidedLearning = { onEvent(TrainingEvent.BeginLearning) },
-            onSkipToWorkspace = { onEvent(TrainingEvent.ConfirmSkip) }
+            onSkipToWorkspace = { onEvent(TrainingEvent.ConfirmSkip) },
+            onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }
         )
 
         TrainingPhase.Welcome -> TrainingWelcomeScreen(

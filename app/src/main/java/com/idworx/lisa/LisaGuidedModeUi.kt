@@ -1,6 +1,7 @@
 package com.idworx.lisa
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,8 @@ import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.CaregiverConfidenceEngine
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceHighlightTarget
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 
 private val OverlayScrim = Color.Black.copy(alpha = 0.48f)
 private val PanelBackground = Color(0xFF0D1B2A).copy(alpha = 0.72f)
@@ -47,6 +50,19 @@ private val EntryBackground = LisaWhite.copy(alpha = 0.90f)
 private val EntryHighlight = LisaBlue.copy(alpha = 0.22f)
 private val NavBackground = LisaWhite.copy(alpha = 0.88f)
 private val CategoryMenuHighlight = LisaBlue.copy(alpha = 0.30f)
+
+/** Subtle blue outline + soft glow used to spotlight the real control a Guided Training lesson is teaching. */
+private val TrainingHighlightGlow = LisaBlue.copy(alpha = 0.18f)
+private val TrainingHighlightBorder = LisaBlue.copy(alpha = 0.85f)
+
+private fun Modifier.guidedTrainingHighlight(active: Boolean, radius: androidx.compose.ui.unit.Dp = 12.dp): Modifier =
+    if (active) {
+        this
+            .background(TrainingHighlightGlow, RoundedCornerShape(radius))
+            .border(2.dp, TrainingHighlightBorder, RoundedCornerShape(radius))
+    } else {
+        this
+    }
 
 @Composable
 fun GuidedVocabularyOverlay(
@@ -69,6 +85,9 @@ fun GuidedVocabularyOverlay(
     onChooseCategory: () -> Unit,
     onPhraseEntry: (GuidedVocabularyEntry) -> Unit,
     onCategoryRow: (Int) -> Unit,
+    workspaceMode: com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode =
+        com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode.NORMAL,
+    trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
     modifier: Modifier = Modifier
 ) {
     if (!visible) return
@@ -191,17 +210,20 @@ fun GuidedVocabularyOverlay(
                                         highlighted = confirmedLeft == GuidedModeNavigation.CATEGORIES_LEFT &&
                                             confirmedRight == GuidedModeNavigation.CATEGORIES_RIGHT &&
                                             confirmedPhrase == uiStrings.guidedChooseCategoryAction,
+                                        trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.OpenCategories,
                                         onClick = onChooseCategory
                                     )
                                 }
                                 val entriesToShow = if (isPreferencesPage) pageEntries else visiblePhraseEntries
-                                entriesToShow.forEach { entry ->
+                                entriesToShow.forEachIndexed { entryIndex, entry ->
                                     val highlighted = confirmedLeft == entry.left &&
                                         confirmedRight == entry.right &&
                                         confirmedPhrase == entry.phrase
                                     GuidedVocabularyEntryRow(
                                         entry = entry,
                                         highlighted = highlighted,
+                                        trainingHighlighted = entryIndex == 0 &&
+                                            trainingHighlight == GuidedWorkspaceHighlightTarget.PhraseRow,
                                         onClick = { onPhraseEntry(entry) }
                                     )
                                 }
@@ -229,6 +251,8 @@ fun GuidedVocabularyOverlay(
                                     index = index,
                                     sequenceLabel = GuidedCategoryShortcuts.sequenceLabelForCategory(index),
                                     selected = index == categoryMenuSelection,
+                                    trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
+                                        index == GuidedWorkspaceTrainingSpec.conversationCategoryIndex,
                                     onClick = { onCategoryRow(index) }
                                 )
                             }
@@ -261,7 +285,8 @@ fun GuidedVocabularyOverlay(
                 onBack = onBack,
                 onCategories = onCategories,
                 onNavigateDown = onNavigateDown,
-                onEmergency = onEmergency
+                onEmergency = onEmergency,
+                highlightTarget = trainingHighlight
             )
         }
     }
@@ -377,6 +402,7 @@ private fun GuidedCategoryMenuAccessRow(
     title: String,
     sequenceLabel: String,
     highlighted: Boolean,
+    trainingHighlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -385,6 +411,7 @@ private fun GuidedCategoryMenuAccessRow(
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (highlighted) EntryHighlight else LisaBlue.copy(alpha = 0.35f))
+            .guidedTrainingHighlight(trainingHighlighted)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -424,6 +451,7 @@ private fun GuidedCategoryMenuRow(
     index: Int,
     sequenceLabel: String,
     selected: Boolean,
+    trainingHighlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -432,6 +460,7 @@ private fun GuidedCategoryMenuRow(
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (selected) CategoryMenuHighlight else EntryBackground)
+            .guidedTrainingHighlight(trainingHighlighted)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -472,6 +501,7 @@ private fun GuidedCategoryMenuRow(
 private fun GuidedVocabularyEntryRow(
     entry: GuidedVocabularyEntry,
     highlighted: Boolean,
+    trainingHighlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -480,6 +510,7 @@ private fun GuidedVocabularyEntryRow(
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .background(if (highlighted) EntryHighlight else EntryBackground)
+            .guidedTrainingHighlight(trainingHighlighted)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -534,7 +565,8 @@ private fun GuidedModeNavigationPanel(
     onBack: () -> Unit,
     onCategories: () -> Unit,
     onNavigateDown: () -> Unit,
-    onEmergency: () -> Unit
+    onEmergency: () -> Unit,
+    highlightTarget: GuidedWorkspaceHighlightTarget? = null
 ) {
     val actions = GuidedNavigationPanelSpec.panelActions(uiStrings, panelContext)
     val handlers = listOf(
@@ -546,6 +578,15 @@ private fun GuidedModeNavigationPanel(
         onNavigateDown
     )
     val enabledFlags = listOf(canGoPrevious, true, true, true, true, canGoNext)
+    // Index order mirrors GuidedNavigationPanelSpec.panelActions: Previous, Select, Back, Categories, Emergency, Next.
+    val highlightFlags = listOf(
+        highlightTarget == GuidedWorkspaceHighlightTarget.PreviousPage,
+        false,
+        highlightTarget == GuidedWorkspaceHighlightTarget.Back,
+        highlightTarget == GuidedWorkspaceHighlightTarget.OpenCategories,
+        highlightTarget == GuidedWorkspaceHighlightTarget.Emergency,
+        highlightTarget == GuidedWorkspaceHighlightTarget.NextPage
+    )
 
     Column(
         modifier = Modifier
@@ -564,6 +605,7 @@ private fun GuidedModeNavigationPanel(
                     gestureHint = action.gestureHint,
                     sequenceLabel = action.sequenceLabel,
                     compact = true,
+                    trainingHighlighted = highlightFlags[index],
                     onClick = handlers[index]
                 )
             } else {
@@ -574,6 +616,7 @@ private fun GuidedModeNavigationPanel(
                     sequenceLabel = action.sequenceLabel,
                     enabled = enabledFlags[index],
                     compact = true,
+                    trainingHighlighted = highlightFlags[index],
                     onClick = handlers[index]
                 )
             }
@@ -588,6 +631,7 @@ private fun GuidedEmergencyNavButton(
     gestureHint: String,
     sequenceLabel: String,
     compact: Boolean = false,
+    trainingHighlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     Column(
@@ -596,6 +640,7 @@ private fun GuidedEmergencyNavButton(
             .clip(RoundedCornerShape(10.dp))
             .clickable(role = Role.Button, onClick = onClick)
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
+            .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
             .padding(
                 horizontal = 6.dp,
                 vertical = if (compact) 5.dp else 8.dp
@@ -646,6 +691,7 @@ private fun GuidedNavigationActionButton(
     sequenceLabel: String,
     enabled: Boolean,
     compact: Boolean = false,
+    trainingHighlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     val contentColor = if (enabled) LisaBlueDark else LisaGray
@@ -662,6 +708,7 @@ private fun GuidedNavigationActionButton(
                 onClick = onClick
             )
             .background(if (enabled) LisaBlue.copy(alpha = 0.10f) else LisaSoftGray.copy(alpha = 0.6f))
+            .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
             .padding(
                 horizontal = 4.dp,
                 vertical = if (compact) 4.dp else 8.dp

@@ -36,10 +36,12 @@ import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.Careg
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.ui.CaregiverSupportStrip
 import com.idworx.lisa.features.onboardingguide.state.GuidedTrainingUiState
 import com.idworx.lisa.features.onboardingguide.state.TrainingEvent
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceLessonCardDock
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 import com.idworx.lisa.features.onboardingguide.ui.GuidedTrainingFlow
 import com.idworx.lisa.features.onboardingguide.ui.TrainingEyeTrackingState
-import com.idworx.lisa.features.onboardingguide.ui.NavigationLessonScreen
-import com.idworx.lisa.features.onboardingguide.ui.NavigationLessonContent
+import com.idworx.lisa.features.onboardingguide.ui.GuidedWorkspaceLessonCard
 import com.idworx.lisa.features.onboardingguide.ui.TrainingSettingsSection
 import com.idworx.lisa.features.onboardingguide.ui.trainingBlocksMainUi
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
@@ -221,13 +223,26 @@ fun LisaRootUI(
 
     val canRepeat = lastSpoken.isNotBlank()
     val density = LocalDensity.current
+    // Guided Training Mode — navigation lessons teach the real Communication Workspace, so the
+    // workspace overlay must be visible even though onboarding has not finished yet.
+    val guidedWorkspaceTrainingActive =
+        guidedTrainingActive && guidedTrainingState.phase == TrainingPhase.NavigationLesson
     val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
         onboardingCompleted = onboardingCompleted,
         cameraPermissionGranted = cameraPermissionGranted,
         emergencyActive = emergencyActive,
         practiceModeOpen = practiceModeOpen,
-        quickControlsOpen = quickControlsOpen
+        quickControlsOpen = quickControlsOpen,
+        guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
     )
+    val activeNavigationLesson = if (guidedWorkspaceTrainingActive) {
+        TrainingLessonCatalog.navigationLessonAt(guidedTrainingState.progress.navigationLessonIndex)
+    } else {
+        null
+    }
+    val guidedWorkspaceHighlight = activeNavigationLesson?.let {
+        GuidedWorkspaceTrainingSpec.highlightTargetFor(it.action)
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         if (cameraPermissionGranted) {
             cameraView()
@@ -242,30 +257,6 @@ fun LisaRootUI(
 
         if (emergencyActive) {
             EmergencyOverlay(uiStrings = uiStrings, notifyNames = emergencyNotifyNames)
-        }
-
-        if (guidedTrainingActive && guidedTrainingState.phase == TrainingPhase.NavigationLesson) {
-            val navLesson = TrainingLessonCatalog.navigationLessonAt(guidedTrainingState.progress.navigationLessonIndex)
-            if (navLesson != null) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    NavigationLessonScreen(
-                        title = NavigationLessonContent.title(navLesson.action, uiStrings),
-                        instruction = NavigationLessonContent.instruction(navLesson.action, uiStrings),
-                        awaitingAction = guidedTrainingState.awaitingNavigationAction,
-                        onNarration = {
-                            onTrainingNavigationNarration(
-                                NavigationLessonContent.title(navLesson.action, uiStrings),
-                                NavigationLessonContent.instruction(navLesson.action, uiStrings)
-                            )
-                        }
-                    )
-                }
-            }
         }
 
         if (practiceModeOpen) {
@@ -419,6 +410,12 @@ fun LisaRootUI(
             onChooseCategory = onGuidedChooseCategory,
             onPhraseEntry = onGuidedPhraseEntry,
             onCategoryRow = onGuidedCategoryRow,
+            workspaceMode = if (guidedWorkspaceTrainingActive) {
+                GuidedWorkspaceMode.GUIDED_TRAINING
+            } else {
+                GuidedWorkspaceMode.NORMAL
+            },
+            trainingHighlight = guidedWorkspaceHighlight,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -575,6 +572,28 @@ fun LisaRootUI(
             }
         }
         }
+        }
+
+        // Floating lesson card renders last so it is always drawn above the workspace and the
+        // Listening/Watching-your-eyes banner at the top — never behind it. It docks above the
+        // bottom Menu/Reset row, on whichever side keeps the highlighted control uncovered.
+        if (guidedWorkspaceTrainingActive && activeNavigationLesson != null) {
+            val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(guidedTrainingState.progress)
+            val cardDock = GuidedWorkspaceTrainingSpec.cardDockFor(guidedWorkspaceHighlight)
+            val cardAlignment = if (cardDock == GuidedWorkspaceLessonCardDock.BottomStart) {
+                Alignment.BottomStart
+            } else {
+                Alignment.BottomEnd
+            }
+            GuidedWorkspaceLessonCard(
+                lessonNumber = lessonProgress?.first,
+                totalLessons = lessonProgress?.second,
+                title = GuidedWorkspaceTrainingSpec.lessonCardTitle(activeNavigationLesson.action, uiStrings),
+                gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(activeNavigationLesson.action),
+                modifier = Modifier
+                    .align(cardAlignment)
+                    .padding(horizontal = 10.dp, vertical = 84.dp)
+            )
         }
     }
 }

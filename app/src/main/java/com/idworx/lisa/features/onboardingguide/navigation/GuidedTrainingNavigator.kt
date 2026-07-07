@@ -39,6 +39,15 @@ class GuidedTrainingNavigator {
             practiceNavigation = false
         )
 
+        TrainingEvent.SkipToNavigationTraining -> progress.copy(
+            firstLaunchChoiceMade = true,
+            tutorialStarted = true,
+            currentPhase = TrainingPhase.NavigationLesson,
+            navigationLessonIndex = 0,
+            sessionLessonsThisVisit = 0,
+            currentLessonSuccessCount = 0
+        ).let { clearPracticeFlags(it) }
+
         TrainingEvent.ReturnToTutorial -> progress.copy(
             currentPhase = TrainingPhase.Welcome,
             tutorialSkipped = false

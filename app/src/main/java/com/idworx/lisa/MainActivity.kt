@@ -1090,10 +1090,45 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         refreshTrainingActiveState()
     }
 
+    /**
+     * Best-effort classification of what a gesture would do in the real workspace, used only to
+     * decide whether Guided Training should accept it. [NavigationAction.SelectPhrase] is the
+     * fallback for any gesture that isn't a recognised global-navigation sequence — in Vocabulary
+     * mode that is exactly how a specific phrase entry is picked (each phrase blinks its own code).
+     */
+    private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
+        isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
+        GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
+        GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
+        GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
+        GuidedModeNavigation.isPreviousSequence(left, right) -> NavigationAction.PreviousPage
+        GuidedModeNavigation.isSelectSequence(left, right) -> NavigationAction.SelectCategory
+        else -> NavigationAction.SelectPhrase
+    }
+
+    /**
+     * Guided Training Mode gate — only the current navigation lesson's target gesture is accepted
+     * inside the real workspace; every other gesture is ignored so it can't open unrelated
+     * categories, speak hidden phrases, or otherwise leak into a lesson it doesn't belong to.
+     */
+    private fun acceptedByCurrentNavigationLesson(left: Int, right: Int): Boolean {
+        val expected = trainingSession.expectedNavigationAction() ?: return true
+        val classified = classifyNavigationGesture(left, right)
+        if (classified == expected) return true
+        // Select (category menu) and a phrase's own code (vocabulary) both surface as "Select" —
+        // let both through so the real screenMode decides which one actually applies.
+        return (expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
+            (expected == NavigationAction.SelectPhrase && classified == NavigationAction.SelectCategory)
+    }
+
     private fun handleNavigationTrainingSequence(left: Int, right: Int) {
+        if (!acceptedByCurrentNavigationLesson(left, right)) return
+
         when {
             isEmergencySequence(left, right) -> {
-                trainingSession.beginEmergencyConfirm()
+                // Safe practice only — advance the lesson directly without starting the real
+                // Brain1 emergency confirm flow, so no alert can ever be sent during training.
+                verifyTrainingNavigation(NavigationAction.TriggerEmergency)
             }
             NavigationTrainingGestureHandler.opensCategories(left, right) -> {
                 if (guidedOverlayActive()) {
@@ -1112,7 +1147,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         verifyTrainingNavigation(NavigationAction.SelectCategory)
                     GuidedModeNavigation.isBackSequence(left, right) ->
                         verifyTrainingNavigation(NavigationAction.CloseMenu)
+                    GuidedModeNavigation.isNextSequence(left, right) ->
+                        verifyTrainingNavigation(NavigationAction.NextPage)
+                    GuidedModeNavigation.isPreviousSequence(left, right) ->
+                        verifyTrainingNavigation(NavigationAction.PreviousPage)
                 }
+            }
+            guidedOverlayActive() -> {
+                // Any other gesture while the real workspace is visible — e.g. blinking a specific
+                // phrase's own code to select and speak it. SelectPhrase is verified from
+                // applyGuidedSequenceResult's Speak branch once the phrase is actually spoken.
+                handleGuidedOverlaySequence(left, right)
             }
             GuidedModeNavigation.isSelectSequence(left, right) ->
                 verifyTrainingNavigation(NavigationAction.SelectCategory)
@@ -1272,7 +1317,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             cameraPermissionGranted = uiCameraPermissionGranted.value,
             emergencyActive = emergencyActive,
             practiceModeOpen = uiPracticeModeOpen.value,
-            quickControlsOpen = uiQuickControlsOpen.value
+            quickControlsOpen = uiQuickControlsOpen.value,
+            guidedWorkspaceTrainingActive = trainingSession.isNavigationTrainingActive()
         )
 
     private fun applyGuidedTouchNavigation(left: Int, right: Int) {
@@ -1431,6 +1477,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 uiGuidedConfirmedLeft.value = result.entry.left
                 uiGuidedConfirmedRight.value = result.entry.right
                 setCommunicationState(LisaCommunicationState.Speaking(phrase))
+                verifyTrainingNavigation(NavigationAction.SelectPhrase)
                 speak(phrase)
                 mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
                 mainHandler.postDelayed(guidedConfirmationClearRunnable, 2500L)

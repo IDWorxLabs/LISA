@@ -687,4 +687,34 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaRealWorkspaceGuidedNavigationTrainingV1") {
+        group = "verification"
+        description = "Run LISA_REAL_WORKSPACE_GUIDED_NAVIGATION_TRAINING_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.RealWorkspaceGuidedNavigationTrainingAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedNavigationAccessAndFloatingCardV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_NAVIGATION_ACCESS_AND_FLOATING_CARD_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedNavigationAccessFloatingCardAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }

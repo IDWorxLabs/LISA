@@ -999,14 +999,20 @@ object GuidedNavigationGestureAudit {
 }
 
 object GuidedVocabularyOverlayVisibility {
+    /**
+     * @param guidedWorkspaceTrainingActive When true, the real workspace is shown even though
+     * onboarding is not yet complete — Guided Learning's navigation lessons teach the real
+     * Communication Workspace (Guided Training Mode) instead of a blank placeholder screen.
+     */
     fun shouldShowOverlay(
         onboardingCompleted: Boolean,
         cameraPermissionGranted: Boolean,
         emergencyActive: Boolean,
         practiceModeOpen: Boolean,
-        quickControlsOpen: Boolean
+        quickControlsOpen: Boolean,
+        guidedWorkspaceTrainingActive: Boolean = false
     ): Boolean =
-        onboardingCompleted &&
+        (onboardingCompleted || guidedWorkspaceTrainingActive) &&
             cameraPermissionGranted &&
             !emergencyActive &&
             !practiceModeOpen &&

@@ -1161,6 +1161,10 @@ class TrainingSessionController(
         }
     }
 
+    /** The one real workspace action the current navigation lesson is teaching, or null. */
+    fun expectedNavigationAction(): NavigationAction? =
+        navigator.expectedNavigationAction(state.progress)
+
     fun verifyNavigation(action: NavigationAction) {
         if (state.progress.currentPhase != TrainingPhase.NavigationLesson) return
         val expected = navigator.expectedNavigationAction(state.progress) ?: return

@@ -28,7 +28,8 @@ import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 @Composable
 fun TrainingFirstLaunchChoiceScreen(
     onStartGuidedLearning: () -> Unit,
-    onSkipToWorkspace: () -> Unit
+    onSkipToWorkspace: () -> Unit,
+    onSkipToNavigationTraining: () -> Unit = {}
 ) {
     TrainingSoftBackground {
         Column(
@@ -67,7 +68,26 @@ fun TrainingFirstLaunchChoiceScreen(
                     onClick = onSkipToWorkspace
                 )
             }
+            Spacer(Modifier.height(20.dp))
+            CaregiverTestingSkipLink(onClick = onSkipToNavigationTraining)
         }
+    }
+}
+
+/**
+ * Caregiver/testing-only affordance — deliberately small and secondary so the primary user's
+ * two-choice screen stays exact and simple. Jumps straight to Lesson 16 of 23 (navigation
+ * training) inside the real Communication Workspace in GUIDED_TRAINING mode.
+ */
+@Composable
+private fun CaregiverTestingSkipLink(onClick: () -> Unit) {
+    androidx.compose.material3.TextButton(onClick = onClick) {
+        Text(
+            text = "Caregiver / testing: Skip to Navigation Training",
+            fontSize = 12.sp,
+            color = LisaGray,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -185,7 +205,7 @@ fun TrainingCompletionScreen(
             TrainingLisaLogo(modifier = Modifier.size(112.dp))
             Spacer(Modifier.height(36.dp))
             Text(
-                text = "You're ready",
+                text = "You're ready to communicate",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = LisaBlueDark,

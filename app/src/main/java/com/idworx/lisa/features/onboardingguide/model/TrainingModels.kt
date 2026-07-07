@@ -41,7 +41,13 @@ enum class NavigationAction {
     TriggerEmergency,
     OpenQuickControls,
     OpenSettings,
-    OpenCaregiver
+    OpenCaregiver,
+    /** Selecting a specific phrase entry inside the real workspace Vocabulary screen. */
+    SelectPhrase,
+    /** Real workspace "Next Page" gesture (L0 R2). */
+    NextPage,
+    /** Real workspace "Previous Page" gesture (L2 R0). */
+    PreviousPage
 }
 
 data class NavigationLesson(

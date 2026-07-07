@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -181,6 +182,60 @@ fun GuidedLessonProgressLabel(
         textAlign = TextAlign.Center,
         modifier = modifier.fillMaxWidth()
     )
+}
+
+/**
+ * Compact, non-blocking lesson card shown over the real Communication Workspace during Guided
+ * Training Mode navigation lessons. Deliberately small — it must never hide the workspace below
+ * it, unlike the old full-screen [NavigationLessonScreen].
+ */
+@Composable
+fun GuidedWorkspaceLessonCard(
+    lessonNumber: Int?,
+    totalLessons: Int?,
+    title: String,
+    gestureLabel: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.widthIn(max = 210.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = LisaWhite.copy(alpha = 0.98f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (lessonNumber != null && totalLessons != null) {
+                Text(
+                    text = "Lesson $lessonNumber of $totalLessons",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LisaBlueDark.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(2.dp))
+            }
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Center
+            )
+            if (gestureLabel.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Gesture: $gestureLabel",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaBlue,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
 }
 
 /** Responsive phrase title for Guided Learning — wraps long phrases across up to 3 lines. */

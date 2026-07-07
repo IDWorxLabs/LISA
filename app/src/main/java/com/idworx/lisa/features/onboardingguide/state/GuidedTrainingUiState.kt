@@ -63,6 +63,8 @@ sealed class TrainingEvent {
     data object BeginLearning : TrainingEvent()
     data object SkipTutorial : TrainingEvent()
     data object ConfirmSkip : TrainingEvent()
+    /** Caregiver/testing shortcut — jumps straight into Lesson 16 of 23 (real workspace GUIDED_TRAINING), bypassing all 15 phrase lessons. */
+    data object SkipToNavigationTraining : TrainingEvent()
     data object ReturnToTutorial : TrainingEvent()
     data object AdvanceSetup : TrainingEvent()
     data object CompleteSetup : TrainingEvent()
