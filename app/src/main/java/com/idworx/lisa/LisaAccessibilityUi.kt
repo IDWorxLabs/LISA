@@ -26,10 +26,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
@@ -246,6 +248,24 @@ fun LisaRootUI(
     }
     val guidedWorkspaceHighlight = activeNavigationLesson?.let {
         GuidedWorkspaceTrainingSpec.highlightTargetFor(it.action)
+    }
+    // The floating card's "Select a phrase" gesture hint must be the *actual* highlighted
+    // phrase entry's own code — the exact same entry (first visible row) that
+    // GuidedVocabularyOverlay renders and MainActivity's lesson-focus gate validates against —
+    // so the card can never show a gesture that differs from the real workspace row.
+    val guidedHighlightedPhraseGesture = if (activeNavigationLesson?.action == NavigationAction.SelectPhrase) {
+        val configuration = LocalConfiguration.current
+        val visibleEntryCap = GuidedVocabularyCatalog.visibleEntryCount(
+            configuration.screenWidthDp,
+            configuration.screenHeightDp
+        )
+        GuidedNavigationController.visiblePhraseEntries(
+            entries = guidedCategoryPage?.entries.orEmpty(),
+            phrasePageIndex = guidedNavigationState.phrasePageIndex,
+            visibleCap = visibleEntryCap
+        ).firstOrNull()?.sequenceLabel
+    } else {
+        null
     }
     Box(modifier = Modifier.fillMaxSize()) {
         if (cameraPermissionGranted) {
@@ -597,7 +617,10 @@ fun LisaRootUI(
                 lessonNumber = lessonProgress?.first,
                 totalLessons = lessonProgress?.second,
                 title = GuidedWorkspaceTrainingSpec.lessonCardTitle(activeNavigationLesson.action, uiStrings),
-                gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(activeNavigationLesson.action),
+                gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(
+                    activeNavigationLesson.action,
+                    guidedHighlightedPhraseGesture
+                ),
                 feedbackMessage = guidedTrainingState.navigationFeedbackMessage,
                 wrongGestureMessage = guidedTrainingState.navigationWrongGestureMessage,
                 modifier = Modifier

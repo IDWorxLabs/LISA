@@ -221,7 +221,10 @@ fun GuidedVocabularyOverlay(
                                     val openCategoriesHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.OpenCategories
                                     GuidedCategoryMenuAccessRow(
                                         title = uiStrings.guidedChooseCategoryAction,
-                                        sequenceLabel = "L4 R4",
+                                        sequenceLabel = formatWinkSequenceShort(
+                                            GuidedModeNavigation.CATEGORIES_LEFT,
+                                            GuidedModeNavigation.CATEGORIES_RIGHT
+                                        ),
                                         highlighted = confirmedLeft == GuidedModeNavigation.CATEGORIES_LEFT &&
                                             confirmedRight == GuidedModeNavigation.CATEGORIES_RIGHT &&
                                             confirmedPhrase == uiStrings.guidedChooseCategoryAction,
@@ -627,7 +630,7 @@ private fun GuidedModeNavigationPanel(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         actions.forEachIndexed { index, action ->
-            if (action.sequenceLabel == "L6 R0") {
+            if (action.sequenceLabel == formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)) {
                 GuidedEmergencyNavButton(
                     symbol = action.symbol,
                     title = action.title,
@@ -857,8 +860,14 @@ private fun PreferencesAdjustmentPanel(
             GuidedPreferencesAdjustMode.None -> Unit
         }
 
+        // Every sequenceLabel below is derived from the exact same GuidedModeNavigation/emergency
+        // constants processPreferencesAdjustmentGesture checks against — never a separately
+        // hardcoded copy — so this panel can never drift out of sync with what a gesture does.
         AdjustmentInstructionRow(
-            sequenceLabel = "L3 R1",
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.DECREASE_VALUE_LEFT,
+                GuidedModeNavigation.DECREASE_VALUE_RIGHT
+            ),
             gestureHint = uiStrings.guidedDecreaseValue,
             title = when (adjustMode) {
                 GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedDecreaseResponseTime
@@ -868,7 +877,10 @@ private fun PreferencesAdjustmentPanel(
             onClick = onDecrease
         )
         AdjustmentInstructionRow(
-            sequenceLabel = "L1 R3",
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.INCREASE_VALUE_LEFT,
+                GuidedModeNavigation.INCREASE_VALUE_RIGHT
+            ),
             gestureHint = uiStrings.guidedIncreaseValue,
             title = when (adjustMode) {
                 GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedIncreaseResponseTime
@@ -878,7 +890,7 @@ private fun PreferencesAdjustmentPanel(
             onClick = onIncrease
         )
         AdjustmentInstructionRow(
-            sequenceLabel = "L1 R1",
+            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
             gestureHint = uiStrings.guidedSelectEnterHint,
             title = when (adjustMode) {
                 GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedSaveResponseTime
@@ -888,19 +900,22 @@ private fun PreferencesAdjustmentPanel(
             onClick = onSave
         )
         AdjustmentInstructionRow(
-            sequenceLabel = "L2 R2",
+            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
             gestureHint = uiStrings.guidedBackHint,
             title = uiStrings.guidedCancelToPreferences,
             onClick = onCancel
         )
         AdjustmentInstructionRow(
-            sequenceLabel = "L4 R4",
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.CATEGORIES_LEFT,
+                GuidedModeNavigation.CATEGORIES_RIGHT
+            ),
             gestureHint = uiStrings.guidedCategoriesNavTitle,
             title = uiStrings.guidedCategoriesNavTitle,
             onClick = onCategories
         )
         AdjustmentInstructionRow(
-            sequenceLabel = "L6 R0",
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
             gestureHint = uiStrings.guidedEmergencyNavTitle,
             title = uiStrings.guidedEmergencyNavTitle,
             onClick = onEmergency,

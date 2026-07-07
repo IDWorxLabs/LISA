@@ -33,7 +33,7 @@ data class SystemCommand(
     val action: SystemCommandAction,
     val labelKey: String
 ) {
-    val sequenceLabel: String get() = "L$left R$right"
+    val sequenceLabel: String get() = formatWinkSequenceShort(left, right)
 }
 
 object LisaSystemLanguage {

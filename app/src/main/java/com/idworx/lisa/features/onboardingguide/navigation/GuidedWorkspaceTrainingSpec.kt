@@ -1,5 +1,8 @@
 package com.idworx.lisa.features.onboardingguide.navigation
 
+import com.idworx.lisa.EMERGENCY_LEFT_WINKS
+import com.idworx.lisa.EMERGENCY_RIGHT_WINKS
+import com.idworx.lisa.GuidedCategoryShortcuts
 import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
@@ -104,20 +107,35 @@ object GuidedWorkspaceTrainingSpec {
         null -> GuidedWorkspaceLessonCardDock.BottomEnd
     }
 
-    /** Short "Gesture: <gesture>" hint shown on the compact lesson card. */
-    fun lessonCardGestureLabel(action: NavigationAction): String = when (action) {
+    /**
+     * Short "Gesture: <gesture>" hint shown on the compact lesson card. Every value is derived
+     * from the same source the real workspace control itself uses — never a separately
+     * hardcoded copy — so the lesson can never teach a gesture that differs from what the
+     * highlighted control actually does or displays.
+     *
+     * [highlightedPhraseGesture] is the *actual* highlighted phrase entry's own sequence label
+     * (e.g. from [com.idworx.lisa.GuidedVocabularyEntry.sequenceLabel]) — required for
+     * [NavigationAction.SelectPhrase] to show a concrete gesture instead of a generic hint,
+     * since which phrase (and therefore which gesture) is highlighted changes at runtime.
+     */
+    fun lessonCardGestureLabel(action: NavigationAction, highlightedPhraseGesture: String? = null): String = when (action) {
         NavigationAction.OpenCategories ->
             formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
         NavigationAction.SelectCategory ->
-            formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
-        NavigationAction.SelectPhrase -> "Blink the highlighted phrase's gesture"
+            // The real category row shows its own direct-shortcut gesture
+            // (GuidedCategoryShortcuts.sequenceLabelForCategory) — not the generic Select
+            // confirm gesture — so the lesson must show and require exactly that.
+            GuidedCategoryShortcuts.sequenceLabelForCategory(conversationCategoryIndex)
+        NavigationAction.SelectPhrase ->
+            highlightedPhraseGesture ?: "Blink the highlighted phrase's gesture"
         NavigationAction.CloseMenu ->
             formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
         NavigationAction.NextPage ->
             formatWinkSequenceShort(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT)
         NavigationAction.PreviousPage ->
             formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT)
-        NavigationAction.TriggerEmergency -> "L6 R0"
+        NavigationAction.TriggerEmergency ->
+            formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
         NavigationAction.ResetSequence -> "Tap Reset"
         else -> ""
     }

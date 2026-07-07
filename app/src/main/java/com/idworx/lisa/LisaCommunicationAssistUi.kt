@@ -88,6 +88,14 @@ fun UnknownSequenceHelpOverlay(
     }
 }
 
+/**
+ * The single source of truth for every Quick Controls gesture label — reads the exact same
+ * [LisaSystemLanguage.quickControlCommands] entry [LisaSystemLanguage.resolveQuickControlCommand]
+ * checks against, so this UI can never show a gesture that differs from what actually executes.
+ */
+private fun quickControlGesture(action: SystemCommandAction): String =
+    LisaSystemLanguage.quickControlCommands.first { it.action == action }.sequenceLabel
+
 @Composable
 fun QuickControlsOverlay(
     uiStrings: LisaUiStrings,
@@ -152,8 +160,16 @@ fun QuickControlsOverlay(
             }
 
         QuickControlSectionLabel(uiStrings.sensitivity)
-        QuickControlEyeRow("L0 R1", uiStrings.systemSensitivityDecrease, onClick = onDecreaseSensitivity)
-        QuickControlEyeRow("L0 R2", uiStrings.systemSensitivityIncrease, onClick = onIncreaseSensitivity)
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.DecreaseSensitivity),
+            uiStrings.systemSensitivityDecrease,
+            onClick = onDecreaseSensitivity
+        )
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.IncreaseSensitivity),
+            uiStrings.systemSensitivityIncrease,
+            onClick = onIncreaseSensitivity
+        )
 
         QuickControlSectionLabel(uiStrings.quickControlsLanguage)
         QuickControlPlannedRow(uiStrings.quickControlsLanguage)
@@ -164,16 +180,33 @@ fun QuickControlsOverlay(
         // TODO: Eye-controlled volume selection — left/right wink adjusts level.
 
         QuickControlSectionLabel(uiStrings.systemRepeatLast)
-        QuickControlEyeRow("L1 R1", uiStrings.systemRepeatLast, onClick = onRepeatLastPhrase)
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.RepeatLastPhrase),
+            uiStrings.systemRepeatLast,
+            onClick = onRepeatLastPhrase
+        )
 
         QuickControlSectionLabel(if (listeningPaused) uiStrings.quickControlsResumeListening else uiStrings.quickControlsPauseListening)
-        QuickControlEyeRow("L2 R2", uiStrings.systemTogglePause, highlighted = listeningPaused, onClick = onTogglePause)
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.TogglePauseListening),
+            uiStrings.systemTogglePause,
+            highlighted = listeningPaused,
+            onClick = onTogglePause
+        )
 
         QuickControlSectionLabel(uiStrings.quickControlsPracticeMode)
-        QuickControlEyeRow("L3 R3", uiStrings.systemOpenPractice, onClick = onOpenPractice)
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.OpenPracticeMode),
+            uiStrings.systemOpenPractice,
+            onClick = onOpenPractice
+        )
 
         Spacer(Modifier.height(8.dp))
-        QuickControlEyeRow("L4 R0", uiStrings.systemCloseQuickControls, onClick = onClose)
+        QuickControlEyeRow(
+            quickControlGesture(SystemCommandAction.CloseQuickControls),
+            uiStrings.systemCloseQuickControls,
+            onClick = onClose
+        )
         Spacer(Modifier.height(6.dp))
         OutlinedButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(uiStrings.closeQuickControls)

@@ -285,13 +285,34 @@ object GuidedNavigationPanelSpec {
             PanelContext.CategoryMenu -> uiStrings.guidedMoveDownCategory
             PanelContext.Adjustment -> uiStrings.guidedScrollDown
         }
+        // Every sequenceLabel is derived directly from the same GuidedModeNavigation/emergency
+        // constants the real gesture handlers check against — never a separately hardcoded copy —
+        // so this panel can never drift out of sync with what a gesture actually does.
         return listOf(
-            GuidedNavPanelAction("↑↑", scrollUpTitle, uiStrings.guidedScrollUpHint, "L2 R0"),
-            GuidedNavPanelAction("✅", selectTitle, uiStrings.guidedSelectEnterHint, "L1 R1"),
-            GuidedNavPanelAction("↩", backTitle, uiStrings.guidedBackHint, "L2 R2"),
-            GuidedNavPanelAction("☰", uiStrings.guidedCategoriesNavTitle, uiStrings.guidedCategoriesNavHint, "L4 R4"),
-            GuidedNavPanelAction("🚨", uiStrings.guidedEmergencyNavTitle, uiStrings.guidedEmergencyNavHint, "L6 R0"),
-            GuidedNavPanelAction("↓↓", scrollDownTitle, uiStrings.guidedScrollDownHint, "L0 R2")
+            GuidedNavPanelAction(
+                "↑↑", scrollUpTitle, uiStrings.guidedScrollUpHint,
+                formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT)
+            ),
+            GuidedNavPanelAction(
+                "✅", selectTitle, uiStrings.guidedSelectEnterHint,
+                formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
+            ),
+            GuidedNavPanelAction(
+                "↩", backTitle, uiStrings.guidedBackHint,
+                formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
+            ),
+            GuidedNavPanelAction(
+                "☰", uiStrings.guidedCategoriesNavTitle, uiStrings.guidedCategoriesNavHint,
+                formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
+            ),
+            GuidedNavPanelAction(
+                "🚨", uiStrings.guidedEmergencyNavTitle, uiStrings.guidedEmergencyNavHint,
+                formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
+            ),
+            GuidedNavPanelAction(
+                "↓↓", scrollDownTitle, uiStrings.guidedScrollDownHint,
+                formatWinkSequenceShort(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT)
+            )
         )
     }
 

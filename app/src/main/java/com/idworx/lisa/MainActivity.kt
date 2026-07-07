@@ -1166,10 +1166,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val state = uiGuidedNavigationState.value
         return when {
             expected == NavigationAction.SelectCategory &&
-                GuidedModeNavigation.isSelectSequence(left, right) &&
                 state.screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
+                // The real category row displays and accepts its own direct shortcut gesture
+                // (GuidedCategoryShortcuts — the exact same lookup the row UI and
+                // GuidedNavigationController.processCategoryMenuGesture use), never a separate
+                // hardcoded "Select" gesture, so the lesson can never teach one code while the
+                // row shows another.
+                val targetCategoryIndex = GuidedCategoryShortcuts.categoryIndexForGesture(left, right)
                 val isHighlightedCategory =
-                    state.categoryMenuSelection == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+                    targetCategoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
                 !GuidedTrainingFocusPolicy.isTargetAllowed(
                     expected, NavigationAction.SelectCategory, isHighlightedCategory
                 )
@@ -1242,9 +1247,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             guidedOverlayActive() -> {
                 // Any other gesture while the real workspace is visible — e.g. blinking a specific
-                // phrase's own code to select and speak it. SelectPhrase is verified from
+                // phrase's own code to select and speak it, or a category's own direct shortcut
+                // gesture while the Category Menu is open. SelectPhrase is verified from
                 // applyGuidedSequenceResult's Speak branch once the phrase is actually spoken.
+                val screenModeBeforeHandling = uiGuidedNavigationState.value.screenMode
+                val isCategoryShortcutGesture = screenModeBeforeHandling == GuidedOverlayScreenMode.CategoryMenu &&
+                    GuidedCategoryShortcuts.categoryIndexForGesture(left, right) != null
                 handleGuidedOverlaySequence(left, right)
+                if (isCategoryShortcutGesture) {
+                    verifyTrainingNavigation(NavigationAction.SelectCategory)
+                }
             }
             GuidedModeNavigation.isSelectSequence(left, right) ->
                 verifyTrainingNavigation(NavigationAction.SelectCategory)

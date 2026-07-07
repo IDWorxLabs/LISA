@@ -128,7 +128,14 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val guidedNextPhrasePage: String get() = t("Next Phrase Page", "Volgende Frasebladsy", "Ikhasi Lamagama Elilandelayo")
     val guidedScrollDownHint: String get() = t("2 Right Winks", "2 Regterknippe", "Ukucwayiza Okubili Kwesokudla")
     val guidedEmergencyNavTitle: String get() = t("Emergency", "Nood", "Usizo Oluphuthumayo")
-    val guidedEmergencyNavHint: String get() = t("L6 R0", "L6 R0", "L6 R0")
+    // Interpolates EMERGENCY_LEFT_WINKS/EMERGENCY_RIGHT_WINKS directly (same single source of
+    // truth isEmergencySequence checks) instead of a hardcoded "L6 R0" literal, matching the
+    // descriptive "<n> Left + <n> Right" style of the other guided nav hints.
+    val guidedEmergencyNavHint: String get() = t(
+        "$EMERGENCY_LEFT_WINKS Left + $EMERGENCY_RIGHT_WINKS Right",
+        "$EMERGENCY_LEFT_WINKS Links + $EMERGENCY_RIGHT_WINKS Regs",
+        "$EMERGENCY_LEFT_WINKS Kwesokunxele + $EMERGENCY_RIGHT_WINKS Kwesokudla"
+    )
     val guidedCategoriesNavTitle: String get() = t("Categories", "Kategorieë", "Izigaba")
     val guidedCategoriesNavHint: String get() = t("4 Left + 4 Right", "4 Links + 4 Regs", "4 Kwesokunxele + 4 Kwesokudla")
     val guidedEyeTrackingActive: String get() = t("Eyes tracked", "Oë dopgehou", "Amehlo alandwa")

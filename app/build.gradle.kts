@@ -749,4 +749,34 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaGuidedTrainingGestureMismatchV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_TRAINING_GESTURE_MISMATCH_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedTrainingGestureMismatchAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGuidedPreferencesGestureConsistencyV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_PREFERENCES_GESTURE_CONSISTENCY_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedPreferencesGestureConsistencyAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }
