@@ -110,7 +110,7 @@ object GuidedWorkspaceTrainingSpec {
             formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
         NavigationAction.SelectCategory ->
             formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
-        NavigationAction.SelectPhrase -> "Blink any phrase's gesture"
+        NavigationAction.SelectPhrase -> "Blink the highlighted phrase's gesture"
         NavigationAction.CloseMenu ->
             formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
         NavigationAction.NextPage ->

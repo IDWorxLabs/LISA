@@ -142,7 +142,7 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         val main = readMainActivity() ?: return false
         return allTargetsAccepted &&
             main.contains("private fun acceptedByCurrentNavigationLesson") &&
-            main.contains("if (!acceptedByCurrentNavigationLesson(left, right)) return")
+            main.contains("if (!acceptedByCurrentNavigationLesson(left, right)) {")
     }
 
     // --- 6. Non-target gestures are ignored during guided training -----------------------------
@@ -230,7 +230,7 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         // gesture reaches the real workspace or vocabulary resolver before being checked against
         // the active lesson's expected action.
         val handlerBodyIndex = main.indexOf("private fun handleNavigationTrainingSequence")
-        val acceptGateIndex = main.indexOf("if (!acceptedByCurrentNavigationLesson(left, right)) return")
+        val acceptGateIndex = main.indexOf("if (!acceptedByCurrentNavigationLesson(left, right)) {")
         val gateIsFirstStatement = handlerBodyIndex >= 0 && acceptGateIndex > handlerBodyIndex &&
             acceptGateIndex - handlerBodyIndex < 400
 

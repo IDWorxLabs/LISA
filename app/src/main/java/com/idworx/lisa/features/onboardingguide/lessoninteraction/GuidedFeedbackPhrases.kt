@@ -21,4 +21,12 @@ object GuidedFeedbackPhrases {
         val safeIndex = ((index % size) + size) % size
         return positivePhrases[safeIndex]
     }
+
+    /**
+     * Generic red "wrong sequence" acknowledgement for real-workspace navigation lessons — the
+     * same friendly, try-again tone as the early phrase lessons' "Wrong eye" feedback, but never
+     * eye-specific, since a navigation lesson's wrong action can be any unrelated gesture or tap,
+     * not just a wrong starting eye.
+     */
+    fun wrongGesture(): String = "Wrong gesture — try again."
 }

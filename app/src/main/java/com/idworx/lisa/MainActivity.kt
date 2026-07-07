@@ -36,6 +36,8 @@ import com.idworx.lisa.ui.theme.LISATheme
 import com.idworx.lisa.features.onboardingguide.audio.OnboardingNarrationController
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedTrainingFocusPolicy
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 import com.idworx.lisa.features.onboardingguide.navigation.NavigationTrainingGestureHandler
 import com.idworx.lisa.features.onboardingguide.services.TrainingProgressStore
 import com.idworx.lisa.features.onboardingguide.services.TrainingSessionController
@@ -1148,8 +1150,66 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             (expected == NavigationAction.SelectPhrase && classified == NavigationAction.SelectCategory)
     }
 
+    /**
+     * Second, finer-grained Guided Training gate layered on top of
+     * [acceptedByCurrentNavigationLesson]. That coarse gate only guarantees the gesture is the
+     * right KIND of action for the active lesson; lessons whose real workspace screen shows more
+     * than one candidate row at once (Select Category, Select Phrase) also need this row-level
+     * check so the learner can only ever act on the ONE highlighted row — every other lesson has
+     * exactly one on-screen target, so this always returns false (never blocks) for them. Never
+     * hardcoded to a specific lesson, category, or phrase — driven by
+     * [com.idworx.lisa.features.onboardingguide.navigation.GuidedTrainingFocusPolicy] plus
+     * whatever the real workspace currently highlights.
+     */
+    private fun isNavigationLessonOffTargetAttempt(left: Int, right: Int): Boolean {
+        val expected = trainingSession.expectedNavigationAction() ?: return false
+        val state = uiGuidedNavigationState.value
+        return when {
+            expected == NavigationAction.SelectCategory &&
+                GuidedModeNavigation.isSelectSequence(left, right) &&
+                state.screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
+                val isHighlightedCategory =
+                    state.categoryMenuSelection == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+                !GuidedTrainingFocusPolicy.isTargetAllowed(
+                    expected, NavigationAction.SelectCategory, isHighlightedCategory
+                )
+            }
+            expected == NavigationAction.SelectPhrase &&
+                state.screenMode == GuidedOverlayScreenMode.Vocabulary &&
+                !GuidedModeNavigation.isGlobalNavigationSequence(left, right) -> {
+                val highlightedEntry = WorkspacePhraseResolver.visibleEntriesForState(
+                    state, activeLanguage(), guidedUiStrings(), guidedCatalogContext(), guidedVisibleEntryCap()
+                ).firstOrNull()
+                val matchesHighlighted = highlightedEntry != null &&
+                    highlightedEntry.left == left && highlightedEntry.right == right
+                !GuidedTrainingFocusPolicy.isTargetAllowed(
+                    expected, NavigationAction.SelectPhrase, matchesHighlighted
+                )
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * Blocks the unrelated action, shows a brief red "wrong sequence" acknowledgement on the
+     * floating lesson card, and resets the active blink sequence so the learner can immediately
+     * try the highlighted action again — the lesson stays exactly where it was, nothing speaks,
+     * and no progress advances.
+     */
+    private fun rejectNavigationTrainingGesture() {
+        trainingSession.applyNavigationWrongGestureFeedback()
+        resetSequence()
+    }
+
     private fun handleNavigationTrainingSequence(left: Int, right: Int) {
-        if (!acceptedByCurrentNavigationLesson(left, right)) return
+        if (!acceptedByCurrentNavigationLesson(left, right)) {
+            rejectNavigationTrainingGesture()
+            return
+        }
+        if (isNavigationLessonOffTargetAttempt(left, right)) {
+            rejectNavigationTrainingGesture()
+            return
+        }
 
         when {
             isEmergencySequence(left, right) -> {
@@ -1349,6 +1409,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
 
     private fun applyGuidedTouchNavigation(left: Int, right: Int) {
+        if (trainingSession.isNavigationTrainingActive() &&
+            (!acceptedByCurrentNavigationLesson(left, right) || isNavigationLessonOffTargetAttempt(left, right))
+        ) {
+            rejectNavigationTrainingGesture()
+            refreshTrainingActiveState()
+            return
+        }
         if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
             verifyTrainingNavigation(NavigationAction.OpenCategories)
         }
@@ -1356,6 +1423,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openGuidedCategoryFromTouch(categoryIndex: Int) {
+        if (trainingSession.isNavigationTrainingActive()) {
+            val expected = trainingSession.expectedNavigationAction()
+            val isHighlightedCategory = categoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+            val allowed = expected != null &&
+                GuidedTrainingFocusPolicy.isTargetAllowed(expected, NavigationAction.SelectCategory, isHighlightedCategory)
+            if (!allowed) {
+                rejectNavigationTrainingGesture()
+                refreshTrainingActiveState()
+                return
+            }
+        }
         uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
             uiGuidedNavigationState.value,
             categoryIndex
@@ -1376,7 +1454,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
     }
 
+    /**
+     * Emergency is just another Guided Training lesson target, governed by the same
+     * [GuidedTrainingFocusPolicy] as Open Categories / Select Category / Select Phrase / Back /
+     * Next / Previous — never a separate validator. Defense in depth: this check never relies on
+     * the button's dimmed/enabled UI state, so even if a future UI change accidentally leaves the
+     * Emergency button tappable outside its lesson, the policy still rejects it here.
+     */
     private fun triggerGuidedEmergencyTouch() {
+        if (trainingSession.isNavigationTrainingActive()) {
+            val expected = trainingSession.expectedNavigationAction()
+            val allowed = expected != null &&
+                GuidedTrainingFocusPolicy.isTargetAllowed(expected, NavigationAction.TriggerEmergency)
+            if (!allowed) {
+                rejectNavigationTrainingGesture()
+                refreshTrainingActiveState()
+                return
+            }
+            // Emergency lesson — safe practice only, exactly like the blink path: complete the
+            // lesson directly and never start the real Brain1 emergency confirm flow.
+            verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+            return
+        }
         leftWinks = EMERGENCY_LEFT_WINKS
         rightWinks = EMERGENCY_RIGHT_WINKS
         resetSequence()

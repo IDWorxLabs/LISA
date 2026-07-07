@@ -719,6 +719,22 @@ afterEvaluate {
         }
     }
 
+    tasks.register<Test>("validateLisaGuidedTrainingLessonFocusV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_TRAINING_LESSON_FOCUS_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedTrainingLessonFocusAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "skipped", "failed")
+            showStandardStreams = true
+        }
+    }
+
     tasks.register<Test>("validateLisaGuidedNavigationAccessAndFloatingCardV1") {
         group = "verification"
         description = "Run LISA_GUIDED_NAVIGATION_ACCESS_AND_FLOATING_CARD_V1 validation and emit pass token on success"

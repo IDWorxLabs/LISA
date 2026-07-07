@@ -430,7 +430,7 @@ private fun GuidedCategoryMenuAccessRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
             .background(if (highlighted) EntryHighlight else LisaBlue.copy(alpha = 0.35f))
             .guidedTrainingHighlight(trainingHighlighted)
             .guidedTrainingDim(trainingDimmed)
@@ -481,7 +481,7 @@ private fun GuidedCategoryMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
             .background(if (selected) CategoryMenuHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
             .guidedTrainingDim(trainingDimmed)
@@ -533,7 +533,7 @@ private fun GuidedVocabularyEntryRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
             .background(if (highlighted) EntryHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
             .guidedTrainingDim(trainingDimmed)
@@ -670,7 +670,7 @@ private fun GuidedEmergencyNavButton(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
             .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
             .guidedTrainingDim(trainingDimmed)
@@ -735,7 +735,7 @@ private fun GuidedNavigationActionButton(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .clickable(
-                enabled = enabled,
+                enabled = enabled && !trainingDimmed,
                 role = Role.Button,
                 interactionSource = interactionSource,
                 indication = null,

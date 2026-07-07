@@ -56,6 +56,14 @@ data class GuidedTrainingUiState(
      */
     val navigationFeedbackMessage: String? = null,
     /**
+     * Brief red "wrong sequence" acknowledgement shown on the floating workspace lesson card when
+     * the user performs an unrelated gesture/action or targets a non-highlighted row while a real
+     * workspace navigation lesson is focused on one specific target. Null when there is nothing to
+     * flag. Only ever set while [com.idworx.lisa.features.onboardingguide.model.TrainingPhase] is
+     * `NavigationLesson` — never shown in normal Communication Workspace use.
+     */
+    val navigationWrongGestureMessage: String? = null,
+    /**
      * Reusable "post-success transition delay" flag: true only for the brief window after the
      * FINAL navigation lesson is completed correctly, while [navigationFeedbackMessage] is being
      * shown/spoken and [TrainingProgress] has deliberately not yet advanced to

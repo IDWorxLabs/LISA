@@ -599,6 +599,7 @@ fun LisaRootUI(
                 title = GuidedWorkspaceTrainingSpec.lessonCardTitle(activeNavigationLesson.action, uiStrings),
                 gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(activeNavigationLesson.action),
                 feedbackMessage = guidedTrainingState.navigationFeedbackMessage,
+                wrongGestureMessage = guidedTrainingState.navigationWrongGestureMessage,
                 modifier = Modifier
                     .align(cardAlignment)
                     .padding(horizontal = 10.dp, vertical = 84.dp)

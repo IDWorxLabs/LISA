@@ -153,7 +153,7 @@ object GuidedNavigationAccessFloatingCardAuditor {
     fun gestureFilteringStillWorks(): Boolean {
         val main = readMainActivity() ?: return false
         val gateIntact = main.contains("private fun acceptedByCurrentNavigationLesson") &&
-            main.contains("if (!acceptedByCurrentNavigationLesson(left, right)) return")
+            main.contains("if (!acceptedByCurrentNavigationLesson(left, right)) {")
         val openCategories = classify(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
         val emergency = classify(6, 0)
         val back = classify(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)

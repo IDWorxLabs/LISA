@@ -1242,6 +1242,27 @@ class TrainingSessionController(
         }
     }
 
+    /**
+     * Reusable red "wrong sequence" acknowledgement for real-workspace navigation lessons — shown
+     * on the floating lesson card whenever the caller (MainActivity) blocks an unrelated
+     * gesture/action or an off-target row while a lesson is focused on one specific control. Only
+     * ever surfaces while a navigation lesson is active; never advances or resets lesson progress
+     * itself — the caller is responsible for resetting the active blink sequence separately.
+     * Reusable for every navigation lesson; never tied to a specific lesson or screen.
+     */
+    fun applyNavigationWrongGestureFeedback() {
+        if (state.progress.currentPhase != TrainingPhase.NavigationLesson) return
+        val message = GuidedFeedbackPhrases.wrongGesture()
+        state = state.copy(navigationWrongGestureMessage = message)
+        onPersist(state)
+        mainThreadDelayed(NAVIGATION_FEEDBACK_VISIBLE_MS) {
+            if (state.navigationWrongGestureMessage == message) {
+                state = state.copy(navigationWrongGestureMessage = null)
+                onPersist(state)
+            }
+        }
+    }
+
     fun updatePreferences(transform: (com.idworx.lisa.features.onboardingguide.model.TrainingPreferences) ->
         com.idworx.lisa.features.onboardingguide.model.TrainingPreferences) {
         dispatch(TrainingEvent.UpdatePreferences(transform))

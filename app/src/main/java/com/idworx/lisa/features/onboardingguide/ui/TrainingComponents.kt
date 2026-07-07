@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
+import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaWhite
 import kotlinx.coroutines.delay
@@ -201,16 +202,23 @@ fun GuidedWorkspaceLessonCard(
      * instruction is revealed. Null shows the normal lesson content.
      */
     feedbackMessage: String? = null,
+    /**
+     * When non-null (and [feedbackMessage] is null), the card shows this brief red "wrong
+     * sequence" acknowledgement — the same try-again tone as the early phrase lessons' red
+     * feedback — instead of the lesson title/gesture, then returns to the normal lesson content
+     * so the learner can try the highlighted action again.
+     */
+    wrongGestureMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.widthIn(max = 210.dp),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (feedbackMessage != null) {
-                LessonCardSuccessGreen.copy(alpha = 0.97f)
-            } else {
-                LisaWhite.copy(alpha = 0.98f)
+            containerColor = when {
+                feedbackMessage != null -> LessonCardSuccessGreen.copy(alpha = 0.97f)
+                wrongGestureMessage != null -> LisaEmergencyRed.copy(alpha = 0.95f)
+                else -> LisaWhite.copy(alpha = 0.98f)
             }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -223,6 +231,14 @@ fun GuidedWorkspaceLessonCard(
                 Text(
                     text = "\u2713 $feedbackMessage",
                     fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LisaWhite,
+                    textAlign = TextAlign.Center
+                )
+            } else if (wrongGestureMessage != null) {
+                Text(
+                    text = wrongGestureMessage,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = LisaWhite,
                     textAlign = TextAlign.Center
