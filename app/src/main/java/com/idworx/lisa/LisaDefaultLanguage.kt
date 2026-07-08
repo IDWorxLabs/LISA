@@ -62,7 +62,9 @@ object LisaCoreVocabulary {
         Entry("i_dont_understand", 3, 2, MultilingualPhrase("I don't understand", "Ek verstaan nie", "Angiqondi")),
         Entry("i_need_help", 3, 6, MultilingualPhrase("I need help", "Ek het hulp nodig", "Ngidinga usizo")),
         Entry("i_am_in_pain", 2, 4, MultilingualPhrase("I am in pain", "Ek het pyn", "Ngibuhlungu")),
-        Entry("i_need_water", 0, 3, MultilingualPhrase("I need water", "Ek het water nodig", "Ngidinga amanzi")),
+        // L6 R2 — moved off L0 R3 when Finish Training claimed that gesture; see
+        // GestureSequenceAuditEngine.workspaceDefaultsFreeOfReservedConflicts().
+        Entry("i_need_water", 6, 2, MultilingualPhrase("I need water", "Ek het water nodig", "Ngidinga amanzi")),
         Entry("i_need_food", 5, 4, MultilingualPhrase("I need food", "Ek het kos nodig", "Ngidinga ukudla")),
         Entry("i_need_the_toilet", 3, 4, MultilingualPhrase("I need the toilet", "Ek moet toilet toe", "Ngidinga indlu yangasese")),
         Entry("i_need_medicine", 2, 5, MultilingualPhrase("I need medicine", "Ek het medisyne nodig", "Ngidinga umuthi")),
@@ -77,7 +79,9 @@ object LisaCoreVocabulary {
         Entry("i_want_to_lie_down", 5, 1, MultilingualPhrase("I want to lie down", "Ek wil lê", "Ngifuna ukulala")),
         Entry("call_my_caregiver", 5, 2, MultilingualPhrase("Call my caregiver", "Bel my versorger", "Shaya umnakekeli wami")),
         Entry("call_my_family", 5, 3, MultilingualPhrase("Call my family", "Bel my familie", "Shaya umndeni wami")),
-        Entry("good_morning", 3, 0, MultilingualPhrase("Good morning", "Goeie more", "Livukile")),
+        // L1 R7 — moved off L3 R0 when Categories claimed that gesture; see
+        // GestureSequenceAuditEngine.workspaceDefaultsFreeOfReservedConflicts().
+        Entry("good_morning", 1, 7, MultilingualPhrase("Good morning", "Goeie more", "Livukile")),
         Entry("good_night", 5, 0, MultilingualPhrase("Good night", "Goeie nag", "Ulale kahle")),
         Entry("i_am_okay", 5, 0, MultilingualPhrase("I am okay", "Ek is oukei", "Ngiyaphila")),
         Entry("emergency", 6, 0, MultilingualPhrase("Emergency", "Noodgeval", "Usizo oluphuthumayo"))
@@ -91,7 +95,7 @@ object LisaCoreVocabulary {
     val count: Int get() = entries.size
 }
 
-/** Default built-in phrase mappings (30 phrases). Emergency uses L6 R0. */
+/** Default built-in phrase mappings (32 phrases). Emergency uses L6 R0. */
 fun defaultLanguageMappings(): List<WinkMapping> = listOf(
     WinkMapping(1, 6, "hello"), // Remapped from L1 R1 — reserved for Repeat Last Phrase
     WinkMapping(1, 2, "goodbye"),
@@ -107,7 +111,7 @@ fun defaultLanguageMappings(): List<WinkMapping> = listOf(
     WinkMapping(3, 2, "i_dont_understand"),
     WinkMapping(3, 6, "i_need_help"), // Remapped from L3 R3 — reserved for Practice Mode
     WinkMapping(2, 4, "i_am_in_pain"),
-    WinkMapping(0, 3, "i_need_water"),
+    WinkMapping(6, 2, "i_need_water"), // Remapped from L0 R3 — L0 R3 reserved for Finish Training
     WinkMapping(5, 4, "i_need_food"), // Remapped from L0 R4 — L0 R4 reserved for Quick Controls (L0 R4)
     WinkMapping(3, 4, "i_need_the_toilet"),
     WinkMapping(2, 5, "i_need_medicine"),
@@ -122,7 +126,7 @@ fun defaultLanguageMappings(): List<WinkMapping> = listOf(
     WinkMapping(5, 1, "i_want_to_lie_down"),
     WinkMapping(5, 2, "call_my_caregiver"),
     WinkMapping(5, 3, "call_my_family"),
-    WinkMapping(3, 0, "good_morning"),
+    WinkMapping(1, 7, "good_morning"), // Remapped from L3 R0 — L3 R0 reserved for Categories
     WinkMapping(5, 0, "good_night"),
     WinkMapping(6, 0, "emergency")
 )

@@ -19,9 +19,18 @@ object CommunicationWorkspaceAuditor {
             store.contains("workspace_entry_intro")
     }
 
+    /**
+     * Navigation clarity now comes from the always-visible, icon-labelled Navigation Panel
+     * itself — not from a competing instructional text block. The old "Blink a phrase to
+     * speak…/Gesture guide…/Take your time…" strip and header context-hint were removed so the
+     * Communication Workspace stays focused on Vocabulary, the current category, the phrase
+     * list, and the Navigation Panel.
+     */
     fun navigationClarityImproved(): Boolean {
         val ui = readGuidedModeUi() ?: return false
-        return ui.contains("workspaceContextHint") && ui.contains("CaregiverHelpStrip")
+        return ui.contains("GuidedModeNavigationPanel") &&
+            !ui.contains("CaregiverHelpStrip") &&
+            !ui.contains("contextHint")
     }
 
     fun categoryMenuGuidanceExists(): Boolean =
@@ -41,22 +50,28 @@ object CommunicationWorkspaceAuditor {
             layers.contains("WorkspaceNavigationGesture")
     }
 
-    fun fatigueReductionPresent(): Boolean {
-        val ui = readGuidedModeUi() ?: return false
-        return ui.contains("workspacePatienceHint") &&
-            CommunicationWorkspaceExperience.fatiguePatienceDialogues().isNotEmpty()
-    }
+    /**
+     * Fatigue/patience reassurance is delivered through the Personality Engine's spoken dialogue
+     * catalog (e.g. "There's no rush.") rather than a permanent on-screen text block, keeping the
+     * workspace visually calm while still offering comfort at the moments it is needed.
+     */
+    fun fatigueReductionPresent(): Boolean =
+        CommunicationWorkspaceExperience.fatiguePatienceDialogues().isNotEmpty()
 
     fun emergencyAccessDocumented(): Boolean =
         CommunicationWorkspaceExperience.emergencyAccessDialogues().any {
             it.contains("confirm", ignoreCase = true)
         }
 
+    /**
+     * Caregiver help remains available, but contextually — surfaced on the Accessibility panel
+     * via [com.idworx.lisa.features.experiencepolish.caregiverconfidence.ui.CaregiverSupportStrip]
+     * only when actually needed (e.g. tracking lost, calibration trouble) — instead of as a
+     * permanent strip competing with the Communication Workspace's phrase list.
+     */
     fun caregiverHelpVisible(): Boolean {
-        val ui = readGuidedModeUi() ?: return false
-        val strings = readUiStrings() ?: return false
-        return ui.contains("CaregiverHelpStrip") &&
-            strings.contains("workspaceCaregiverHelpLegend")
+        val ui = readAccessibilityUi() ?: return false
+        return ui.contains("CaregiverSupportStrip") && ui.contains("caregiverSupport")
     }
 
     fun personalityEngineDialogues(): Boolean =
@@ -109,9 +124,6 @@ object CommunicationWorkspaceAuditor {
 
     private fun readGuidedMode(): String? =
         ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaGuidedMode.kt")
-
-    private fun readUiStrings(): String? =
-        ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaUiStrings.kt")
 
     private fun readAccessibilityUi(): String? =
         ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")

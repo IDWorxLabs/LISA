@@ -199,27 +199,37 @@ class GuidedVocabularyPagerTest {
     }
 
     @Test
-    fun L4R4_opensCategoryMenuFromVocabularyMode() {
-        val result = process(4, 4, vocabularyState(categoryIndex = 0)) as GuidedSequenceResult.Navigate
+    fun categoriesGesture_opensCategoryMenuFromVocabularyMode() {
+        val result = process(
+            GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, vocabularyState(categoryIndex = 0)
+        ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, result.newState.screenMode)
     }
 
     @Test
-    fun L4R4_opensCategoryMenuFromPreferencesPage() {
-        val result = process(4, 4, vocabularyState(categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)) as GuidedSequenceResult.Navigate
+    fun categoriesGesture_opensCategoryMenuFromPreferencesPage() {
+        val result = process(
+            GuidedModeNavigation.CATEGORIES_LEFT,
+            GuidedModeNavigation.CATEGORIES_RIGHT,
+            vocabularyState(categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, result.newState.screenMode)
     }
 
     @Test
-    fun L4R4_opensCategoryMenuFromResponseTimeAdjustment() {
-        val result = process(4, 4, adjustResponseTimeState()) as GuidedSequenceResult.Navigate
+    fun categoriesGesture_opensCategoryMenuFromResponseTimeAdjustment() {
+        val result = process(
+            GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, adjustResponseTimeState()
+        ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, result.newState.screenMode)
         assertEquals(GuidedPreferencesAdjustMode.None, result.newState.preferencesAdjustMode)
     }
 
     @Test
-    fun L4R4_opensCategoryMenuFromSensitivityAdjustment() {
-        val result = process(4, 4, adjustSensitivityState()) as GuidedSequenceResult.Navigate
+    fun categoriesGesture_opensCategoryMenuFromSensitivityAdjustment() {
+        val result = process(
+            GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, adjustSensitivityState()
+        ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, result.newState.screenMode)
         assertEquals(GuidedPreferencesAdjustMode.None, result.newState.preferencesAdjustMode)
     }
@@ -246,14 +256,17 @@ class GuidedVocabularyPagerTest {
             GuidedNavigationPanelSpec.PanelContext.Vocabulary
         )
         assertEquals(6, actions.size)
-        assertEquals("L4 R4", actions[3].sequenceLabel)
+        assertEquals(
+            formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT),
+            actions[3].sequenceLabel
+        )
         assertEquals("Categories", actions[3].title)
         assertTrue(GuidedNavigationPanelSpec.allActionsLabeled(actions))
     }
 
     @Test
     fun allPanelGesturesAreTappableViaTouchSpec() {
-        assertEquals(6, GuidedTouchNavigationSpec.panelGestures.size)
+        assertEquals(7, GuidedTouchNavigationSpec.panelGestures.size)
         GuidedTouchNavigationSpec.panelGestures.forEach { (left, right) ->
             assertTrue(GuidedTouchNavigationSpec.touchMirrorsEyeGesture(left, right))
         }

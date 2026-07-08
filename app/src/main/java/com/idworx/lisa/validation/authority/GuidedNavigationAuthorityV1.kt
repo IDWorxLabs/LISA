@@ -344,15 +344,15 @@ object GuidedNavigationAuthorityV1 {
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
             val state = base.copy(screenMode = GuidedOverlayScreenMode.Vocabulary, categoryIndex = 0)
-            val result = process(4, 4, state, uiStrings, catalogContext)
+            val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
                 result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu
             return ValidationCheckResult(
                 checkId = "MODE_TX_001",
-                description = "L4 R4 opens Category Menu from Vocabulary Mode",
+                description = "Categories gesture opens Category Menu from Vocabulary Mode",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Wire L4 R4 to open Category Menu from all vocabulary states."
+                    "Wire the Categories gesture to open Category Menu from all vocabulary states."
             )
         }
 
@@ -365,15 +365,15 @@ object GuidedNavigationAuthorityV1 {
                 screenMode = GuidedOverlayScreenMode.Vocabulary,
                 categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
             )
-            val result = process(4, 4, state, uiStrings, catalogContext)
+            val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
                 result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu
             return ValidationCheckResult(
                 checkId = "MODE_TX_002",
-                description = "L4 R4 opens Category Menu from Preferences Mode",
+                description = "Categories gesture opens Category Menu from Preferences Mode",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Ensure Preferences page honors L4 R4 category menu transition."
+                    "Ensure Preferences page honors the Categories gesture's category menu transition."
             )
         }
 
@@ -387,13 +387,13 @@ object GuidedNavigationAuthorityV1 {
                 categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
                 preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
             )
-            val result = process(4, 4, state, uiStrings, catalogContext)
+            val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
                 result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu &&
                 result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
             return ValidationCheckResult(
                 checkId = "MODE_TX_003",
-                description = "L4 R4 opens Category Menu from Response Time Adjustment Mode",
+                description = "Categories gesture opens Category Menu from Response Time Adjustment Mode",
                 passed = passed,
                 remediation = if (passed) null else
                     "Categories gesture must cancel adjustment and open Category Menu."
@@ -410,13 +410,13 @@ object GuidedNavigationAuthorityV1 {
                 categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
                 preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
             )
-            val result = process(4, 4, state, uiStrings, catalogContext)
+            val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
                 result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu &&
                 result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
             return ValidationCheckResult(
                 checkId = "MODE_TX_004",
-                description = "L4 R4 opens Category Menu from Sensitivity Adjustment Mode",
+                description = "Categories gesture opens Category Menu from Sensitivity Adjustment Mode",
                 passed = passed,
                 remediation = if (passed) null else
                     "Categories gesture must cancel sensitivity adjustment and open Category Menu."
@@ -545,7 +545,7 @@ object GuidedNavigationAuthorityV1 {
                 description = "Categories reachable from every guided mode",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Add Categories (L4 R4) binding to every guided mode."
+                    "Add the Categories binding to every guided mode."
             )
         }
 
@@ -632,7 +632,13 @@ object GuidedNavigationAuthorityV1 {
                 processGesture(2, 2, ctx.state, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
             GuidedLogicalMode.Vocabulary,
             GuidedLogicalMode.Preferences ->
-                processGesture(4, 4, ctx.state, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
+                processGesture(
+                    GuidedModeNavigation.CATEGORIES_LEFT,
+                    GuidedModeNavigation.CATEGORIES_RIGHT,
+                    ctx.state,
+                    uiStrings,
+                    catalogContext
+                ) is GuidedSequenceResult.Navigate
         }
 
         private fun hasEscapeRoute(
@@ -641,7 +647,7 @@ object GuidedNavigationAuthorityV1 {
             catalogContext: GuidedCatalogContext
         ): Boolean {
             val probes = listOf(
-                4 to 4,
+                GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
                 2 to 2,
                 2 to 0,
                 0 to 2,
@@ -1024,8 +1030,8 @@ object GuidedNavigationAuthorityV1 {
                 draftSensitivityLevel = 9
             )
             val result = GuidedNavigationController.processSequence(
-                left = 4,
-                right = 4,
+                left = GuidedModeNavigation.CATEGORIES_LEFT,
+                right = GuidedModeNavigation.CATEGORIES_RIGHT,
                 state = state,
                 language = PreferredLanguage.English,
                 uiStrings = uiStrings,
@@ -1039,7 +1045,7 @@ object GuidedNavigationAuthorityV1 {
                 description = "Categories action cancels adjustment and opens Category Menu",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Wire L4 R4 during adjustment to cancel draft and open Category Menu."
+                    "Wire the Categories gesture during adjustment to cancel draft and open Category Menu."
             )
         }
 
@@ -1069,10 +1075,22 @@ object GuidedNavigationAuthorityV1 {
             GuidedLogicalMode.ResponseTimeAdjustment,
             GuidedLogicalMode.SensitivityAdjustment ->
                 process(2, 2, ctx.state, uiStrings, catalogContext) is GuidedSequenceResult.Navigate ||
-                    process(4, 4, ctx.state, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
+                    process(
+                        GuidedModeNavigation.CATEGORIES_LEFT,
+                        GuidedModeNavigation.CATEGORIES_RIGHT,
+                        ctx.state,
+                        uiStrings,
+                        catalogContext
+                    ) is GuidedSequenceResult.Navigate
             GuidedLogicalMode.Vocabulary,
             GuidedLogicalMode.Preferences ->
-                process(4, 4, ctx.state, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
+                process(
+                    GuidedModeNavigation.CATEGORIES_LEFT,
+                    GuidedModeNavigation.CATEGORIES_RIGHT,
+                    ctx.state,
+                    uiStrings,
+                    catalogContext
+                ) is GuidedSequenceResult.Navigate
         }
 
         private fun process(

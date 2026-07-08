@@ -1,5 +1,6 @@
 package com.idworx.lisa.features.onboardingguide.ui
 
+import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.LisaCoreVocabulary
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
@@ -27,7 +28,7 @@ object NavigationLessonContent {
         NavigationAction.OpenCommunicationHistory -> uiStrings.t("History", "Geskiedenis", "Umlando")
         NavigationAction.NextPage -> uiStrings.t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
         NavigationAction.PreviousPage -> uiStrings.t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
-        NavigationAction.ResetSequence -> uiStrings.t("Reset", "Herstel", "Setha kabusha")
+        NavigationAction.ResetSequence -> uiStrings.t("Start Communicating", "Begin Kommunikeer", "Qala Ukuxhumana")
         NavigationAction.TriggerEmergency -> uiStrings.t("Emergency", "Nood", "Usizo oluphuthumayo")
         NavigationAction.OpenQuickControls -> uiStrings.t("Quick Phrases", "Vinnige Kontroles", "Izilawuli Esisheshayo")
         NavigationAction.OpenSettings -> uiStrings.t("Settings", "Instellings", "Izilungiselelo")
@@ -36,7 +37,8 @@ object NavigationLessonContent {
 
     fun instruction(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
         NavigationAction.OpenCategories -> uiStrings.t(
-            "These are your communication categories. Open Categories with ${formatWinkSequenceShort(4, 4)}.",
+            "These are your communication categories. Open Categories with " +
+                "${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)}.",
             "Hier is jou kategorieë.",
             "Lezi yizigaba zakho zokuxhumana."
         )
@@ -81,9 +83,11 @@ object NavigationLessonContent {
             "Yiya ekhasini elidlule nge-L2 R0."
         )
         NavigationAction.ResetSequence -> uiStrings.t(
-            "Reset clears your current message. Practice Reset when you need a fresh start.",
-            "Herstel maak die boodskap skoon.",
-            "Ukusetha kabusha kususa umlayezo wakho wamanje."
+            "Finish training with " +
+                "${formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, GuidedModeNavigation.FINISH_TRAINING_RIGHT)} " +
+                "— no tap needed. You're ready to start communicating.",
+            "Voltooi opleiding met jou gebaar — geen tik nodig nie.",
+            "Qeda ukuqeqeshwa ngesenzo sakho — akudingeki ukuthinta."
         )
         NavigationAction.TriggerEmergency -> uiStrings.t(
             "This is only for emergencies. We practice safely — no real alert is sent.",

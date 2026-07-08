@@ -1,5 +1,6 @@
 package com.idworx.lisa.validation.authority
 
+import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.features.guidedcurriculumandnavigationcontext.metadata.GuidedCurriculumAndNavigationContextMetadata
 import com.idworx.lisa.features.guidedcurriculumandnavigationcontext.validation.GuidedCurriculumAndNavigationContextAuthorityV1
 import com.idworx.lisa.features.onboardingguide.metadata.TrainingMetadata
@@ -40,8 +41,11 @@ class GuidedCurriculumAndNavigationContextAuthorityV1Test {
     }
 
     @Test
-    fun l4r4_resolvesToOpenCategories() {
-        val action = NavigationTrainingGestureHandler.resolveAction(4, 4)
+    fun categoriesGesture_resolvesToOpenCategories() {
+        val action = NavigationTrainingGestureHandler.resolveAction(
+            GuidedModeNavigation.CATEGORIES_LEFT,
+            GuidedModeNavigation.CATEGORIES_RIGHT
+        )
         assertEquals(NavigationAction.OpenCategories, action)
     }
 }

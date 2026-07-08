@@ -42,18 +42,29 @@ object GuidedCurriculumAndNavigationContextAuditor {
             afterSuccess.navigationLessonIndex == 0
     }
 
-    fun l4r4OpensCategoriesDuringNavigationTraining(): Boolean =
+    fun categoriesGestureOpensCategoriesDuringNavigationTraining(): Boolean =
         NavigationTrainingGestureHandler.resolveAction(
             GuidedModeNavigation.CATEGORIES_LEFT,
             GuidedModeNavigation.CATEGORIES_RIGHT
         ) == NavigationAction.OpenCategories
 
-    fun l4r4DoesNotResolveToPleaseTurnMe(): Boolean {
-        val mapping = com.idworx.lisa.defaultLanguageMappings()
-            .firstOrNull { it.left == 4 && it.right == 4 }
-            ?: return false
-        return mapping.vocabularyId == "please_turn_me" &&
-            NavigationTrainingGestureHandler.blocksWorkspacePhraseResolver(4, 4)
+    /**
+     * The Categories gesture (currently L3 R0) must never collide with a default-language
+     * vocabulary phrase mapping. An earlier revision briefly shared this exact sequence with
+     * the legacy "good_morning" phrase — the same shadowing pattern the old L4 R4 /
+     * "please_turn_me" collision had — until "good_morning" was reassigned to a conflict-free
+     * gesture (see [com.idworx.lisa.LisaDefaultLanguage] and
+     * [com.idworx.lisa.features.gesturesequenceaudit.GestureSequenceAuditEngine.workspaceDefaultsFreeOfReservedConflicts]).
+     * This reads the shared constants dynamically and also proves navigation would still win
+     * defensively even if a future vocabulary change reintroduced a collision.
+     */
+    fun categoriesGestureDoesNotResolveToShadowedLegacyPhrase(): Boolean {
+        val left = GuidedModeNavigation.CATEGORIES_LEFT
+        val right = GuidedModeNavigation.CATEGORIES_RIGHT
+        val noLongerShadowsAVocabularyPhrase = com.idworx.lisa.defaultLanguageMappings()
+            .none { it.left == left && it.right == right }
+        return noLongerShadowsAVocabularyPhrase &&
+            NavigationTrainingGestureHandler.blocksWorkspacePhraseResolver(left, right)
     }
 
     fun navigationTrainingBlocksPhraseResolverInMainActivity(): Boolean {

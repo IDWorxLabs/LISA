@@ -11,7 +11,7 @@ object SequenceProcessingDelay {
 
     /**
      * Guided Mode/Training's default settle time — deliberately slower than the everyday
-     * Communication Workspace default (3s) so a multi-step lesson gesture (e.g. L4 R4) has time
+     * Communication Workspace default (3s) so a multi-step lesson gesture (e.g. Categories) has time
      * to finish before the sequence is evaluated. Sourced from [TrainingPreferences], never
      * hardcoded per lesson.
      */

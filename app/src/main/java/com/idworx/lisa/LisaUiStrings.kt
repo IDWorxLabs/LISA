@@ -137,39 +137,21 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "$EMERGENCY_LEFT_WINKS Kwesokunxele + $EMERGENCY_RIGHT_WINKS Kwesokudla"
     )
     val guidedCategoriesNavTitle: String get() = t("Categories", "Kategorieë", "Izigaba")
-    val guidedCategoriesNavHint: String get() = t("4 Left + 4 Right", "4 Links + 4 Regs", "4 Kwesokunxele + 4 Kwesokudla")
+    val guidedCategoriesNavHint: String get() = t(
+        "${GuidedModeNavigation.CATEGORIES_LEFT} Left + ${GuidedModeNavigation.CATEGORIES_RIGHT} Right",
+        "${GuidedModeNavigation.CATEGORIES_LEFT} Links + ${GuidedModeNavigation.CATEGORIES_RIGHT} Regs",
+        "${GuidedModeNavigation.CATEGORIES_LEFT} Kwesokunxele + ${GuidedModeNavigation.CATEGORIES_RIGHT} Kwesokudla"
+    )
     val guidedEyeTrackingActive: String get() = t("Eyes tracked", "Oë dopgehou", "Amehlo alandwa")
     val guidedEyeTrackingWaiting: String get() = t("Waiting for face", "Wag vir gesig", "Ilinde ubuso")
     val guidedPhraseConfirmed: String get() = t("Spoken", "Gesê", "Kukhulunyiwe")
     val guidedActionConfirmed: String get() = t("Done", "Klaar", "Kwenziwe")
     val guidedHelpSpoken: String get() = t(
-        "Blink the sequence beside a phrase to speak it. L4 R4 opens categories. L2 R0 and L0 R2 scroll pages. L2 R2 goes back.",
-        "Knip die reeks langs 'n frase om dit te sê. L4 R4 open kategorieë. L2 R0 en L0 R2 blaai bladsye. L2 R2 gaan terug.",
-        "Cwayiza uchungechunge oluseceleni kwesigwebo ukukukhuluma. I-L4 R4 ivula izigaba. I-L2 R0 ne-L0 R2 iskrolela amakhasi. I-L2 R2 ibuyela emuva."
+        "Blink the sequence beside a phrase to speak it. ${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)} opens categories. L2 R0 and L0 R2 scroll pages. L2 R2 goes back.",
+        "Knip die reeks langs 'n frase om dit te sê. ${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)} open kategorieë. L2 R0 en L0 R2 blaai bladsye. L2 R2 gaan terug.",
+        "Cwayiza uchungechunge oluseceleni kwesigwebo ukukukhuluma. I-${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)} ivula izigaba. I-L2 R0 ne-L0 R2 iskrolela amakhasi. I-L2 R2 ibuyela emuva."
     )
     val workspaceCommunicationTitle: String get() = t("Communication Workspace", "Kommunikasiewerkruimte", "Indawo Yokuxhumana")
-    val workspaceCaregiverHelpTitle: String get() = t("Gesture guide", "Gebaregids", "Umhlahlandlela wezgestures")
-    val workspaceCaregiverHelpLegend: String get() = t(
-        "L2 R0 up · L0 R2 down · L1 R1 select · L2 R2 back · L4 R4 categories · L6 R0 emergency",
-        "L2 R0 op · L0 R2 af · L1 R1 kies · L2 R2 terug · L4 R4 kategorieë · L6 R0 nood",
-        "L2 R0 phezulu · L0 R2 phansi · L1 R1 khetha · L2 R2 emuva · L4 R4 izigaba · L6 R0 usizo oluphuthumayo"
-    )
-    val workspacePatienceHint: String get() = t("Take your time — no rush", "Neem jou tyd — geen haastigheid", "Thatha isikhathi sakho — akukho ukuphuthuma")
-    fun workspaceContextHintVocabulary(): String = t(
-        "Blink a phrase to speak · L4 R4 categories · L2 R2 back",
-        "Knip 'n frase om te praat · L4 R4 kategorieë · L2 R2 terug",
-        "Cwayiza igama ukukhuluma · L4 R4 izigaba · L2 R2 emuva"
-    )
-    fun workspaceContextHintCategoryMenu(): String = t(
-        "L2/R2 move · L1 R1 open · L2 R2 back to phrases",
-        "L2/R2 beweeg · L1 R1 open · L2 R2 terug na frases",
-        "L2/R2 hambisa · L1 R1 vula · L2 R2 buyela emagameni"
-    )
-    fun workspaceContextHintAdjustment(): String = t(
-        "L3 R1 decrease · L1 R3 increase · L1 R1 save · L2 R2 back",
-        "L3 R1 verminder · L1 R3 verhoog · L1 R1 stoor · L2 R2 terug",
-        "L3 R1 nciphisa · L1 R3 khulisa · L1 R1 londoloza · L2 R2 emuva"
-    )
 
     fun guidedCategoryTitle(category: GuidedVocabularyCategory): String = when (category) {
         GuidedVocabularyCategory.Conversation -> t("Conversation", "Gesprek", "Ingxoxo")

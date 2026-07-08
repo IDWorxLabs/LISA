@@ -311,9 +311,9 @@ object PhaseBCommunicationWorkspaceDeviceTestSuite {
         listOf(
             case("PHASE_B_001", "Workspace entry and clarity", listOf(
                 "P5B_001" to "Workspace entry intro plays after onboarding",
-                "P5B_002" to "Context hint visible on vocabulary screen",
-                "P5B_003" to "Caregiver gesture legend visible",
-                "P5B_004" to "Category menu opens with L4 R4"
+                "P5B_002" to "Workspace shows only Vocabulary, category, phrase list, and Navigation Panel — no instructional clutter",
+                "P5B_003" to "Caregiver gesture support appears contextually on the Accessibility panel when needed",
+                "P5B_004" to "Category menu opens with the short Categories gesture (L3 R0)"
             )),
             case("PHASE_B_002", "Navigation and phrases", listOf(
                 "P5B_005" to "Phrase selection speaks TTS",
@@ -323,7 +323,7 @@ object PhaseBCommunicationWorkspaceDeviceTestSuite {
             )),
             case("PHASE_B_003", "Safety and fatigue", listOf(
                 "P5B_009" to "Emergency L6 R0 requires confirmation",
-                "P5B_010" to "Patience hints present without spam",
+                "P5B_010" to "Patience reassurance spoken via personality dialogue, not a static screen block",
                 "P5B_011" to "Overlay readable on phone screen size"
             ))
         )

@@ -168,7 +168,7 @@ object PracticeModeCatalog {
         PracticeItem("hello", 1, 6),
         PracticeItem("yes", 2, 6),
         PracticeItem("no", 0, 7),
-        PracticeItem("i_need_water", 0, 3),
+        PracticeItem("i_need_water", 6, 2), // Matches LisaCoreVocabulary's current gesture, not L0 R3 (Finish Training)
         PracticeItem("emergency", 6, 0)
     )
 }

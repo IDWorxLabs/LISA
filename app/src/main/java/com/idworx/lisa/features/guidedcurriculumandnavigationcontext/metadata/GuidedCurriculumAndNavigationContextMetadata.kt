@@ -8,5 +8,5 @@ object GuidedCurriculumAndNavigationContextMetadata {
         "Guided Learning teaches 10–15 unique phrase lessons before navigation begins."
 
     const val NAVIGATION_CONTEXT_RULE: String =
-        "Navigation lessons own gesture interpretation; L4 R4 opens Categories, never a workspace phrase."
+        "Navigation lessons own gesture interpretation; the shared Categories gesture opens Categories, never a workspace phrase."
 }

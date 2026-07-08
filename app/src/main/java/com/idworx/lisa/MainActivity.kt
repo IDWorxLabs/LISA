@@ -787,7 +787,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * The idle-time "settle" window used to decide a blink sequence is finished. Guided Mode /
      * Guided Training (any active lesson phase, including real-workspace navigation lessons) uses
      * its own, slower, user-adjustable settle time from [com.idworx.lisa.features.onboardingguide.model.TrainingPreferences]
-     * so multi-step lesson gestures like L4 R4 are not cut off mid-sequence. Everyday workspace use
+     * so multi-step lesson gestures like Categories are not cut off mid-sequence. Everyday workspace use
      * outside Guided Mode is unaffected and keeps the general response-speed setting. Every new
      * blink updates [lastWinkTimeMs], so this window naturally restarts on each new input — it is a
      * completion timer, not a fixed timeout.
@@ -1127,6 +1127,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      */
     private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
+        GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
@@ -1221,6 +1222,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 // Safe practice only — advance the lesson directly without starting the real
                 // Brain1 emergency confirm flow, so no alert can ever be sent during training.
                 verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+            }
+            GuidedModeNavigation.isFinishTrainingSequence(left, right) -> {
+                // The final lesson's real action — identical to tapping Reset, but reachable by
+                // gesture alone. performReset() verifies+completes the lesson internally, so no
+                // caregiver touch is ever required to leave Guided Training.
+                performReset()
             }
             NavigationTrainingGestureHandler.opensCategories(left, right) -> {
                 if (guidedOverlayActive()) {
@@ -2268,6 +2275,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 setCommunicationState(LisaCommunicationState.Listening)
                 return
             }
+        }
+
+        // Finish Training / workspace Reset gesture — reachable from anywhere in the real
+        // workspace, exactly like the bottom-bar Reset button it mirrors. Checked after Quick
+        // Controls and Practice Mode (which already returned above) so it never shadows either
+        // overlay's own gestures, and before normal category/phrase dispatch so it always wins.
+        if (GuidedModeNavigation.isFinishTrainingSequence(capturedLeft, capturedRight)) {
+            performReset()
+            return
         }
 
         if (guidedOverlayActive()) {

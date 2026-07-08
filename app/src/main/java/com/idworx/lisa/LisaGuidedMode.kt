@@ -3,7 +3,8 @@ package com.idworx.lisa
 /**
  * Guided Navigation Architecture V1 — Communication Workspace layer.
  *
- * Workspace global gestures: L2 R0, L0 R2, L1 R1 (select), L2 R2 (back), L4 R4, L6 R0.
+ * Workspace global gestures: L2 R0, L0 R2, L1 R1 (select), L2 R2 (back), L3 R0 (categories), L6 R0.
+ * L0 R3 finishes Guided Training and returns to normal communication — no touch required.
  * Brain 1 decision gestures (L2/R2 choice, L1 R1 confirm, R1 L1 cancel) apply only outside
  * workspace vocabulary contexts — see [com.idworx.lisa.features.experiencepolish.communicationworkspace.WorkspaceGestureLayers].
  * Adjustment-only gestures: L3 R1 decrease, L1 R3 increase.
@@ -18,8 +19,25 @@ object GuidedModeNavigation {
     const val SELECT_RIGHT = 1
     const val BACK_LEFT = 2
     const val BACK_RIGHT = 2
-    const val CATEGORIES_LEFT = 4
-    const val CATEGORIES_RIGHT = 4
+
+    /**
+     * Choose Category — one of the most frequently used actions in the app, so it is kept as
+     * short as possible. Previously L4 R4 (8 total winks); shortened to L3 R0 (3 total winks).
+     * Free of every global-nav, emergency, and vocabulary-slot gesture — see
+     * [GuidedPageSequences.forbiddenForVocabulary].
+     */
+    const val CATEGORIES_LEFT = 3
+    const val CATEGORIES_RIGHT = 0
+
+    /**
+     * Finish Training — the gesture-based, touch-independent way to end Guided Training and
+     * return to normal communication mode. Mirrors the real workspace Reset action; see
+     * [com.idworx.lisa.features.onboardingguide.model.NavigationAction.ResetSequence] and
+     * [performReset]-style handling in MainActivity's gesture dispatch.
+     */
+    const val FINISH_TRAINING_LEFT = 0
+    const val FINISH_TRAINING_RIGHT = 3
+
     const val DECREASE_VALUE_LEFT = 3
     const val DECREASE_VALUE_RIGHT = 1
     const val INCREASE_VALUE_LEFT = 1
@@ -40,6 +58,9 @@ object GuidedModeNavigation {
     fun isCategoriesSequence(left: Int, right: Int): Boolean =
         left == CATEGORIES_LEFT && right == CATEGORIES_RIGHT
 
+    fun isFinishTrainingSequence(left: Int, right: Int): Boolean =
+        left == FINISH_TRAINING_LEFT && right == FINISH_TRAINING_RIGHT
+
     fun isDecreaseValueSequence(left: Int, right: Int): Boolean =
         left == DECREASE_VALUE_LEFT && right == DECREASE_VALUE_RIGHT
 
@@ -51,7 +72,8 @@ object GuidedModeNavigation {
             isNextSequence(left, right) ||
             isSelectSequence(left, right) ||
             isBackSequence(left, right) ||
-            isCategoriesSequence(left, right)
+            isCategoriesSequence(left, right) ||
+            isFinishTrainingSequence(left, right)
 
     /** @deprecated Use [isPreviousSequence] */
     fun isPreviousPageSequence(left: Int, right: Int): Boolean = isPreviousSequence(left, right)
@@ -114,6 +136,7 @@ object GuidedPageSequences {
         GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT,
         GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
         GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
+        GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT,
         EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS
     )
 }
@@ -342,7 +365,9 @@ object GuidedTouchNavigationSpec {
         GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
         GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
         EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS,
-        GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT
+        GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT,
+        // Finish Training mirrors the bottom-bar Reset touch button — see performReset() in MainActivity.
+        GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT
     )
 
     val adjustmentPanelGestures: List<Pair<Int, Int>> = listOf(
@@ -945,7 +970,7 @@ object GuidedNavigationGestureAudit {
         GestureBinding(0, 2, "ScrollDown"),
         GestureBinding(1, 1, "SelectSave"),
         GestureBinding(2, 2, "BackCancel"),
-        GestureBinding(4, 4, "Categories"),
+        GestureBinding(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, "Categories"),
         GestureBinding(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS, "Emergency")
     )
 
@@ -1216,9 +1241,24 @@ object GuidedVocabularyCatalogValidation {
                 GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT,
                 GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
                 GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
+                GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT,
                 EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS,
                 1 to 0,
                 0 to 1
             )
         )
+
+    /** No two reserved/global gestures — nav, categories, finish-training, emergency — collide. */
+    fun noDuplicateReservedGestures(): Boolean {
+        val reserved = listOf(
+            GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT,
+            GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT,
+            GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT,
+            GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
+            GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
+            GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT,
+            EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS
+        )
+        return reserved.distinct().size == reserved.size
+    }
 }

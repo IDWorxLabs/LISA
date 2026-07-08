@@ -56,11 +56,17 @@ object CaregiverConfidenceAuditor {
         return adapter.contains("CaregiverConfidenceEngine.recommendationHint")
     }
 
+    /**
+     * The Communication Workspace no longer carries a permanent caregiver strip (removed to keep
+     * the workspace focused on Vocabulary/Phrases/Navigation) — caregiver confidence support is
+     * instead wired contextually through [com.idworx.lisa.MainActivity]'s tracking/troubleshooting
+     * state, surfaced on the Accessibility panel only when actually needed.
+     */
     fun workspaceCaregiverStripWired(): Boolean {
-        val ui = ZeroTouchFileProbe.readProjectFile(
-            "app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt"
+        val main = ZeroTouchFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/MainActivity.kt"
         ) ?: return false
-        return ui.contains("CaregiverConfidenceEngine.workspaceGestureHint")
+        return main.contains("CaregiverConfidenceEngine.communicationSupport")
     }
 
     fun noBrain2Dependency(): Boolean {

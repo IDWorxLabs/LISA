@@ -119,9 +119,6 @@ object CaregiverConfidenceEngine {
         )
     }
 
-    fun workspaceGestureHint(): String? =
-        hintText(baseContext(AppFeature.Communication), CaregiverSupportMoment.CaregiverOnlyHint)
-
     fun recommendationHint(recommendation: CalibrationRecommendation): String? {
         val moment = when (recommendation) {
             CalibrationRecommendation.AdjustPhonePosition -> CaregiverSupportMoment.PhonePositioning

@@ -553,6 +553,21 @@ afterEvaluate {
         }
     }
 
+    tasks.register<Test>("validateLisaGuidedTrainingExitRefinementV1") {
+        group = "verification"
+        description = "Run LISA_GUIDED_TRAINING_EXIT_REFINEMENT_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GuidedTrainingExitRefinementAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
     tasks.register<Test>("validateLisaGuidedUiOverlapAndFalseBlinkFixV1") {
         group = "verification"
         description = "Run LISA_GUIDED_UI_OVERLAP_AND_FALSE_BLINK_FIX_V1 validation and emit pass token on success"
@@ -774,6 +789,21 @@ afterEvaluate {
         classpath = unitTestTask.get().classpath
         filter {
             includeTestsMatching("com.idworx.lisa.validation.authority.GuidedPreferencesGestureConsistencyAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
+
+    tasks.register<Test>("validateLisaGestureShadowPreventionV1") {
+        group = "verification"
+        description = "Run LISA_GESTURE_SHADOW_PREVENTION_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.GestureShadowPreventionAuthorityV1Test")
         }
         testLogging {
             events("passed", "failed", "skipped", "standardOut")

@@ -17,8 +17,8 @@ object GuidedCurriculumAndNavigationContextAuthorityV1 {
             check("GCNC_002", "Essential phrase curriculum matches catalog order", GuidedCurriculumAndNavigationContextAuditor.essentialPhrasesMatchCatalogOrder()),
             check("GCNC_003", "Essential phrase sequences are unique", GuidedCurriculumAndNavigationContextAuditor.essentialPhrasesUnique()),
             check("GCNC_004", "Navigation begins only after phrase curriculum", GuidedCurriculumAndNavigationContextAuditor.navigationBeginsAfterPhraseCurriculum()),
-            check("GCNC_005", "L4 R4 during navigation training opens Categories", GuidedCurriculumAndNavigationContextAuditor.l4r4OpensCategoriesDuringNavigationTraining()),
-            check("GCNC_006", "L4 R4 does not resolve to please_turn_me during navigation", GuidedCurriculumAndNavigationContextAuditor.l4r4DoesNotResolveToPleaseTurnMe()),
+            check("GCNC_005", "Categories gesture during navigation training opens Categories", GuidedCurriculumAndNavigationContextAuditor.categoriesGestureOpensCategoriesDuringNavigationTraining()),
+            check("GCNC_006", "Categories gesture is free of any legacy vocabulary phrase collision", GuidedCurriculumAndNavigationContextAuditor.categoriesGestureDoesNotResolveToShadowedLegacyPhrase()),
             check("GCNC_007", "Navigation training blocks workspace phrase resolver", GuidedCurriculumAndNavigationContextAuditor.navigationTrainingBlocksPhraseResolverInMainActivity()),
             check("GCNC_008", "Context priority: navigation lesson before phrase resolver", GuidedCurriculumAndNavigationContextAuditor.contextPriorityEnforced()),
             check("GCNC_009", "Phrase resolver resumes after Guided Learning completes", GuidedCurriculumAndNavigationContextAuditor.phraseResolverResumesAfterTraining()),
@@ -46,7 +46,7 @@ object GuidedCurriculumAndNavigationContextAuthorityV1 {
             checkResults = checks,
             rootCause = failed.firstOrNull()?.let { "${it.checkId} — ${it.description}" },
             validationReasoning = if (outcome == ValidationOutcome.PASS) {
-                "15-phrase beginner curriculum precedes navigation; L4 R4 opens Categories during nav lessons."
+                "15-phrase beginner curriculum precedes navigation; the shared Categories gesture opens Categories during nav lessons."
             } else {
                 "${failed.size} curriculum or navigation context checks failed."
             },

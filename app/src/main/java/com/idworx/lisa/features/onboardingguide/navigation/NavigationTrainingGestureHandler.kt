@@ -31,6 +31,9 @@ object NavigationTrainingGestureHandler {
     fun opensCategories(left: Int, right: Int): Boolean =
         GuidedModeNavigation.isCategoriesSequence(left, right)
 
-    /** L4 R4 is also mapped to please_turn_me in the workspace — navigation lessons take priority. */
+    /** Navigation lessons always take priority over the workspace phrase resolver for the
+     *  Categories gesture, regardless of which concrete gesture Categories is assigned and even
+     *  if a future vocabulary change ever reintroduced a collision with a default-language
+     *  phrase — see [com.idworx.lisa.features.gesturesequenceaudit.GestureSequenceAuditEngine]. */
     fun blocksWorkspacePhraseResolver(left: Int, right: Int): Boolean = opensCategories(left, right)
 }

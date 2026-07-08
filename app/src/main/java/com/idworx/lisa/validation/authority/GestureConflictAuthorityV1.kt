@@ -813,7 +813,13 @@ object GestureConflictAuthorityV1 {
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
-            val categoriesResult = process(4, 4, state, uiStrings, catalogContext)
+            val categoriesResult = process(
+                GuidedModeNavigation.CATEGORIES_LEFT,
+                GuidedModeNavigation.CATEGORIES_RIGHT,
+                state,
+                uiStrings,
+                catalogContext
+            )
             val passed = categoriesResult is GuidedSequenceResult.Navigate &&
                 categoriesResult.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu
             return check(

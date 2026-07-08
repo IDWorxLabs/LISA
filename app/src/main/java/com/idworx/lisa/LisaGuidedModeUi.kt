@@ -41,7 +41,6 @@ import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
-import com.idworx.lisa.features.experiencepolish.caregiverconfidence.CaregiverConfidenceEngine
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceHighlightTarget
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 
@@ -148,16 +147,8 @@ fun GuidedVocabularyOverlay(
                     categoryIndex = categoryIndex,
                     phrasePageIndex = phrasePageIndex,
                     phrasePageCount = phrasePageCount,
-                    preferencesAdjustMode = preferencesAdjustMode,
-                    contextHint = when {
-                        isAdjusting -> uiStrings.workspaceContextHintAdjustment()
-                        screenMode == GuidedOverlayScreenMode.CategoryMenu ->
-                            uiStrings.workspaceContextHintCategoryMenu()
-                        else -> uiStrings.workspaceContextHintVocabulary()
-                    }
+                    preferencesAdjustMode = preferencesAdjustMode
                 )
-
-                CaregiverHelpStrip(uiStrings = uiStrings)
 
                 confirmedPhrase?.let { phrase ->
                     Spacer(Modifier.height(6.dp))
@@ -323,8 +314,7 @@ private fun GuidedOverlayHeader(
     categoryIndex: Int,
     phrasePageIndex: Int,
     phrasePageCount: Int,
-    preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None,
-    contextHint: String? = null
+    preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None
 ) {
     val modeLabel = when {
         preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeTitle
@@ -357,16 +347,6 @@ private fun GuidedOverlayHeader(
                     color = LisaWhite.copy(alpha = 0.85f)
                 )
             }
-            contextHint?.let { hint ->
-                Text(
-                    text = hint,
-                    fontSize = 11.sp,
-                    color = LisaWhite.copy(alpha = 0.78f),
-                    lineHeight = 15.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
         }
         Text(
             text = when (screenMode) {
@@ -382,40 +362,6 @@ private fun GuidedOverlayHeader(
                 .clip(RoundedCornerShape(8.dp))
                 .background(Color.White.copy(alpha = 0.14f))
                 .padding(horizontal = 10.dp, vertical = 5.dp)
-        )
-    }
-}
-
-@Composable
-private fun CaregiverHelpStrip(uiStrings: LisaUiStrings) {
-    val gestureHint = CaregiverConfidenceEngine.workspaceGestureHint()
-        ?: uiStrings.workspaceCaregiverHelpLegend
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.White.copy(alpha = 0.10f))
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = uiStrings.workspaceCaregiverHelpTitle,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LisaWhite.copy(alpha = 0.85f)
-        )
-        Text(
-            text = gestureHint.removePrefix("Caregiver: ").trim(),
-            fontSize = 9.sp,
-            color = LisaWhite.copy(alpha = 0.72f),
-            lineHeight = 12.sp,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = uiStrings.workspacePatienceHint,
-            fontSize = 9.sp,
-            color = LisaWhite.copy(alpha = 0.6f),
-            lineHeight = 11.sp
         )
     }
 }

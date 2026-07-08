@@ -220,10 +220,10 @@ object NavigationReachabilityAuthorityV1 {
             }.map { it.label }
             return check(
                 id = "CAT_REACH_001",
-                description = "Category Menu is reachable via L4 R4 from every guided state",
+                description = "Category Menu is reachable via the Categories gesture from every guided state",
                 passed = failures.isEmpty(),
                 remediation = if (failures.isEmpty()) null else
-                    "Wire L4 R4 to open or retain Category Menu in: ${failures.joinToString()}."
+                    "Wire the Categories gesture to open or retain Category Menu in: ${failures.joinToString()}."
             )
         }
 
@@ -245,10 +245,10 @@ object NavigationReachabilityAuthorityV1 {
             }.map { it.label }
             return check(
                 id = "CAT_REACH_002",
-                description = "L4 R4 navigation controller transitions into Category Menu",
+                description = "Categories gesture navigation controller transitions into Category Menu",
                 passed = failures.isEmpty(),
                 remediation = if (failures.isEmpty()) null else
-                    "Ensure L4 R4 produces CategoryMenu screenMode in: ${failures.joinToString()}."
+                    "Ensure the Categories gesture produces CategoryMenu screenMode in: ${failures.joinToString()}."
             )
         }
 
@@ -351,7 +351,7 @@ object NavigationReachabilityAuthorityV1 {
                 id = "BACK_REACH_004",
                 description = "Vocabulary and Preferences expose recoverable Back/Cancel paths without entrapment",
                 passed = vocabOk && prefsOk,
-                remediation = "Ensure L2 R2 or L4 R4 Categories provides labelled recovery on vocabulary surfaces."
+                remediation = "Ensure L2 R2 or the Categories gesture provides labelled recovery on vocabulary surfaces."
             )
         }
 
@@ -721,6 +721,7 @@ object NavigationReachabilityAuthorityV1 {
             GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT,
             GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
             GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
+            GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT,
             EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS
         )
 
@@ -797,9 +798,9 @@ object NavigationReachabilityAuthorityV1 {
                 backOnce.newState.screenMode == GuidedOverlayScreenMode.Vocabulary
             return check(
                 id = "LOOP_003",
-                description = "Category Menu L4 R4 self-state does not remove Back exit",
+                description = "Category Menu Categories-gesture self-state does not remove Back exit",
                 passed = passed,
-                remediation = "Preserve L2 R2 Back exit when L4 R4 is pressed inside Category Menu."
+                remediation = "Preserve L2 R2 Back exit when the Categories gesture is pressed inside Category Menu."
             )
         }
 
@@ -923,9 +924,9 @@ object NavigationReachabilityAuthorityV1 {
                 result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu
             return check(
                 id = "STATE_REACH_002",
-                description = "Category Menu is reachable from Vocabulary via L4 R4",
+                description = "Category Menu is reachable from Vocabulary via the Categories gesture",
                 passed = passed,
-                remediation = "Wire vocabulary L4 R4 to open Category Menu."
+                remediation = "Wire vocabulary's Categories gesture to open Category Menu."
             )
         }
 

@@ -63,10 +63,10 @@ class NavigationReachabilityAuthorityV1Test {
     }
 
     @Test
-    fun categoriesL4R4_opensCategoryMenuFromVocabulary() {
+    fun categoriesGesture_opensCategoryMenuFromVocabulary() {
         val vocabulary = NavigationReachabilityAuthorityV1.buildGuidedStates().first()
         val result = NavigationReachabilityAuthorityV1.processGesture(
-            4, 4, vocabulary.state, uiStrings, catalogContext
+            GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, vocabulary.state, uiStrings, catalogContext
         )
         assertTrue(result is GuidedSequenceResult.Navigate)
         assertEquals(
@@ -93,7 +93,9 @@ class NavigationReachabilityAuthorityV1Test {
     fun vocabularyRecoveryViaCategoriesWhenBackInert() {
         val vocabulary = NavigationReachabilityAuthorityV1.buildGuidedStates().first()
         val back = NavigationReachabilityAuthorityV1.processGesture(2, 2, vocabulary.state, uiStrings, catalogContext)
-        val categories = NavigationReachabilityAuthorityV1.processGesture(4, 4, vocabulary.state, uiStrings, catalogContext)
+        val categories = NavigationReachabilityAuthorityV1.processGesture(
+            GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, vocabulary.state, uiStrings, catalogContext
+        )
         assertEquals(GuidedSequenceResult.Unmatched, back)
         assertTrue(categories is GuidedSequenceResult.Navigate)
         assertTrue(

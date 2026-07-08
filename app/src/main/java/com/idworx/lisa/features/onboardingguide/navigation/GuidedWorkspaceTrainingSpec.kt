@@ -83,9 +83,9 @@ object GuidedWorkspaceTrainingSpec {
         NavigationAction.PreviousPage -> uiStrings.t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
         NavigationAction.TriggerEmergency -> uiStrings.t("Emergency", "Nood", "Usizo Oluphuthumayo")
         NavigationAction.ResetSequence -> uiStrings.t(
-            "Reset / Return to main workspace",
-            "Herstel / Terug na werkarea",
-            "Setha Kabusha / Buyela"
+            "Start Communicating",
+            "Begin Kommunikeer",
+            "Qala Ukuxhumana"
         )
         else -> uiStrings.t("Practice", "Oefen", "Zijwayeze")
     }
@@ -136,7 +136,10 @@ object GuidedWorkspaceTrainingSpec {
             formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT)
         NavigationAction.TriggerEmergency ->
             formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
-        NavigationAction.ResetSequence -> "Tap Reset"
+        NavigationAction.ResetSequence ->
+            // Touch-independent by design — the same gesture that finishes training also
+            // performs the real workspace Reset action afterward (MainActivity.performReset()).
+            formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, GuidedModeNavigation.FINISH_TRAINING_RIGHT)
         else -> ""
     }
 

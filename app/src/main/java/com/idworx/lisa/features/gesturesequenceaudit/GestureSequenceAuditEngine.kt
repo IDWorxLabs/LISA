@@ -37,6 +37,26 @@ object GestureSequenceAuditEngine {
 
     fun noAndPleaseAreDistinct(): Boolean = auditAll().noAndPleaseDistinct
 
+    /**
+     * General shadow-prevention guardrail: proves no default-language vocabulary phrase
+     * ([GestureSourceContext.WORKSPACE_DEFAULT]) shares a gesture with a global navigation
+     * gesture, a system/quick-control command, or the emergency trigger. This is the check
+     * that would have caught Categories (L3 R0) silently shadowing "good_morning" and Finish
+     * Training (L0 R3) silently shadowing "i_need_water" — it must stay green for every future
+     * navigation or system gesture change.
+     */
+    fun workspaceDefaultsFreeOfReservedConflicts(): Boolean =
+        auditAll().reservedConflicts.none { finding ->
+            finding.entries.any { it.context == GestureSourceContext.WORKSPACE_DEFAULT }
+        }
+
+    /** Every default-language vocabulary phrase has its own, unique, conflict-free gesture. */
+    fun allWorkspaceDefaultPhrasesReachable(): Boolean {
+        val workspaceEntries = collectAllEntries().filter { it.context == GestureSourceContext.WORKSPACE_DEFAULT }
+        val uniqueSequences = workspaceEntries.map { it.sequenceKey }.distinct().size == workspaceEntries.size
+        return uniqueSequences && workspaceDefaultsFreeOfReservedConflicts()
+    }
+
     private fun collectAllEntries(): List<GestureSequenceEntry> = buildList {
         TrainingMetadata.GUIDED_LEARNING_ESSENTIAL_VOCABULARY_IDS.forEach { vocabId ->
             val lesson = TrainingLessonCatalog.communicationFundamentals
@@ -95,6 +115,7 @@ object GestureSequenceAuditEngine {
             "SELECT" to (GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT),
             "BACK" to (GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT),
             "CATEGORIES" to (GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT),
+            "FINISH_TRAINING" to (GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT),
             "DECREASE_VALUE" to (GuidedModeNavigation.DECREASE_VALUE_LEFT to GuidedModeNavigation.DECREASE_VALUE_RIGHT),
             "INCREASE_VALUE" to (GuidedModeNavigation.INCREASE_VALUE_LEFT to GuidedModeNavigation.INCREASE_VALUE_RIGHT)
         ).forEach { (name, seq) ->
@@ -210,6 +231,37 @@ object GestureSequenceAuditEngine {
                         } else {
                             "Guided essential ${essential.vocabularyId} shares reserved system gesture; isolated during Guided Learning."
                         }
+                    )
+                )
+            }
+        }
+
+        // Default-language vocabulary phrases must never be silently shadowed by a navigation,
+        // system/quick-control, or emergency gesture — the exact defect that let Categories
+        // (L3 R0) swallow "good_morning" and Finish Training (L0 R3) swallow "i_need_water"
+        // once those navigation gestures were introduced/shortened. Same-meaning overlaps (the
+        // "emergency" phrase row intentionally sharing the emergency trigger) are not conflicts.
+        // DECREASE_VALUE/INCREASE_VALUE are adjustment-mode-only (Preferences screen), never
+        // dispatched against the live phrase resolver, so they are excluded here even though
+        // they share the GLOBAL_NAVIGATION source context with the always-active six.
+        val alwaysActiveGlobalNavLabels = setOf("PREVIOUS", "NEXT", "SELECT", "BACK", "CATEGORIES", "FINISH_TRAINING")
+        val workspaceEntries = entries.filter { it.context == GestureSourceContext.WORKSPACE_DEFAULT }
+        workspaceEntries.forEach { workspaceEntry ->
+            val reservedMatches = entries.filter {
+                ((it.context == GestureSourceContext.GLOBAL_NAVIGATION && it.label in alwaysActiveGlobalNavLabels) ||
+                    it.context == GestureSourceContext.SYSTEM_COMMAND ||
+                    it.context == GestureSourceContext.EMERGENCY) &&
+                    it.sequenceKey == workspaceEntry.sequenceKey &&
+                    !it.label.equals(workspaceEntry.vocabularyId, ignoreCase = true)
+            }
+            if (reservedMatches.isNotEmpty()) {
+                findings.add(
+                    GestureDuplicateFinding(
+                        classification = GestureDuplicateClass.RESERVED_CONFLICT,
+                        sequenceKey = workspaceEntry.sequenceKey,
+                        entries = (reservedMatches + workspaceEntry).distinctBy { it.source + it.label },
+                        note = "Workspace default phrase '${workspaceEntry.vocabularyId}' shares a reserved " +
+                            "navigation/system gesture and would be unreachable in the live workspace."
                     )
                 )
             }
