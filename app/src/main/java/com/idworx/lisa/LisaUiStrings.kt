@@ -116,32 +116,71 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val guidedOpenMode: String get() = t("Open Guided Vocabulary", "Open Begeleide Woordeskat", "Vula Ulimi Olukhokhelwayo")
     fun guidedPageIndicator(page: Int, total: Int): String =
         t("Page $page / $total", "Bladsy $page / $total", "Ikhasi $page / $total")
-    val guidedScrollForMore: String get() = t(
-        "Scroll for more phrases",
-        "Blaai vir meer frases",
-        "Skrolela ukuze uthole amagama amaningi"
+    private val guidedScrollDownForMorePhrases: String get() = t(
+        "Scroll down for more phrases",
+        "Blaai af vir meer frases",
+        "Skrolela phansi ukuze uthole amagama amaningi"
     )
+    private val guidedScrollUpOrDownForMorePhrases: String get() = t(
+        "Scroll up or down for more phrases",
+        "Blaai op of af vir meer frases",
+        "Skrolela phezulu noma phansi ukuze uthole amagama amaningi"
+    )
+    private val guidedScrollUpForPreviousPhrases: String get() = t(
+        "Scroll up for previous phrases",
+        "Blaai op vir vorige frases",
+        "Skrolela phezulu ukuze uthole amagama angaphambili"
+    )
+
+    /**
+     * Directional, page-aware phrase-list scroll hint — single source of truth so the hint text
+     * always matches the actual [phrasePageIndex]/[phrasePageCount] the runtime is tracking,
+     * instead of a generic "scroll for more" string that never changes. Returns null when there
+     * is only one phrase page (no scrolling is possible, so no hint is shown).
+     */
+    fun guidedPhrasePageScrollHint(phrasePageIndex: Int, phrasePageCount: Int): String? {
+        if (phrasePageCount <= 1) return null
+        val isFirstPage = phrasePageIndex <= 0
+        val isLastPage = phrasePageIndex >= phrasePageCount - 1
+        return when {
+            isFirstPage -> guidedScrollDownForMorePhrases
+            isLastPage -> guidedScrollUpForPreviousPhrases
+            else -> guidedScrollUpOrDownForMorePhrases
+        }
+    }
     val guidedScrollUp: String get() = t("Scroll Up", "Blaai Op", "Skrolela Phezulu")
     val guidedPreviousPhrasePage: String get() = t("Previous Phrase Page", "Vorige Frasebladsy", "Ikhasi Lamagama Langaphambili")
     val guidedScrollUpHint: String get() = t("2 Left Winks", "2 Linkerknippe", "Ukucwayiza Okubili Kwesokunxele")
     val guidedScrollDown: String get() = t("Scroll Down", "Blaai Af", "Skrolela Phansi")
     val guidedNextPhrasePage: String get() = t("Next Phrase Page", "Volgende Frasebladsy", "Ikhasi Lamagama Elilandelayo")
     val guidedScrollDownHint: String get() = t("2 Right Winks", "2 Regterknippe", "Ukucwayiza Okubili Kwesokudla")
+    /**
+     * Single source of truth for every Navigation Panel gesture hint: derives directly from the
+     * real left/right counts a gesture requires (never a separately hardcoded copy), and — unlike
+     * a blanket "<n> Left + <n> Right" template — reads unambiguously when one side is zero, so a
+     * single-eye-only gesture like Emergency (L6 R0) never implies the *other* eye is also needed.
+     */
+    private fun guidedGestureHint(left: Int, right: Int): String = when {
+        left > 0 && right == 0 -> t(
+            "$left Left ${if (left == 1) "Wink" else "Winks"}",
+            "$left Links",
+            "$left Kwesokunxele"
+        )
+        right > 0 && left == 0 -> t(
+            "$right Right ${if (right == 1) "Wink" else "Winks"}",
+            "$right Regs",
+            "$right Kwesokudla"
+        )
+        else -> t("$left Left + $right Right", "$left Links + $right Regs", "$left Kwesokunxele + $right Kwesokudla")
+    }
+
     val guidedEmergencyNavTitle: String get() = t("Emergency", "Nood", "Usizo Oluphuthumayo")
     // Interpolates EMERGENCY_LEFT_WINKS/EMERGENCY_RIGHT_WINKS directly (same single source of
-    // truth isEmergencySequence checks) instead of a hardcoded "L6 R0" literal, matching the
-    // descriptive "<n> Left + <n> Right" style of the other guided nav hints.
-    val guidedEmergencyNavHint: String get() = t(
-        "$EMERGENCY_LEFT_WINKS Left + $EMERGENCY_RIGHT_WINKS Right",
-        "$EMERGENCY_LEFT_WINKS Links + $EMERGENCY_RIGHT_WINKS Regs",
-        "$EMERGENCY_LEFT_WINKS Kwesokunxele + $EMERGENCY_RIGHT_WINKS Kwesokudla"
-    )
+    // truth isEmergencySequence checks) instead of a hardcoded "L6 R0" literal.
+    val guidedEmergencyNavHint: String get() = guidedGestureHint(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
     val guidedCategoriesNavTitle: String get() = t("Categories", "Kategorieë", "Izigaba")
-    val guidedCategoriesNavHint: String get() = t(
-        "${GuidedModeNavigation.CATEGORIES_LEFT} Left + ${GuidedModeNavigation.CATEGORIES_RIGHT} Right",
-        "${GuidedModeNavigation.CATEGORIES_LEFT} Links + ${GuidedModeNavigation.CATEGORIES_RIGHT} Regs",
-        "${GuidedModeNavigation.CATEGORIES_LEFT} Kwesokunxele + ${GuidedModeNavigation.CATEGORIES_RIGHT} Kwesokudla"
-    )
+    val guidedCategoriesNavHint: String get() =
+        guidedGestureHint(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
     val guidedEyeTrackingActive: String get() = t("Eyes tracked", "Oë dopgehou", "Amehlo alandwa")
     val guidedEyeTrackingWaiting: String get() = t("Waiting for face", "Wag vir gesig", "Ilinde ubuso")
     val guidedPhraseConfirmed: String get() = t("Spoken", "Gesê", "Kukhulunyiwe")
@@ -493,6 +532,19 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Emergency. I need help.",
         "Noodgeval. Ek het hulp nodig.",
         "Usizo oluphuthumayo. Ngidinga usizo."
+    )
+
+    /**
+     * Visible confirmation prompt shown the instant Emergency is armed (L6 R0 detected) so the
+     * two-step arm → confirm safety flow is never a silent, spoken-only state — real device
+     * testing showed the arming gesture appearing to "do nothing" when the only feedback was
+     * narration. Blink left-then-right to confirm and actually start the alarm, or blink
+     * right-then-left (or simply wait) to cancel.
+     */
+    val guidedEmergencyAwaitingConfirmMessage: String get() = t(
+        "Emergency armed. Blink left then right to confirm, or right then left to cancel.",
+        "Noodgeval gereed. Flikker links dan regs om te bevestig, of regs dan links om te kanselleer.",
+        "Usizo oluphuthumayo lulungile. Cwayiza kwesokunxele bese kwesokudla ukuqinisekisa, noma kwesokudla bese kwesokunxele ukukhansela."
     )
 
     fun menuLabel(panel: LisaPanel): String = when (panel) {

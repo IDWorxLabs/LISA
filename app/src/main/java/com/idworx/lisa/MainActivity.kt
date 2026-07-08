@@ -1103,6 +1103,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * fallback for any gesture that isn't a recognised global-navigation sequence — in Vocabulary
      * mode that is exactly how a specific phrase entry is picked (each phrase blinks its own code).
      */
+    /**
+     * True for an exact, reserved global-navigation sequence (Previous/Next/Select/Back/
+     * Categories/Finish Training) while the user is in the real Communication Workspace — never
+     * during Guided Training, which intentionally keeps its own slower settle time so multi-step
+     * lesson gestures are not cut off mid-sequence. Lets [processSequenceWinks] resolve these far
+     * sooner than the full phrase-disambiguation idle timeout — see
+     * [GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS].
+     */
+    private fun isQuicklyResolvableNavigationGesture(left: Int, right: Int): Boolean =
+        !trainingSession.shouldShowTraining() && GuidedModeNavigation.isGlobalNavigationSequence(left, right)
+
     private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
         GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
@@ -2080,14 +2091,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val idleMs = now - lastWinkTimeMs
         val totalWindowMs = now - sequenceStartMs
+        val quickResolved = isQuicklyResolvableNavigationGesture(leftWinks, rightWinks) &&
+            idleMs >= GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS
         val finalize = hasCountedWinks && !activelyWinking &&
-            shouldFinalizeSequence(
-                left = leftWinks,
-                right = rightWinks,
-                idleMs = idleMs,
-                sequenceAgeMs = totalWindowMs,
-                idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
-                maxWindowMs = effectiveSequenceMaxWindowMs()
+            (
+                quickResolved ||
+                    shouldFinalizeSequence(
+                        left = leftWinks,
+                        right = rightWinks,
+                        idleMs = idleMs,
+                        sequenceAgeMs = totalWindowMs,
+                        idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
+                        maxWindowMs = effectiveSequenceMaxWindowMs()
+                    )
             )
 
         if (finalize) {

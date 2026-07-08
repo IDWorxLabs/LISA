@@ -78,14 +78,14 @@ object CommunicationWorkspaceAuditor {
      * bold category title (with a redundant "Choose Category" row sitting above the phrases too)
      * — three duplicated labels competing with the single title the list actually needs. While
      * plainly browsing phrases the header now shows only the small "Communication Workspace"
-     * label, and the category title plus "Scroll for more phrases" hint is the sole header
+     * label, and the category title plus a directional, page-aware scroll hint is the sole header
      * directly above the phrase list.
      */
     fun headerFreeOfDuplicateVocabularyLabels(): Boolean {
         val ui = readGuidedModeUi() ?: return false
         return ui.contains("isPlainVocabularyBrowsing") &&
             !ui.contains("GuidedCategoryMenuAccessRow") &&
-            ui.contains("uiStrings.guidedScrollForMore")
+            ui.contains("uiStrings.guidedPhrasePageScrollHint")
     }
 
     fun personalityEngineDialogues(): Boolean =

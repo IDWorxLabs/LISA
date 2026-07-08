@@ -83,6 +83,7 @@ fun GuidedVocabularyOverlay(
     confirmedLeft: Int?,
     confirmedRight: Int?,
     visible: Boolean,
+    emergencyAwaitingConfirm: Boolean = false,
     onNavigateUp: () -> Unit,
     onSelectEnter: () -> Unit,
     onBack: () -> Unit,
@@ -164,6 +165,21 @@ fun GuidedVocabularyOverlay(
                     )
                 }
 
+                if (emergencyAwaitingConfirm) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = uiStrings.guidedEmergencyAwaitingConfirmMessage,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = LisaWhite,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(LisaEmergencyRed.copy(alpha = 0.85f))
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    )
+                }
+
                 Spacer(Modifier.height(8.dp))
 
                 when (screenMode) {
@@ -190,13 +206,16 @@ fun GuidedVocabularyOverlay(
                                 fontSize = 18.sp,
                                 color = LisaWhite
                             )
-                            if (!isPreferencesPage && pageEntries.size > visibleEntryCap) {
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = uiStrings.guidedScrollForMore,
-                                    fontSize = 11.sp,
-                                    color = LisaWhite.copy(alpha = 0.75f)
-                                )
+                            if (!isPreferencesPage) {
+                                val scrollHint = uiStrings.guidedPhrasePageScrollHint(phrasePageIndex, phrasePageCount)
+                                if (scrollHint != null) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = scrollHint,
+                                        fontSize = 11.sp,
+                                        color = LisaWhite.copy(alpha = 0.75f)
+                                    )
+                                }
                             }
                             Spacer(Modifier.height(6.dp))
 

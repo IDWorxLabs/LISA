@@ -314,4 +314,96 @@ class GuidedVocabularyPagerTest {
         assertTrue(preferencesPhrases().contains("Current response time: 3 seconds"))
         assertTrue(preferencesPhrases().contains("Current sensitivity: 5"))
     }
+
+    @Test
+    fun previousPhrasePage_movesFromPage2To1_onStandardCategory() {
+        val basicNeedsPage = pages[GuidedVocabularyCategory.BasicNeeds.ordinal]
+        assertTrue("fixture needs >6 entries to have 2 phrase pages", basicNeedsPage.entries.size > 6)
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+            .copy(phrasePageIndex = 1)
+        val result = process(
+            GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(0, result.newState.phrasePageIndex)
+    }
+
+    @Test
+    fun nextPhrasePage_movesFromPage1To2_onStandardCategory() {
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+        val result = process(
+            GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(1, result.newState.phrasePageIndex)
+    }
+
+    @Test
+    fun previousPhrasePage_onFirstPage_staysOnFirstPage() {
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+        val result = process(
+            GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(0, result.newState.phrasePageIndex)
+    }
+
+    @Test
+    fun nextPhrasePage_onLastPage_staysOnLastPage() {
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+            .copy(phrasePageIndex = 1)
+        val result = process(
+            GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(1, result.newState.phrasePageIndex)
+    }
+
+    @Test
+    fun quickResolveIdleWindow_isShorterThanFullSequenceIdleTimeout() {
+        assertTrue(GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS < SEQUENCE_IDLE_TIMEOUT_MS)
+        assertTrue(GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS > 0)
+    }
+
+    @Test
+    fun scrollHint_null_whenOnlyOnePhrasePage() {
+        assertEquals(null, uiStrings.guidedPhrasePageScrollHint(0, 1))
+    }
+
+    @Test
+    fun scrollHint_directsDown_onFirstOfMultiplePages() {
+        assertEquals("Scroll down for more phrases", uiStrings.guidedPhrasePageScrollHint(0, 3))
+    }
+
+    @Test
+    fun scrollHint_directsUpOrDown_onMiddlePage() {
+        assertEquals("Scroll up or down for more phrases", uiStrings.guidedPhrasePageScrollHint(1, 3))
+    }
+
+    @Test
+    fun scrollHint_directsUp_onLastPage() {
+        assertEquals("Scroll up for previous phrases", uiStrings.guidedPhrasePageScrollHint(2, 3))
+    }
+
+    @Test
+    fun scrollHint_directsUp_onLastOfTwoPages() {
+        assertEquals("Scroll up for previous phrases", uiStrings.guidedPhrasePageScrollHint(1, 2))
+    }
+
+    @Test
+    fun emergencyNavHint_isSingleSided_andMatchesRuntimeGesture() {
+        val hint = uiStrings.guidedEmergencyNavHint
+        assertEquals("$EMERGENCY_LEFT_WINKS Left Winks", hint)
+        assertFalse(hint.contains("+"))
+    }
+
+    @Test
+    fun categoriesNavHint_isSingleSided_andMatchesRuntimeGesture() {
+        val hint = uiStrings.guidedCategoriesNavHint
+        assertEquals("${GuidedModeNavigation.CATEGORIES_LEFT} Left Winks", hint)
+        assertFalse(hint.contains("+"))
+    }
+
+    @Test
+    fun emergencyAwaitingConfirmMessage_mentionsConfirmAndCancelGestures() {
+        val message = uiStrings.guidedEmergencyAwaitingConfirmMessage
+        assertTrue(message.contains("left then right", ignoreCase = true))
+        assertTrue(message.contains("right then left", ignoreCase = true))
+    }
 }

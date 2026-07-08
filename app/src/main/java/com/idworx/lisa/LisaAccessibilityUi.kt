@@ -414,6 +414,8 @@ fun LisaRootUI(
             confirmedLeft = guidedConfirmedLeft,
             confirmedRight = guidedConfirmedRight,
             visible = showGuidedVocabularyOverlay,
+            emergencyAwaitingConfirm = guidedTrainingState.brain1Decision.kind ==
+                com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.EmergencyMode,
             onNavigateUp = onGuidedNavigateUp,
             onSelectEnter = onGuidedSelectEnter,
             onBack = onGuidedBack,

@@ -43,6 +43,21 @@ object GuidedModeNavigation {
     const val INCREASE_VALUE_LEFT = 1
     const val INCREASE_VALUE_RIGHT = 3
 
+    /**
+     * Real-device testing showed Previous/Next Phrase Page (and the other short global-navigation
+     * gestures) feeling unresponsive: because their exact counts are a *prefix* of longer
+     * per-page vocabulary gestures (e.g. L2 R0 is a prefix of the L2 R1 phrase every category's
+     * first slot uses), the sequence engine has to wait out the full response-speed idle timeout
+     * (up to a few seconds) before it can be sure the user isn't about to add one more wink toward
+     * a phrase. That full wait is appropriate for phrase disambiguation, but far too slow for a
+     * navigation action the user expects to feel instant. A short, fixed grace window here still
+     * gives a genuine longer-gesture attempt time to continue (real wink-to-wink gaps are on the
+     * order of a few hundred ms — see [com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning.WINK_COOLDOWN_MS])
+     * while resolving a stand-alone navigation gesture far sooner. Never applied during Guided
+     * Training, which deliberately keeps its own slower, lesson-friendly settle time.
+     */
+    const val QUICK_RESOLVE_IDLE_MS = 900L
+
     fun isPreviousSequence(left: Int, right: Int): Boolean =
         left == PREVIOUS_LEFT && right == PREVIOUS_RIGHT
 
