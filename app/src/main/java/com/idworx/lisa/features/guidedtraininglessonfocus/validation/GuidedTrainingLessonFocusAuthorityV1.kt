@@ -75,15 +75,15 @@ object GuidedTrainingLessonFocusAuthorityV1 {
             ),
             check(
                 "GTLF_011",
-                "Emergency touch succeeds during the Emergency lesson without starting the real alarm flow",
-                GuidedTrainingLessonFocusAuditor.emergencyTouchSucceedsDuringEmergencyLesson(),
-                "Keep the allowed Emergency touch branch calling verifyTrainingNavigation(TriggerEmergency) directly instead of beginEmergencyConfirm()."
+                "Emergency touch starts the real confirm/alarm/flash flow during the Emergency lesson",
+                GuidedTrainingLessonFocusAuditor.emergencyTouchStartsRealEmergencyDuringEmergencyLesson(),
+                "Keep the allowed Emergency touch branch falling through to leftWinks/rightWinks + trainingSession.beginEmergencyConfirm() — the same real path used outside training — never verifyTrainingNavigation(TriggerEmergency) alone."
             ),
             check(
                 "GTLF_012",
-                "Existing blink-path Emergency behavior is unchanged",
-                GuidedTrainingLessonFocusAuditor.blinkPathEmergencyBehaviorUnchanged(),
-                "Keep handleNavigationTrainingSequence's isEmergencySequence branch calling verifyTrainingNavigation(TriggerEmergency) directly, never beginEmergencyConfirm()."
+                "Blink-path Emergency also starts the real confirm/alarm/flash flow during the lesson",
+                GuidedTrainingLessonFocusAuditor.blinkPathEmergencyStartsRealEmergencyFlow(),
+                "Keep finalizeSequence() routing the real Emergency-lesson target to trainingSession.beginEmergencyConfirm() before handleNavigationTrainingSequence runs, and keep that function's own isEmergencySequence branch calling beginEmergencyConfirm() too, never verifyTrainingNavigation(TriggerEmergency) alone."
             ),
             check(
                 "GTLF_013",

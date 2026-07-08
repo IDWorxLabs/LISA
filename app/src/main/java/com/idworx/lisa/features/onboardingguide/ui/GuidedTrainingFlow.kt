@@ -1,5 +1,7 @@
 package com.idworx.lisa.features.onboardingguide.ui
 
+import com.idworx.lisa.EMERGENCY_LEFT_WINKS
+import com.idworx.lisa.EMERGENCY_RIGHT_WINKS
 import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.LisaCoreVocabulary
 import com.idworx.lisa.LisaUiStrings
@@ -90,9 +92,10 @@ object NavigationLessonContent {
             "Qeda ukuqeqeshwa ngesenzo sakho — akudingeki ukuthinta."
         )
         NavigationAction.TriggerEmergency -> uiStrings.t(
-            "This is only for emergencies. We practice safely — no real alert is sent.",
-            "Slegs vir noodgevalle.",
-            "Lokhu kwezimo eziphuthumayo kuphela."
+            "This is the real Emergency alert, just like in Communication. Blink ${formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)}, " +
+                "then Left then Right to confirm and send it, or Right then Left to cancel.",
+            "Dit is die regte Nood-waarskuwing. Blink L6 R0, dan Links dan Regs om te bevestig, of Regs dan Links om te kanselleer.",
+            "Lesi isexwayiso sesimo esiphuthumayo sangempela. Bheca L6 R0, bese Kokudla bese Kwesokudla ukuqinisekisa, noma Kwesokudla bese Kokudla ukukhansela."
         )
         NavigationAction.OpenQuickControls -> uiStrings.t(
             "Open Quick Controls with ${formatWinkSequenceShort(0, 4)}.",

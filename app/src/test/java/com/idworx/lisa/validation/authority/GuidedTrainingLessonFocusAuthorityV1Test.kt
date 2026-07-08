@@ -82,12 +82,12 @@ class GuidedTrainingLessonFocusAuthorityV1Test {
     }
 
     @Test
-    fun emergencyTouch_succeedsDuringEmergencyLesson() {
-        assertTrue(GuidedTrainingLessonFocusAuditor.emergencyTouchSucceedsDuringEmergencyLesson())
+    fun emergencyTouch_startsRealEmergencyDuringEmergencyLesson() {
+        assertTrue(GuidedTrainingLessonFocusAuditor.emergencyTouchStartsRealEmergencyDuringEmergencyLesson())
     }
 
     @Test
-    fun blinkPathEmergency_behaviorUnchanged() {
-        assertTrue(GuidedTrainingLessonFocusAuditor.blinkPathEmergencyBehaviorUnchanged())
+    fun blinkPathEmergency_startsRealEmergencyFlow() {
+        assertTrue(GuidedTrainingLessonFocusAuditor.blinkPathEmergencyStartsRealEmergencyFlow())
     }
 }

@@ -661,7 +661,13 @@ private fun CompactSensitivityControls(
     /** Everyday Communication Workspace response time — same visual style as Sensitivity's row. */
     onDecreaseResponseTime: () -> Unit = {},
     onIncreaseResponseTime: () -> Unit = {},
-    /** Shown only during Guided Training, next to Sensitivity, so its own settle time is adjustable. */
+    /**
+     * During Guided Training's Navigation Lesson, this replaces the everyday workspace row above
+     * (rather than adding a second one) so its own, separately adjustable settle time is what's
+     * shown — the two rows share a backing value that never applies at the same time
+     * ([MainActivity.effectiveSequenceIdleTimeoutMs] only reads the guided one while training is
+     * active), so showing both together was a genuine duplicate, not just a visual one.
+     */
     guidedResponseTimeControlsVisible: Boolean = false,
     guidedResponseTimeSec: Int = SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
     onDecreaseGuidedResponseTime: () -> Unit = {},
@@ -709,32 +715,10 @@ private fun CompactSensitivityControls(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
             ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            OutlinedButton(
-                onClick = onDecreaseResponseTime,
-                enabled = responseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
-                modifier = Modifier.height(30.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-            ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
-            Text(
-                text = "${uiStrings.responseTime}: ${responseTimeSec}s",
-                color = LisaWhite,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            OutlinedButton(
-                onClick = onIncreaseResponseTime,
-                enabled = responseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
-                modifier = Modifier.height(30.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-            ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
-        }
+        // Exactly one response-time row is ever shown — the Guided Training row while a Navigation
+        // Lesson is active (it's the value actually used for gesture timing then), otherwise the
+        // everyday workspace row. Both use the identical labelled +/- style so the control is always
+        // clearly named, never a second, bare-symbol duplicate underneath.
         if (guidedResponseTimeControlsVisible) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -747,9 +731,9 @@ private fun CompactSensitivityControls(
                     modifier = Modifier.height(30.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text("−", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
                 Text(
-                    text = "Response time: ${guidedResponseTimeSec}s",
+                    text = "${uiStrings.responseTime}: ${guidedResponseTimeSec}s",
                     color = LisaWhite,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
@@ -760,7 +744,34 @@ private fun CompactSensitivityControls(
                     modifier = Modifier.height(30.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                OutlinedButton(
+                    onClick = onDecreaseResponseTime,
+                    enabled = responseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
+                    modifier = Modifier.height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+                ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
+                Text(
+                    text = "${uiStrings.responseTime}: ${responseTimeSec}s",
+                    color = LisaWhite,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                OutlinedButton(
+                    onClick = onIncreaseResponseTime,
+                    enabled = responseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
+                    modifier = Modifier.height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+                ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
             }
         }
     }

@@ -181,34 +181,45 @@ object GuidedTrainingLessonFocusAuditor {
         return usesSharedRejectHelper && rejectBranchNeverExecutesEmergency
     }
 
-    // --- 11. Emergency touch succeeds during the Emergency lesson, without the real alarm flow -----
-    fun emergencyTouchSucceedsDuringEmergencyLesson(): Boolean {
+    // --- 11. Emergency touch starts the REAL confirm/alarm flow during the Emergency lesson --------
+    fun emergencyTouchStartsRealEmergencyDuringEmergencyLesson(): Boolean {
         val emergencyAllowedDuringEmergencyLesson = GuidedTrainingFocusPolicy.isTargetAllowed(
             expected = NavigationAction.TriggerEmergency,
             attemptedTarget = NavigationAction.TriggerEmergency
         )
         val main = readMainActivity() ?: return false
         val fn = emergencyTouchFn(main)
-        // The allowed path completes the lesson via the same verifyTrainingNavigation every other
-        // lesson uses (preserving existing positive-feedback/completion behavior) and never starts
-        // the real Brain1 confirm flow during training.
+        // The allowed path falls through to the exact same real Brain1 confirm/alarm/flash flow
+        // used for the normal workspace below (leftWinks/rightWinks + beginEmergencyConfirm()) —
+        // Guided Learning must teach the real interface, never a simulated one, per Article 2.16.
         val allowedPath = fn.substringAfter("if (!allowed) {").substringAfter("}")
-            .substringBefore("leftWinks = EMERGENCY_LEFT_WINKS")
-        val completesLessonSafely = allowedPath.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)") &&
-            !allowedPath.contains("beginEmergencyConfirm")
-        return emergencyAllowedDuringEmergencyLesson && completesLessonSafely
+        val fallsThroughToRealFlow = allowedPath.contains("leftWinks = EMERGENCY_LEFT_WINKS") &&
+            allowedPath.contains("rightWinks = EMERGENCY_RIGHT_WINKS") &&
+            allowedPath.contains("trainingSession.beginEmergencyConfirm()") &&
+            !allowedPath.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)")
+        return emergencyAllowedDuringEmergencyLesson && fallsThroughToRealFlow
     }
 
-    // --- 12. Existing blink-path Emergency behavior is unchanged ------------------------------------
-    fun blinkPathEmergencyBehaviorUnchanged(): Boolean {
+    // --- 12. Blink-path Emergency also starts the REAL confirm/alarm flow during the lesson --------
+    fun blinkPathEmergencyStartsRealEmergencyFlow(): Boolean {
         val main = readMainActivity() ?: return false
+        // finalizeSequence() intercepts the real Emergency-lesson target before
+        // handleNavigationTrainingSequence is ever reached, routing it through the exact same
+        // real Brain1 confirm/alarm path used outside training (never a fake/simulated one).
+        val finalizeFn = main.substringAfter("private fun finalizeSequence() {")
+            .substringBefore("private fun ")
+        val realFlowGatedOnLessonTarget = finalizeFn.contains("val isEmergencyLessonTarget = trainingSession.isNavigationTrainingActive() &&") &&
+            finalizeFn.contains("trainingSession.expectedNavigationAction() == NavigationAction.TriggerEmergency") &&
+            finalizeFn.contains("if (trainingSession.isNavigationTrainingActive() && !isEmergencyLessonTarget) {") &&
+            finalizeFn.contains("trainingSession.beginEmergencyConfirm()")
+        // The defensive fallback inside handleNavigationTrainingSequence (reached only if some
+        // other caller ever bypasses the finalizeSequence() gate above) must never regress to the
+        // old fake/simulated verifyTrainingNavigation-only path either.
         val body = handlerBody(main)
         val branch = body.substringAfter("isEmergencySequence(left, right) -> {").substringBefore("}")
-        return body.contains("isEmergencySequence(left, right) -> {") &&
-            body.indexOf("isEmergencySequence(left, right) -> {") <
-                body.indexOf("verifyTrainingNavigation(NavigationAction.TriggerEmergency)") &&
-            branch.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)") &&
-            !branch.contains("beginEmergencyConfirm")
+        val fallbackAlsoUsesRealFlow = branch.contains("trainingSession.beginEmergencyConfirm()") &&
+            !branch.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)")
+        return realFlowGatedOnLessonTarget && fallbackAlsoUsesRealFlow
     }
 
     // --- Infra: test class + gradle task ------------------------------------------------------------

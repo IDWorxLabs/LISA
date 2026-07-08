@@ -37,13 +37,26 @@ class GuidedCommunicationRuntimeFixesTest {
     }
 
     @Test
-    fun responseTimeControls_alwaysVisible_notGuardedByGuidedTrainingFlag() {
-        // Unlike the pre-existing guided-training-only settle time row, the new row for the
-        // everyday workspace response time must not be hidden behind guidedResponseTimeControlsVisible.
+    fun responseTimeControls_exactlyOneRowRendered_neverBothAtOnce() {
+        // Real-device testing found Guided Training's Navigation Lesson showing the response-time
+        // row TWICE (the everyday workspace row plus the guided-only row underneath). Fix: they are
+        // mutually exclusive branches of the same if/else, so exactly one ever renders — the guided
+        // row while guidedResponseTimeControlsVisible is true (it's the value actually driving
+        // gesture timing then), otherwise the everyday workspace row.
         val ui = accessibilityUiSource()
-        val newRowStart = ui.indexOf("onClick = onDecreaseResponseTime")
-        val guardStart = ui.indexOf("if (guidedResponseTimeControlsVisible)")
-        assertTrue(newRowStart in 0 until guardStart)
+        val block = ui.substringAfter("private fun CompactSensitivityControls(")
+            .substringAfter("if (guidedResponseTimeControlsVisible) {")
+        val guidedRow = block.substringBefore("} else {")
+        val workspaceRow = block.substringAfter("} else {").substringBefore("\n    }\n}")
+        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onClick = onDecreaseGuidedResponseTime"))
+        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onClick = onIncreaseGuidedResponseTime"))
+        assertTrue("guided row must be clearly labelled, not bare -/+ symbols", guidedRow.contains("uiStrings.responseTimeDecrease"))
+        assertTrue("guided row must be clearly labelled, not bare -/+ symbols", guidedRow.contains("uiStrings.responseTimeIncrease"))
+        assertTrue(workspaceRow.contains("onClick = onDecreaseResponseTime"))
+        assertTrue(workspaceRow.contains("onClick = onIncreaseResponseTime"))
+        // Never both rows' onClick handlers appearing outside their own exclusive branch.
+        assertTrue("workspace row's own handler must not leak into the guided branch", !guidedRow.contains("onClick = onDecreaseResponseTime"))
+        assertTrue("guided row's own handler must not leak into the workspace branch", !workspaceRow.contains("onClick = onDecreaseGuidedResponseTime"))
     }
 
     @Test

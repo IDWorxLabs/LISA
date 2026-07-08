@@ -263,7 +263,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         trainingSession.attachDelayedHandler { delayMs, block ->
             mainHandler.postDelayed({ block() }, delayMs)
         }
-        trainingSession.onEmergencyConfirmed = { startEmergencyMode() }
+        trainingSession.onEmergencyConfirmed = {
+            startEmergencyMode()
+            // No-ops outside the Emergency lesson (verifyNavigation checks the active phase/target
+            // itself) — only advances Guided Training once the REAL alarm has actually fired.
+            verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+        }
         trainingSession.onRecalibrationConfirmed = {
             trainingSession.startRecalibrationFlow()
             refreshTrainingActiveState()
@@ -1104,15 +1109,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * mode that is exactly how a specific phrase entry is picked (each phrase blinks its own code).
      */
     /**
-     * True for an exact, reserved global-navigation sequence (Previous/Next/Select/Back/
-     * Categories/Finish Training) while the user is in the real Communication Workspace — never
-     * during Guided Training, which intentionally keeps its own slower settle time so multi-step
-     * lesson gestures are not cut off mid-sequence. Lets [processSequenceWinks] resolve these far
-     * sooner than the full phrase-disambiguation idle timeout — see
-     * [GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS].
+     * True when [left]/[right] may resolve as soon as the user stops blinking, without waiting out
+     * the full response-time idle timeout — never during Guided Training, which intentionally keeps
+     * its own slower settle time so multi-step lesson gestures are not cut off mid-sequence.
+     *
+     * Two cases:
+     * 1. An exact, reserved global-navigation sequence (Previous/Next/Select/Back/Categories) — the
+     *    original real-device responsiveness fix, unchanged.
+     * 2. Any other currently visible gesture that is *unambiguous*: no other visible gesture could
+     *    still be reached by continuing to blink. This is the general form of the Core Rule — "a
+     *    visible gesture may execute immediately only when it is unambiguous" — so e.g. Stop
+     *    (L2 R3) can resolve quickly when nothing longer is visible, while Yes (L2 R1) must fall
+     *    through to the full [shouldFinalizeSequence] idle-timeout path whenever Stop (L2 R3) is
+     *    also visible on the same page. See [isAmbiguousVisibleMatch].
      */
-    private fun isQuicklyResolvableNavigationGesture(left: Int, right: Int): Boolean =
-        !trainingSession.shouldShowTraining() && GuidedModeNavigation.isGlobalNavigationSequence(left, right)
+    private fun isQuicklyResolvableGesture(left: Int, right: Int): Boolean {
+        if (trainingSession.shouldShowTraining()) return false
+        if (GuidedModeNavigation.isGlobalNavigationSequence(left, right)) return true
+        return isUnambiguousVisibleMatch(left, right, currentVisibleGestureSet())
+    }
 
     private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
@@ -1208,9 +1223,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         when {
             isEmergencySequence(left, right) -> {
-                // Safe practice only — advance the lesson directly without starting the real
-                // Brain1 emergency confirm flow, so no alert can ever be sent during training.
-                verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+                // finalizeSequence() now routes the real Emergency lesson target straight to the
+                // real confirm flow before this function is ever reached, so in practice this
+                // branch only exists as a defensive fallback for that same real path — never a
+                // fake/simulated one, per the "teach the real interface" rule the lesson-focus
+                // gate above (acceptedByCurrentNavigationLesson) already enforces for every other
+                // lesson's off-target attempts.
+                trainingSession.beginEmergencyConfirm()
             }
             GuidedModeNavigation.isFinishTrainingSequence(left, right) -> {
                 // The final lesson's real action — identical to tapping Reset, but reachable by
@@ -1398,6 +1417,33 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun mappingsForSequenceContinuation(): List<WinkMapping> =
         if (guidedOverlayActive()) workspaceContinuationMappings() else mappingsState.toList()
 
+    /**
+     * Every gesture the user can currently see and act on: visible phrase rows, visible category
+     * rows/shortcuts, visible navigation-panel actions (Previous/Next only when that page actually
+     * exists, Select/Back/Categories), plus the always-visible Emergency arming gesture and Finish
+     * Training (both handled upstream of [GuidedNavigationController] in [finalizeSequence], so they
+     * are added directly rather than probed). Hidden/off-screen gestures are never included, so they
+     * can never create ambiguity or execute — see [isAmbiguousVisibleMatch].
+     */
+    private fun currentVisibleGestureSet(): Set<Pair<Int, Int>> {
+        val emergencyAndSystem = setOf(
+            EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS,
+            GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT
+        )
+        if (!guidedOverlayActive()) {
+            return emergencyAndSystem + mappingsState.map { it.left to it.right }.toSet()
+        }
+        val navigation = GuidedNavigationController.visibleGlobalNavigationGestures(
+            state = uiGuidedNavigationState.value,
+            language = activeLanguage(),
+            uiStrings = guidedUiStrings(),
+            catalogContext = guidedCatalogContext(),
+            visibleEntryCap = guidedVisibleEntryCap()
+        )
+        val content = mappingsForSequenceContinuation().map { it.left to it.right }.toSet()
+        return emergencyAndSystem + navigation + content
+    }
+
     private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
         GuidedVocabularyCatalog.categoryAt(
             pageIndex = uiGuidedNavigationState.value.categoryIndex,
@@ -1479,10 +1525,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 refreshTrainingActiveState()
                 return
             }
-            // Emergency lesson — safe practice only, exactly like the blink path: complete the
-            // lesson directly and never start the real Brain1 emergency confirm flow.
-            verifyTrainingNavigation(NavigationAction.TriggerEmergency)
-            return
+            // Emergency lesson — falls through to the exact same real Brain1 confirm/alarm/flash
+            // flow used below for the normal workspace, never a simulated one.
         }
         leftWinks = EMERGENCY_LEFT_WINKS
         rightWinks = EMERGENCY_RIGHT_WINKS
@@ -2103,7 +2147,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val idleMs = now - lastWinkTimeMs
         val totalWindowMs = now - sequenceStartMs
-        val quickResolved = isQuicklyResolvableNavigationGesture(leftWinks, rightWinks) &&
+        val quickResolved = isQuicklyResolvableGesture(leftWinks, rightWinks) &&
             idleMs >= GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS
         val finalize = hasCountedWinks && !activelyWinking &&
             (
@@ -2217,7 +2261,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 capturedLeft,
                 capturedRight
             )
-            if (trainingSession.isNavigationTrainingActive()) {
+            // The Emergency lesson is the one navigation lesson that must trigger the REAL
+            // confirm/alarm/flash flow — identical to the normal Communication Workspace — so
+            // Guided Learning teaches genuine muscle memory rather than a simulated path. Every
+            // OTHER lesson still routes an off-target emergency-shaped gesture through the normal
+            // training gate below, which rejects it (acceptedByCurrentNavigationLesson) without
+            // ever reaching the real alarm.
+            val isEmergencyLessonTarget = trainingSession.isNavigationTrainingActive() &&
+                trainingSession.expectedNavigationAction() == NavigationAction.TriggerEmergency
+            if (trainingSession.isNavigationTrainingActive() && !isEmergencyLessonTarget) {
                 handleTrainingSequence(capturedLeft, capturedRight)
                 setCommunicationState(LisaCommunicationState.Listening)
                 return
