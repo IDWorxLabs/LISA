@@ -91,7 +91,6 @@ fun GuidedVocabularyOverlay(
     onCategories: () -> Unit,
     onDecreaseValue: () -> Unit,
     onIncreaseValue: () -> Unit,
-    onChooseCategory: () -> Unit,
     onPhraseEntry: (GuidedVocabularyEntry) -> Unit,
     onCategoryRow: (Int) -> Unit,
     workspaceMode: com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode =
@@ -208,22 +207,6 @@ fun GuidedVocabularyOverlay(
                                     .verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (!isPreferencesPage) {
-                                    val openCategoriesHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.OpenCategories
-                                    GuidedCategoryMenuAccessRow(
-                                        title = uiStrings.guidedChooseCategoryAction,
-                                        sequenceLabel = formatWinkSequenceShort(
-                                            GuidedModeNavigation.CATEGORIES_LEFT,
-                                            GuidedModeNavigation.CATEGORIES_RIGHT
-                                        ),
-                                        highlighted = confirmedLeft == GuidedModeNavigation.CATEGORIES_LEFT &&
-                                            confirmedRight == GuidedModeNavigation.CATEGORIES_RIGHT &&
-                                            confirmedPhrase == uiStrings.guidedChooseCategoryAction,
-                                        trainingHighlighted = openCategoriesHighlighted,
-                                        trainingDimmed = trainingDimActive && !openCategoriesHighlighted,
-                                        onClick = onChooseCategory
-                                    )
-                                }
                                 val entriesToShow = if (isPreferencesPage) pageEntries else visiblePhraseEntries
                                 entriesToShow.forEachIndexed { entryIndex, entry ->
                                     val highlighted = confirmedLeft == entry.left &&
@@ -322,6 +305,11 @@ private fun GuidedOverlayHeader(
         screenMode == GuidedOverlayScreenMode.Vocabulary -> uiStrings.guidedVocabularyTitle
         else -> uiStrings.guidedCategoryMenuMode
     }
+    // While plainly browsing phrases, the category's own bold title is already rendered as the
+    // single list header just below — repeating "Vocabulary" and the category name up here would
+    // only duplicate it, so this small section label is all that shows in that state.
+    val isPlainVocabularyBrowsing = screenMode == GuidedOverlayScreenMode.Vocabulary &&
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.None
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -334,18 +322,20 @@ private fun GuidedOverlayHeader(
                 fontWeight = FontWeight.Medium,
                 color = LisaWhite.copy(alpha = 0.65f)
             )
-            Text(
-                text = modeLabel,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = LisaWhite
-            )
-            if (screenMode == GuidedOverlayScreenMode.Vocabulary && categoryTitle != null) {
+            if (!isPlainVocabularyBrowsing) {
                 Text(
-                    text = categoryTitle,
-                    fontSize = 12.sp,
-                    color = LisaWhite.copy(alpha = 0.85f)
+                    text = modeLabel,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = LisaWhite
                 )
+                if (screenMode == GuidedOverlayScreenMode.Vocabulary && categoryTitle != null) {
+                    Text(
+                        text = categoryTitle,
+                        fontSize = 12.sp,
+                        color = LisaWhite.copy(alpha = 0.85f)
+                    )
+                }
             }
         }
         Text(
@@ -363,56 +353,6 @@ private fun GuidedOverlayHeader(
                 .background(Color.White.copy(alpha = 0.14f))
                 .padding(horizontal = 10.dp, vertical = 5.dp)
         )
-    }
-}
-
-@Composable
-private fun GuidedCategoryMenuAccessRow(
-    title: String,
-    sequenceLabel: String,
-    highlighted: Boolean,
-    trainingHighlighted: Boolean = false,
-    trainingDimmed: Boolean = false,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
-            .background(if (highlighted) EntryHighlight else LisaBlue.copy(alpha = 0.35f))
-            .guidedTrainingHighlight(trainingHighlighted)
-            .guidedTrainingDim(trainingDimmed)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .widthIn(min = 58.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(LisaWhite.copy(alpha = 0.85f))
-                .padding(horizontal = 8.dp, vertical = 7.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = sequenceLabel,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = LisaBlueDark
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
-                color = LisaWhite,
-                lineHeight = 22.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
     }
 }
 

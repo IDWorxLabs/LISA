@@ -312,7 +312,7 @@ object PhaseBCommunicationWorkspaceDeviceTestSuite {
             case("PHASE_B_001", "Workspace entry and clarity", listOf(
                 "P5B_001" to "Workspace entry intro plays after onboarding",
                 "P5B_002" to "Workspace shows only Vocabulary, category, phrase list, and Navigation Panel — no instructional clutter",
-                "P5B_003" to "Caregiver gesture support appears contextually on the Accessibility panel when needed",
+                "P5B_003" to "No Caregiver card appears anywhere on the Guided Communication screen",
                 "P5B_004" to "Category menu opens with the short Categories gesture (L3 R0)"
             )),
             case("PHASE_B_002", "Navigation and phrases", listOf(
@@ -383,7 +383,7 @@ object CaregiverConfidenceDeviceTestSuite {
             case("CAREGIVER_CONFIDENCE_002", "Calibration and recovery", listOf(
                 "CC_004" to "Calibration progress visible to caregiver",
                 "CC_005" to "Poor calibration shows repositioning hint",
-                "CC_006" to "Face-lost recovery hint appears without crash"
+                "CC_006" to "Face loss recovers silently via WaitingForFace state, with no on-screen caregiver card"
             )),
             case("CAREGIVER_CONFIDENCE_003", "Troubleshooting", listOf(
                 "CC_007" to "Sensitivity troubleshooting is non-technical",

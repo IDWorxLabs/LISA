@@ -97,10 +97,12 @@ object GuidedTrainingLessonFocusAuditor {
         val overlay = readGuidedModeUi() ?: return false
         val clickableGatedByDim = overlay.contains(".clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)")
         val entryButtonGatedByDim = overlay.contains("enabled = enabled && !trainingDimmed,")
-        // Every dimmable row/button passes trainingDimmed through to its own clickable — three
-        // list-style rows plus the two navigation-panel button styles (five call sites in total).
+        // Every dimmable row/button passes trainingDimmed through to its own clickable — the
+        // phrase and category-menu list rows plus the two navigation-panel button styles (four
+        // call sites in total; the redundant in-list "Choose Category" access row was removed as
+        // a duplicate of the Navigation Panel's own Categories button).
         val dimUsageCount = Regex("guidedTrainingDim\\(trainingDimmed\\)").findAll(overlay).count()
-        return clickableGatedByDim && entryButtonGatedByDim && dimUsageCount >= 5
+        return clickableGatedByDim && entryButtonGatedByDim && dimUsageCount >= 4
     }
 
     // --- 6. Normal workspace outside Guided Training still allows normal phrase speaking ----------

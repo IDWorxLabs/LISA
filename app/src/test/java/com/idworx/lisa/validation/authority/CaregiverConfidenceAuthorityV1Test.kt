@@ -1,6 +1,5 @@
 package com.idworx.lisa.validation.authority
 
-import com.idworx.lisa.features.calibrationreliability.model.CalibrationHealthState
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.CaregiverConfidenceEngine
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.metadata.CaregiverConfidenceMetadata
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.validation.CaregiverConfidenceAuthorityV1
@@ -30,18 +29,6 @@ class CaregiverConfidenceAuthorityV1Test {
         val support = CaregiverConfidenceEngine.setupSupport(0)
         assertNotNull(support.primaryHint)
         assertNotNull(support.whatToDoNow)
-    }
-
-    @Test
-    fun trackingRecovery_whenFaceLost() {
-        val support = CaregiverConfidenceEngine.communicationSupport(
-            facePresent = false,
-            calibrationHealth = CalibrationHealthState.Healthy
-        )
-        assertNotNull(support.primaryHint)
-        assertTrue(support.primaryHint!!.contains("face", ignoreCase = true) ||
-            support.primaryHint!!.contains("camera", ignoreCase = true) ||
-            support.primaryHint!!.contains("view", ignoreCase = true))
     }
 
     @Test

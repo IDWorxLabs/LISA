@@ -41,12 +41,18 @@ object CaregiverConfidenceAuditor {
             screens.contains("Look at the blue dot")
     }
 
-    fun mainActivityTrackingRecoveryWired(): Boolean {
+    /**
+     * The Guided Communication screen no longer surfaces a caregiver tracking-recovery card —
+     * face-loss recovery is handled purely through [com.idworx.lisa.LisaCommunicationState]
+     * (e.g. WaitingForFace) so MainActivity must not re-introduce the retired
+     * `refreshCaregiverSupport`/`CaregiverConfidenceEngine.communicationSupport` wiring.
+     */
+    fun mainActivityFreeOfRetiredTrackingRecoveryWiring(): Boolean {
         val main = ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/MainActivity.kt"
         ) ?: return false
-        return main.contains("refreshCaregiverSupport") &&
-            main.contains("CaregiverConfidenceEngine")
+        return !main.contains("refreshCaregiverSupport") &&
+            !main.contains("CaregiverConfidenceEngine")
     }
 
     fun calibrationAdapterUsesEngine(): Boolean {
@@ -57,16 +63,24 @@ object CaregiverConfidenceAuditor {
     }
 
     /**
-     * The Communication Workspace no longer carries a permanent caregiver strip (removed to keep
-     * the workspace focused on Vocabulary/Phrases/Navigation) — caregiver confidence support is
-     * instead wired contextually through [com.idworx.lisa.MainActivity]'s tracking/troubleshooting
-     * state, surfaced on the Accessibility panel only when actually needed.
+     * The Guided Communication screen carries no Caregiver card at all anymore — the earlier
+     * contextual strip (surfaced via [com.idworx.lisa.MainActivity]'s tracking/troubleshooting
+     * state on the Accessibility panel) was removed outright to give the Communication Workspace
+     * the full screen. Neither the strip composable, its engine call, nor its UI state may exist.
      */
-    fun workspaceCaregiverStripWired(): Boolean {
+    fun communicationScreenFreeOfCaregiverPanel(): Boolean {
         val main = ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/MainActivity.kt"
         ) ?: return false
-        return main.contains("CaregiverConfidenceEngine.communicationSupport")
+        val accessibilityUi = ZeroTouchFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt"
+        ) ?: return false
+        return !main.contains("CaregiverConfidenceEngine.communicationSupport") &&
+            !main.contains("uiCaregiverSupport") &&
+            !accessibilityUi.contains("CaregiverSupportStrip") &&
+            !ZeroTouchFileProbe.fileExists(
+                "app/src/main/java/com/idworx/lisa/features/experiencepolish/caregiverconfidence/ui/CaregiverSupportStrip.kt"
+            )
     }
 
     fun noBrain2Dependency(): Boolean {

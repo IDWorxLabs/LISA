@@ -22,12 +22,4 @@ object CommunicationWorkspaceMetadata {
         "L${GuidedModeNavigation.FINISH_TRAINING_LEFT}_R${GuidedModeNavigation.FINISH_TRAINING_RIGHT}" to
             "Finish Guided Training and start communicating"
     )
-
-    val CAREGIVER_HELP_TOPICS: List<String> = listOf(
-        "Phrase selection",
-        "Category navigation",
-        "Back behavior",
-        "Emergency access",
-        "Contextual gesture support on the Accessibility panel"
-    )
 }

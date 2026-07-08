@@ -1,6 +1,5 @@
 package com.idworx.lisa.features.experiencepolish.caregiverconfidence
 
-import com.idworx.lisa.features.calibrationreliability.model.CalibrationHealthState
 import com.idworx.lisa.features.calibrationreliability.model.CalibrationRecommendation
 import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
@@ -66,39 +65,6 @@ object CaregiverConfidenceEngine {
             progressLine = "Calibration: ${dotIndex.coerceAtMost(totalDots)} of $totalDots",
             whatToDoNow = hintText(ctx, CaregiverSupportMoment.WhatToDoNow),
             moment = moment
-        )
-    }
-
-    fun communicationSupport(
-        facePresent: Boolean,
-        calibrationHealth: CalibrationHealthState,
-        consecutiveFailures: Int = 0
-    ): CaregiverSupportUiState {
-        val ctx = baseContext(AppFeature.Communication).copy(
-            faceDetected = facePresent,
-            caregiverVisible = true,
-            consecutiveFailures = consecutiveFailures
-        )
-        if (!facePresent) {
-            return CaregiverSupportUiState(
-                primaryHint = hintText(ctx, CaregiverSupportMoment.TrackingRecovery),
-                whatToDoNow = hintText(ctx, CaregiverSupportMoment.WhatToDoNow),
-                moment = CaregiverSupportMoment.TrackingRecovery
-            )
-        }
-        val needsTroubleshooting = calibrationHealth == CalibrationHealthState.CalibrationInvalid ||
-            calibrationHealth == CalibrationHealthState.CalibrationRequired ||
-            consecutiveFailures >= 3
-        if (needsTroubleshooting) {
-            return CaregiverSupportUiState(
-                primaryHint = hintText(ctx, CaregiverSupportMoment.Troubleshooting),
-                whatToDoNow = hintText(ctx, CaregiverSupportMoment.WhatToDoNow),
-                moment = CaregiverSupportMoment.Troubleshooting
-            )
-        }
-        return CaregiverSupportUiState(
-            primaryHint = hintText(ctx, CaregiverSupportMoment.CaregiverOnlyHint),
-            moment = CaregiverSupportMoment.CaregiverOnlyHint
         )
     }
 

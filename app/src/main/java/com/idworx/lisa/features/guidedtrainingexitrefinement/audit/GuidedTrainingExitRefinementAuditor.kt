@@ -167,12 +167,17 @@ object GuidedTrainingExitRefinementAuditor {
             !ui.contains("workspaceCaregiverHelpLegend")
     }
 
+    /**
+     * The redundant in-list "Choose Category" access row was removed as a duplicate of the
+     * always-visible Navigation Panel's own Categories button — [GuidedCategoryMenuAccessRow] no
+     * longer exists, and category access remains available solely through the Navigation Panel.
+     */
     fun communicationWorkspaceStillShowsCoreElements(): Boolean {
         val ui = readGuidedModeUi() ?: return false
         return ui.contains("GuidedModeNavigationPanel") &&
             ui.contains("categoryPage.title") &&
             ui.contains("GuidedVocabularyEntryRow") &&
-            ui.contains("GuidedCategoryMenuAccessRow")
+            !ui.contains("GuidedCategoryMenuAccessRow")
     }
 
     // --- 7. Neighbouring Guided Training / gesture / navigation authorities remain green --------

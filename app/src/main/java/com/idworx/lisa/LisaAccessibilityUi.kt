@@ -34,8 +34,6 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
-import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
-import com.idworx.lisa.features.experiencepolish.caregiverconfidence.ui.CaregiverSupportStrip
 import com.idworx.lisa.features.onboardingguide.state.GuidedTrainingUiState
 import com.idworx.lisa.features.onboardingguide.state.TrainingEvent
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode
@@ -139,7 +137,6 @@ fun LisaRootUI(
     onGuidedCategories: () -> Unit = {},
     onGuidedDecreaseValue: () -> Unit = {},
     onGuidedIncreaseValue: () -> Unit = {},
-    onGuidedChooseCategory: () -> Unit = {},
     onGuidedPhraseEntry: (GuidedVocabularyEntry) -> Unit = {},
     onGuidedCategoryRow: (Int) -> Unit = {},
     guidedTrainingActive: Boolean = false,
@@ -150,7 +147,6 @@ fun LisaRootUI(
     trainingBlinkDiagnostics: com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics =
         com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics(),
     showBlinkDiagnostics: Boolean = false,
-    caregiverSupport: CaregiverSupportUiState? = null,
     onTrainingEvent: (TrainingEvent) -> Unit = {},
     onTrainingWelcomeNarration: () -> Unit = {},
     onTrainingFirstLaunchNarration: () -> Unit = {},
@@ -403,15 +399,6 @@ fun LisaRootUI(
                 )
             }
 
-            caregiverSupport?.let { support ->
-                Spacer(Modifier.height(4.dp))
-                CaregiverSupportStrip(
-                    support = support,
-                    lightBackground = false,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             if (developerMode) {
                 Spacer(Modifier.height(4.dp))
                 DeveloperPanel(info = developerInfo)
@@ -435,7 +422,6 @@ fun LisaRootUI(
             onCategories = onGuidedCategories,
             onDecreaseValue = onGuidedDecreaseValue,
             onIncreaseValue = onGuidedIncreaseValue,
-            onChooseCategory = onGuidedChooseCategory,
             onPhraseEntry = onGuidedPhraseEntry,
             onCategoryRow = onGuidedCategoryRow,
             workspaceMode = if (guidedWorkspaceTrainingActive) {

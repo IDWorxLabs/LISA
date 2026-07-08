@@ -20,9 +20,9 @@ object CaregiverConfidenceAuthorityV1 {
             check("CC_005", "All eight support moments surfaced", CaregiverConfidenceAuditor.experienceSurfacesAllMoments()),
             check("CC_006", "Setup screen caregiver strip wired", CaregiverConfidenceAuditor.setupScreenWired()),
             check("CC_007", "Calibration screen caregiver support wired", CaregiverConfidenceAuditor.calibrationScreenWired()),
-            check("CC_008", "MainActivity tracking recovery wired", CaregiverConfidenceAuditor.mainActivityTrackingRecoveryWired()),
+            check("CC_008", "MainActivity free of retired tracking-recovery wiring", CaregiverConfidenceAuditor.mainActivityFreeOfRetiredTrackingRecoveryWiring()),
             check("CC_009", "Calibration adapter uses Personality Engine hints", CaregiverConfidenceAuditor.calibrationAdapterUsesEngine()),
-            check("CC_010", "Workspace caregiver strip from engine", CaregiverConfidenceAuditor.workspaceCaregiverStripWired()),
+            check("CC_010", "Guided Communication screen free of Caregiver panel", CaregiverConfidenceAuditor.communicationScreenFreeOfCaregiverPanel()),
             check("CC_011", "No Brain 2 dependency", CaregiverConfidenceAuditor.noBrain2Dependency()),
             check("CC_012", "Android Device Testing checklist updated", CaregiverConfidenceAuditor.deviceTestingChecklistUpdated()),
             check("CC_013", "Tests pass and Gradle validation task defined", CaregiverConfidenceAuditor.testClassExists() && CaregiverConfidenceAuditor.gradleTaskRegistered())

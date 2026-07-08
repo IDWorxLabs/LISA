@@ -44,9 +44,7 @@ import com.idworx.lisa.features.onboardingguide.services.TrainingSessionControll
 import com.idworx.lisa.features.experiencepolish.communicationworkspace.CommunicationWorkspaceEntryHandler
 import com.idworx.lisa.features.experiencepolish.emotionalpresence.EmotionalPresenceEngine
 import com.idworx.lisa.features.experiencepolish.emotionalpresence.model.PresenceSessionTracker
-import com.idworx.lisa.features.experiencepolish.caregiverconfidence.CaregiverConfidenceEngine
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
-import com.idworx.lisa.features.experiencepolish.caregiverconfidence.model.CaregiverSupportUiState
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionProcessor
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
@@ -132,7 +130,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var workspaceIntroIndex: Int = 0
     private var presenceTracker = PresenceSessionTracker()
     private var pausedAtMs = 0L
-    private val uiCaregiverSupport = mutableStateOf<CaregiverSupportUiState?>(null)
     private var lastReliabilityAttemptId: String? = null
     private var lastReliabilityPhraseId: String? = null
 
@@ -416,7 +413,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onGuidedCategories = { applyGuidedTouchNavigation(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT) },
                         onGuidedDecreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT) },
                         onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
-                        onGuidedChooseCategory = { applyGuidedTouchNavigation(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT) },
                         onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
                         onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
                         guidedTrainingActive = trainingSession.shouldShowTraining(),
@@ -426,7 +422,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         trainingEyeTracking = trainingEyeTrackingState(),
                         trainingBlinkDiagnostics = uiBlinkDiagnostics.value,
                         showBlinkDiagnostics = uiDeveloperMode.value,
-                        caregiverSupport = uiCaregiverSupport.value,
                         onTrainingEvent = { event -> handleTrainingEvent(event) },
                         onTrainingWelcomeNarration = { trainingSession.welcomeNarration() },
                         onTrainingFirstLaunchNarration = { trainingSession.firstLaunchChoiceNarration() },
@@ -967,23 +962,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiOnboardingCompleted.value = true
         refreshCameraPermissionState()
         maybePlayWorkspaceEntryIntro()
-    }
-
-    private fun refreshCaregiverSupport() {
-        if (trainingSession.shouldShowTraining() || emergencyActive) {
-            uiCaregiverSupport.value = null
-            return
-        }
-        val health = calibrationReliability.currentHealth()
-        val facePresent = uiFacePresent.value
-        if (facePresent && health == CalibrationHealthState.Healthy) {
-            uiCaregiverSupport.value = null
-            return
-        }
-        uiCaregiverSupport.value = CaregiverConfidenceEngine.communicationSupport(
-            facePresent = facePresent,
-            calibrationHealth = health
-        )
     }
 
     private fun maybePlayWorkspaceEntryIntro() {
@@ -1967,7 +1945,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 if (faces.isEmpty()) {
                     uiFacePresent.value = false
                     uiEyesDetected.value = false
-                    refreshCaregiverSupport()
                     blinkProcessor.clearPreviousProbabilities()
                     updateDiagnostics(null, null)
                     if (trainingSession.state.phase == TrainingPhase.Setup) {
@@ -1979,7 +1956,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     return@addOnSuccessListener
                 }
                 uiFacePresent.value = true
-                refreshCaregiverSupport()
                 if (trainingSession.state.phase == TrainingPhase.Setup) {
                     trainingSession.onFaceDetectedDuringSetup()
                 }
@@ -2000,7 +1976,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             .addOnFailureListener {
                 uiFacePresent.value = false
                 uiEyesDetected.value = false
-                refreshCaregiverSupport()
                 blinkProcessor.clearPreviousProbabilities()
                 updateDiagnostics(null, null)
                 if (!emergencyActive && leftWinks == 0 && rightWinks == 0) {

@@ -9,5 +9,7 @@ object CaregiverConfidenceMetadata {
             "never technical jargon, never a developer console."
 
     const val VISIBILITY_RULE: String =
-        "Hints appear only when caregivers need them: setup, calibration, tracking loss, or troubleshooting."
+        "The Guided Communication screen carries no permanent or contextual Caregiver card — " +
+            "caregiver dialogue hints exist purely as Personality Engine content, not as an " +
+            "on-screen panel competing with the Communication Workspace."
 }

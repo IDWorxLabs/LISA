@@ -64,14 +64,28 @@ object CommunicationWorkspaceAuditor {
         }
 
     /**
-     * Caregiver help remains available, but contextually — surfaced on the Accessibility panel
-     * via [com.idworx.lisa.features.experiencepolish.caregiverconfidence.ui.CaregiverSupportStrip]
-     * only when actually needed (e.g. tracking lost, calibration trouble) — instead of as a
-     * permanent strip competing with the Communication Workspace's phrase list.
+     * The Caregiver card has been removed entirely from the Guided Communication screen — not
+     * even a contextual strip remains — so the Communication Workspace can occupy the full
+     * screen with no competing panel and no leftover gap where it used to sit.
      */
-    fun caregiverHelpVisible(): Boolean {
+    fun freeOfCaregiverPanel(): Boolean {
         val ui = readAccessibilityUi() ?: return false
-        return ui.contains("CaregiverSupportStrip") && ui.contains("caregiverSupport")
+        return !ui.contains("CaregiverSupportStrip") && !ui.contains("caregiverSupport")
+    }
+
+    /**
+     * The header used to stack "Vocabulary" and the category name directly above the list's own
+     * bold category title (with a redundant "Choose Category" row sitting above the phrases too)
+     * — three duplicated labels competing with the single title the list actually needs. While
+     * plainly browsing phrases the header now shows only the small "Communication Workspace"
+     * label, and the category title plus "Scroll for more phrases" hint is the sole header
+     * directly above the phrase list.
+     */
+    fun headerFreeOfDuplicateVocabularyLabels(): Boolean {
+        val ui = readGuidedModeUi() ?: return false
+        return ui.contains("isPlainVocabularyBrowsing") &&
+            !ui.contains("GuidedCategoryMenuAccessRow") &&
+            ui.contains("uiStrings.guidedScrollForMore")
     }
 
     fun personalityEngineDialogues(): Boolean =
