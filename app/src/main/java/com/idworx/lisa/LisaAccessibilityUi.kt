@@ -81,6 +81,8 @@ fun LisaRootUI(
     onDeveloperModeChange: (Boolean) -> Unit,
     onSensitivityDecrease: () -> Unit,
     onSensitivityIncrease: () -> Unit,
+    onResponseTimeDecrease: () -> Unit = {},
+    onResponseTimeIncrease: () -> Unit = {},
     onSettingsPlaceholderChange: (LisaSettingsUiState) -> Unit,
     onCreateProfile: () -> Unit = {},
     onSelectProfile: (String) -> Unit = {},
@@ -384,6 +386,8 @@ fun LisaRootUI(
                 responseTimeSec = responseTimeSec,
                 onDecrease = onSensitivityDecrease,
                 onIncrease = onSensitivityIncrease,
+                onDecreaseResponseTime = onResponseTimeDecrease,
+                onIncreaseResponseTime = onResponseTimeIncrease,
                 guidedResponseTimeControlsVisible = guidedWorkspaceTrainingActive,
                 guidedResponseTimeSec = guidedTrainingState.progress.preferences.guidedResponseTimeSec,
                 onDecreaseGuidedResponseTime = onTrainingDecreaseResponseTime,
@@ -654,6 +658,9 @@ private fun CompactSensitivityControls(
     responseTimeSec: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    /** Everyday Communication Workspace response time — same visual style as Sensitivity's row. */
+    onDecreaseResponseTime: () -> Unit = {},
+    onIncreaseResponseTime: () -> Unit = {},
     /** Shown only during Guided Training, next to Sensitivity, so its own settle time is adjustable. */
     guidedResponseTimeControlsVisible: Boolean = false,
     guidedResponseTimeSec: Int = SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
@@ -701,6 +708,32 @@ private fun CompactSensitivityControls(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
             ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            OutlinedButton(
+                onClick = onDecreaseResponseTime,
+                enabled = responseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
+                modifier = Modifier.height(30.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+            ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
+            Text(
+                text = "${uiStrings.responseTime}: ${responseTimeSec}s",
+                color = LisaWhite,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            OutlinedButton(
+                onClick = onIncreaseResponseTime,
+                enabled = responseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
+                modifier = Modifier.height(30.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
+            ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
         }
         if (guidedResponseTimeControlsVisible) {
             Row(

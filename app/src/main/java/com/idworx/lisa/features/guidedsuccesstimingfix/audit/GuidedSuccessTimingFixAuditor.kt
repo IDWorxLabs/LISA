@@ -1,6 +1,7 @@
 package com.idworx.lisa.features.guidedsuccesstimingfix.audit
 
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 import com.idworx.lisa.features.zerotouchprinciple.audit.ZeroTouchFileProbe
 
@@ -45,7 +46,8 @@ object GuidedSuccessTimingFixAuditor {
                 finishedBlock.indexOf("completePendingInteractiveLessonSuccess()")
     }
 
-    fun sequenceFinalizationTimeoutUnchanged(): Boolean = SEQUENCE_IDLE_TIMEOUT_MS == 3000L
+    fun sequenceFinalizationTimeoutUnchanged(): Boolean =
+        SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS)
 
     fun lessonPhraseStaysVisibleDuringSpeech(): Boolean {
         val lessons = readLessonScreens() ?: return false

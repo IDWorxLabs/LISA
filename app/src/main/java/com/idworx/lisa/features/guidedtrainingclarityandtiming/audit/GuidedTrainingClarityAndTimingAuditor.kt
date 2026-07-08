@@ -29,7 +29,7 @@ object GuidedTrainingClarityAndTimingAuditor {
         return independentControls && changedIndependently && topBarAlsoAdjustable
     }
 
-    // --- 2. Default guided response time is no longer 3s (slower, from session settings) -------
+    // --- 2. Default guided response time is never faster than the shared workspace default ------
     fun defaultGuidedResponseTimeIsSlowerThanThreeSeconds(): Boolean {
         val default = TrainingPreferences().guidedResponseTimeSec
         val comesFromSharedBounds = default in SequenceProcessingDelay.allowedSeconds
@@ -37,7 +37,10 @@ object GuidedTrainingClarityAndTimingAuditor {
         val notHardcodedPerLesson = mainActivity.contains(
             "SequenceProcessingDelay.toMillis(trainingSession.state.progress.preferences.guidedResponseTimeSec)"
         )
-        return default > SequenceProcessingDelay.DEFAULT_SECONDS &&
+        // GUIDED_DEFAULT_SECONDS is deliberately aliased to the shared DEFAULT_SECONDS (5s) — a
+        // lesson gesture never gets *less* settle time than the everyday workspace default, only
+        // ever equal or (if the caregiver raises it) more.
+        return default >= SequenceProcessingDelay.DEFAULT_SECONDS &&
             default >= 5 &&
             comesFromSharedBounds &&
             notHardcodedPerLesson

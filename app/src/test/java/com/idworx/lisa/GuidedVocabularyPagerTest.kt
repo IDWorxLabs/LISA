@@ -1,5 +1,6 @@
 package com.idworx.lisa
 
+import com.idworx.lisa.features.zerotouchprinciple.audit.ZeroTouchFileProbe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -303,10 +304,14 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun draftValues_clampWithinRange() {
-        val low = PreferenceAdjustmentController.decreaseDraft(adjustResponseTimeState(draftSec = 1))
-        assertEquals(1, low.draftResponseTimeSec)
-        val high = PreferenceAdjustmentController.increaseDraft(adjustResponseTimeState(draftSec = 6))
-        assertEquals(6, high.draftResponseTimeSec)
+        val low = PreferenceAdjustmentController.decreaseDraft(
+            adjustResponseTimeState(draftSec = SequenceProcessingDelay.MIN_SECONDS)
+        )
+        assertEquals(SequenceProcessingDelay.MIN_SECONDS, low.draftResponseTimeSec)
+        val high = PreferenceAdjustmentController.increaseDraft(
+            adjustResponseTimeState(draftSec = SequenceProcessingDelay.MAX_SECONDS)
+        )
+        assertEquals(SequenceProcessingDelay.MAX_SECONDS, high.draftResponseTimeSec)
     }
 
     @Test
@@ -337,22 +342,131 @@ class GuidedVocabularyPagerTest {
     }
 
     @Test
-    fun previousPhrasePage_onFirstPage_staysOnFirstPage() {
+    fun previousPhrasePage_onFirstPage_isUnmatched_notASilentNoOp() {
+        // No previous page is visible/available on page 1, so the gesture must not execute at
+        // all (Unmatched) rather than silently "succeeding" with an unchanged state.
         val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
         val result = process(
             GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state
-        ) as GuidedSequenceResult.Navigate
-        assertEquals(0, result.newState.phrasePageIndex)
+        )
+        assertEquals(GuidedSequenceResult.Unmatched, result)
     }
 
     @Test
-    fun nextPhrasePage_onLastPage_staysOnLastPage() {
+    fun nextPhrasePage_onLastPage_isUnmatched_notASilentNoOp() {
+        // No next page is visible/available on the last page, so the gesture must not execute at
+        // all (Unmatched) rather than silently "succeeding" with an unchanged state.
         val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
             .copy(phrasePageIndex = 1)
         val result = process(
             GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state
+        )
+        assertEquals(GuidedSequenceResult.Unmatched, result)
+    }
+
+    @Test
+    fun previousPhrasePage_onSinglePageCategory_isUnmatched() {
+        // Preferences fits on a single page, so Previous/Next never have a visible target.
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state)
+        )
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state)
+        )
+    }
+
+    @Test
+    fun categoryMenu_previousAtFirstSelection_isUnmatched() {
+        val state = categoryMenuState(selection = 0)
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state)
+        )
+    }
+
+    @Test
+    fun categoryMenu_nextAtLastSelection_isUnmatched() {
+        val state = categoryMenuState(selection = GuidedVocabularyCategory.PAGE_COUNT - 1)
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state)
+        )
+    }
+
+    @Test
+    fun categoryMenu_previousAndNext_stillWorkWhenAvailable() {
+        val movedUp = process(
+            GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, categoryMenuState(selection = 1)
         ) as GuidedSequenceResult.Navigate
-        assertEquals(1, result.newState.phrasePageIndex)
+        assertEquals(0, movedUp.newState.categoryMenuSelection)
+        val movedDown = process(
+            GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, categoryMenuState(selection = 0)
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(1, movedDown.newState.categoryMenuSelection)
+    }
+
+    @Test
+    fun hiddenPhraseRowGesture_doesNotExecute_onVisibleFirstPage() {
+        // A gesture belonging only to an entry on phrase page 2 must not resolve while page 1 is
+        // showing, even though the gesture code itself is a valid vocabulary gesture in general.
+        val basicNeedsPage = pages[GuidedVocabularyCategory.BasicNeeds.ordinal]
+        assertTrue("fixture needs >6 entries to have 2 phrase pages", basicNeedsPage.entries.size > 6)
+        val hiddenEntry = basicNeedsPage.entries[GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP]
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+            .copy(phrasePageIndex = 0)
+        val result = process(hiddenEntry.left, hiddenEntry.right, state)
+        assertEquals(GuidedSequenceResult.Unmatched, result)
+    }
+
+    @Test
+    fun visiblePhraseRowGesture_stillExecutes_onItsOwnPage() {
+        val basicNeedsPage = pages[GuidedVocabularyCategory.BasicNeeds.ordinal]
+        val visibleEntry = basicNeedsPage.entries[GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP]
+        val phrasePageIndex = GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP / GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal)
+            .copy(phrasePageIndex = phrasePageIndex)
+        val result = process(visibleEntry.left, visibleEntry.right, state)
+        assertTrue(result is GuidedSequenceResult.Speak || result is GuidedSequenceResult.SystemAction)
+    }
+
+    @Test
+    fun emergencyCheck_precedesAllVisibilityGating_inMainActivity() {
+        // Emergency is deliberately dispatched before any Guided Communication visibility gating
+        // (phrase page, category menu, overlay-active) in MainActivity.finalizeSequence, so it is
+        // never blocked by hidden/off-screen navigation state — the one gesture that's always
+        // "visible" regardless of screen. This is a real runtime-ordering guarantee, not just a
+        // Navigation Panel label, so it's asserted against the actual source rather than the
+        // (necessarily Unmatched-at-this-layer) GuidedNavigationController result below.
+        val main = ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/MainActivity.kt")
+        assertTrue(main != null)
+        val finalizeSequenceBody = main!!.substringAfter("private fun finalizeSequence()")
+        val emergencyIndex = finalizeSequenceBody.indexOf("isEmergencySequence(capturedLeft, capturedRight)")
+        val overlayGateIndex = finalizeSequenceBody.indexOf("if (guidedOverlayActive())")
+        assertTrue("expected isEmergencySequence check in finalizeSequence", emergencyIndex >= 0)
+        assertTrue("expected guidedOverlayActive gate in finalizeSequence", overlayGateIndex >= 0)
+        assertTrue("emergency must be checked before overlay visibility gating", emergencyIndex < overlayGateIndex)
+    }
+
+    @Test
+    fun emergencyShapedGesture_safelyUnmatchedAtControllerLevel_neverMisfiresAsVocabulary() {
+        // By the time a gesture reaches GuidedNavigationController it has already failed the
+        // earlier, unconditional isEmergencySequence check in MainActivity — so here it must be a
+        // safe Unmatched, never accidentally resolved as some unrelated visible phrase/category.
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(
+                EMERGENCY_LEFT_WINKS,
+                EMERGENCY_RIGHT_WINKS,
+                vocabularyState(categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal).copy(phrasePageIndex = 1)
+            )
+        )
+        assertEquals(
+            GuidedSequenceResult.Unmatched,
+            process(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS, categoryMenuState(selection = 2))
+        )
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.idworx.lisa.GuidedVocabularyCatalog
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.launchwelcomestatepriority.WelcomeStatePriorityGate
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
@@ -142,7 +143,8 @@ object CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor {
             main.contains("handleGuidedOverlaySequence")
     }
 
-    fun idleTimeoutThreeSeconds(): Boolean = SEQUENCE_IDLE_TIMEOUT_MS == 3000L
+    fun idleTimeoutMatchesDefaultResponseTime(): Boolean =
+        SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS)
 
     fun phraseTranslationOnly(): Boolean =
         LisaSpeechPolicy.PHRASE_TRANSLATION_ONLY &&

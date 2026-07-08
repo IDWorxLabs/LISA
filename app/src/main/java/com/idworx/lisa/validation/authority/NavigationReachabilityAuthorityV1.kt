@@ -494,20 +494,30 @@ object NavigationReachabilityAuthorityV1 {
             scrollClampsSafelyInVocabulary(uiStrings, catalogContext)
         )
 
+        /**
+         * "Available" no longer means "always produces Navigate" — Previous/Next are now
+         * visibility-gated (see [com.idworx.lisa.GuidedNavigationController]'s processCategoryMenuGesture/
+         * processVocabularyGesture): a boundary state with no previous/next target correctly resolves
+         * Unmatched instead of a same-state Navigate no-op. What must still hold in every guided state is
+         * the safety property this check actually protects — Scroll Up is never swallowed as a dead end
+         * *and* never misfires as an unrelated local action (a vocabulary Speak/SystemAction or a
+         * different screenMode). Navigate-to-a-real-target and safe-Unmatched-at-a-boundary are both
+         * acceptable outcomes.
+         */
         fun scrollUpAvailableEveryState(
             guidedStates: List<GuidedReachabilityState>,
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
             val failures = guidedStates.filterNot { ctx ->
-                scrollUpResult(ctx, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
+                isSafeScrollOutcome(scrollUpResult(ctx, uiStrings, catalogContext))
             }.map { it.label }
             return check(
                 id = "SCROLL_REACH_001",
-                description = "L2 R0 Scroll Up is available in every guided state",
+                description = "L2 R0 Scroll Up never dead-ends or misfires in any guided state",
                 passed = failures.isEmpty(),
                 remediation = if (failures.isEmpty()) null else
-                    "Ensure L2 R0 produces navigation in: ${failures.joinToString()}."
+                    "Ensure L2 R0 safely navigates or is cleanly Unmatched in: ${failures.joinToString()}."
             )
         }
 
@@ -517,21 +527,28 @@ object NavigationReachabilityAuthorityV1 {
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
             val failures = guidedStates.filterNot { ctx ->
-                scrollDownResult(ctx, uiStrings, catalogContext) is GuidedSequenceResult.Navigate
+                isSafeScrollOutcome(scrollDownResult(ctx, uiStrings, catalogContext))
             }.map { it.label }
             return check(
                 id = "SCROLL_REACH_002",
-                description = "L0 R2 Scroll Down is available in every guided state",
+                description = "L0 R2 Scroll Down never dead-ends or misfires in any guided state",
                 passed = failures.isEmpty(),
                 remediation = if (failures.isEmpty()) null else
-                    "Ensure L0 R2 produces navigation in: ${failures.joinToString()}."
+                    "Ensure L0 R2 safely navigates or is cleanly Unmatched in: ${failures.joinToString()}."
             )
         }
+
+        /** Navigate (a real target exists) or Unmatched (safely inert at a boundary) — never a misfire. */
+        private fun isSafeScrollOutcome(result: GuidedSequenceResult): Boolean =
+            result is GuidedSequenceResult.Navigate || result is GuidedSequenceResult.Unmatched
 
         fun scrollClampsSafelyInVocabulary(
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
+            // First page of the first category has no visible previous page, so Previous must now be
+            // Unmatched (see D. Visible gesture gating) rather than a phantom same-state Navigate —
+            // this is the boundary case the visibility-gated controller is required to handle safely.
             val state = GuidedNavigationState(
                 screenMode = GuidedOverlayScreenMode.Vocabulary,
                 categoryIndex = 0,
@@ -544,13 +561,12 @@ object NavigationReachabilityAuthorityV1 {
                 uiStrings,
                 catalogContext
             )
-            val passed = upAtTop is GuidedSequenceResult.Navigate &&
-                (upAtTop as GuidedSequenceResult.Navigate).newState.phrasePageIndex == 0
+            val passed = upAtTop is GuidedSequenceResult.Unmatched
             return check(
                 id = "SCROLL_REACH_003",
-                description = "Scroll Up clamps safely at bounds without navigation loss",
+                description = "Scroll Up at the first page is safely Unmatched, never a phantom navigation",
                 passed = passed,
-                remediation = "Clamp phrasePageIndex at zero when scrolling up from first page."
+                remediation = "Return Unmatched (not a same-state Navigate) when scrolling up from the first page."
             )
         }
 

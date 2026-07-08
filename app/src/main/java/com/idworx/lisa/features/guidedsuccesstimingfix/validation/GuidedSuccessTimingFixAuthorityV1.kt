@@ -17,7 +17,7 @@ object GuidedSuccessTimingFixAuthorityV1 {
             check("GSTF_002", "\"Well done\" appears only after phrase speech completes", GuidedSuccessTimingFixAuditor.wellDoneAppearsOnlyAfterSpeechCompletes()),
             check("GSTF_003", "No non-phrase narration is added", GuidedSuccessTimingFixAuditor.noNonPhraseNarrationAdded()),
             check("GSTF_004", "Lesson advances after the success message pause", GuidedSuccessTimingFixAuditor.lessonAdvancesAfterSuccessMessagePause()),
-            check("GSTF_005", "Existing 3-second sequence finalization remains unchanged", GuidedSuccessTimingFixAuditor.sequenceFinalizationTimeoutUnchanged()),
+            check("GSTF_005", "Sequence finalization idle timeout still matches the default response time", GuidedSuccessTimingFixAuditor.sequenceFinalizationTimeoutUnchanged()),
             check("GSTF_006", "Lesson phrase stays visible while speech is happening", GuidedSuccessTimingFixAuditor.lessonPhraseStaysVisibleDuringSpeech()),
             check("GSTF_007", "Tests pass and Gradle validation task defined", GuidedSuccessTimingFixAuditor.testClassExists() && GuidedSuccessTimingFixAuditor.gradleTaskRegistered())
         )

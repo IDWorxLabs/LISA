@@ -5,6 +5,7 @@ import com.idworx.lisa.GuidedVocabularyCatalog
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.coreruntime.alwayswelcomevisiblespeech.metadata.CoreRuntimeAlwaysWelcomeVisibleSpeechMetadata
 import com.idworx.lisa.features.coreruntime.alwayswelcomevisiblespeech.validation.CoreRuntimeAlwaysWelcomeVisibleSpeechAuthorityV1
 import com.idworx.lisa.features.launchwelcomestatepriority.WelcomeStatePriorityGate
@@ -47,8 +48,9 @@ class CoreRuntimeAlwaysWelcomeVisibleSpeechAuthorityV1Test {
     }
 
     @Test
-    fun idleTimeout_isThreeSeconds() {
-        assertEquals(3000L, SEQUENCE_IDLE_TIMEOUT_MS)
+    fun idleTimeout_matchesDefaultResponseTime() {
+        assertEquals(SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS), SEQUENCE_IDLE_TIMEOUT_MS)
+        assertEquals(5000L, SEQUENCE_IDLE_TIMEOUT_MS)
     }
 
     @Test

@@ -512,6 +512,11 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val sensitivityDecrease: String get() = t("Sensitivity -", "Sensitiwiteit -", "Ukuzwela -")
     val sensitivityIncrease: String get() = t("Sensitivity +", "Sensitiwiteit +", "Ukuzwela +")
 
+    // Response time (top-of-screen quick control — same style as Sensitivity)
+    val responseTime: String get() = t("Response time", "Reaksietyd", "Isikhathi sokuphendula")
+    val responseTimeDecrease: String get() = t("Response time -", "Reaksietyd -", "Isikhathi sokuphendula -")
+    val responseTimeIncrease: String get() = t("Response time +", "Reaksietyd +", "Isikhathi sokuphendula +")
+
     // Menu items
     val myCommunication: String get() = t("My Communication", "My Kommunikasie", "Ukuxhumana Kwami")
     val communicationSetup: String get() = t("Communication Setup", "Kommunikasie-opstelling", "Ukusetha Ukuxhumana")

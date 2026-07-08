@@ -1,6 +1,7 @@
 package com.idworx.lisa.features.guideduioverlapandfalseblinkfix.audit
 
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionProcessor
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkEyeProbabilities
@@ -147,10 +148,10 @@ object GuidedUiOverlapAndFalseBlinkFixAuditor {
             components.contains("acceptedBlinkLabel")
     }
 
-    fun sequenceFinalizesAfterThreeSeconds(): Boolean {
+    fun sequenceFinalizesAfterDefaultResponseTime(): Boolean {
         val main = readMainActivity() ?: return false
         return main.contains("shouldFinalizeSequence") &&
-            SEQUENCE_IDLE_TIMEOUT_MS == 3000L
+            SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS)
     }
 
     fun phraseSpeechOnlyPreserved(): Boolean =

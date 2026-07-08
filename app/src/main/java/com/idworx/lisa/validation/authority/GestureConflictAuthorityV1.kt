@@ -882,9 +882,13 @@ object GestureConflictAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
+            // Uses BasicNeeds (a multi-page category) rather than the single-page Preferences category:
+            // Next Phrase Page is now visibility-gated (see [processVocabularyGesture]), so a single-page
+            // category would make this Unmatched regardless of global/local resolution order and no
+            // longer exercise the thing this check actually verifies.
             val state = GuidedNavigationState(
                 screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
+                categoryIndex = GuidedVocabularyCategory.BasicNeeds.ordinal,
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )

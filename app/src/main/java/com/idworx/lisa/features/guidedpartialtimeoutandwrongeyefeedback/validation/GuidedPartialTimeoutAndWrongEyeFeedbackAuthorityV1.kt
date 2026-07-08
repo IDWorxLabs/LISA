@@ -23,7 +23,7 @@ object GuidedPartialTimeoutAndWrongEyeFeedbackAuthorityV1 {
             check("GPTWEF_008", "Wrong-eye feedback tells user to restart sequence", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.wrongEyeFeedbackTellsUserToRestart()),
             check("GPTWEF_009", "Wrong-eye blink resets progress to zero", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.wrongBlinkResetsProgressToZero()),
             check("GPTWEF_010", "User can complete sequence after correcting eye", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.userCanCompleteSequenceAfterCorrection()),
-            check("GPTWEF_011", "Phrase speech after valid sequence and 3-second finalization", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.phraseSpeechAfterThreeSecondFinalization()),
+            check("GPTWEF_011", "Phrase speech after valid sequence and default-response-time finalization", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.phraseSpeechAfterDefaultResponseTimeFinalization()),
             check("GPTWEF_012", "No non-phrase narration in lesson path", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.noNonPhraseNarrationInLessonPath()),
             check("GPTWEF_013", "Tests pass and Gradle validation task defined", GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.testClassExists() && GuidedPartialTimeoutAndWrongEyeFeedbackAuditor.gradleTaskRegistered())
         )

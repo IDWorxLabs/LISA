@@ -25,7 +25,7 @@ object GuidedUiOverlapAndFalseBlinkFixAuthorityV1 {
             check("GUOFB_010", "Double blink still works", GuidedUiOverlapAndFalseBlinkFixAuditor.doubleBlinkStillWorks()),
             check("GUOFB_011", "Sensitivity still changes thresholds", GuidedUiOverlapAndFalseBlinkFixAuditor.sensitivityChangesThresholds()),
             check("GUOFB_012", "Accepted blink updates visible feedback", GuidedUiOverlapAndFalseBlinkFixAuditor.acceptedBlinkUpdatesVisibleFeedback()),
-            check("GUOFB_013", "Sequence finalizes after 3 seconds with phrase-only speech", GuidedUiOverlapAndFalseBlinkFixAuditor.sequenceFinalizesAfterThreeSeconds() && GuidedUiOverlapAndFalseBlinkFixAuditor.phraseSpeechOnlyPreserved()),
+            check("GUOFB_013", "Sequence finalizes after the default response time with phrase-only speech", GuidedUiOverlapAndFalseBlinkFixAuditor.sequenceFinalizesAfterDefaultResponseTime() && GuidedUiOverlapAndFalseBlinkFixAuditor.phraseSpeechOnlyPreserved()),
             check("GUOFB_014", "Long phrase samples use responsive font sizing", GuidedUiOverlapAndFalseBlinkFixAuditor.longPhraseSamplesUseSmallerFont()),
             check("GUOFB_015", "Tests pass and Gradle validation task defined", GuidedUiOverlapAndFalseBlinkFixAuditor.testClassExists() && GuidedUiOverlapAndFalseBlinkFixAuditor.gradleTaskRegistered())
         )

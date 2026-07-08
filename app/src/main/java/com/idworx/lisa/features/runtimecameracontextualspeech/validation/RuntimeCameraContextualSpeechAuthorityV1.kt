@@ -23,7 +23,7 @@ object RuntimeCameraContextualSpeechAuthorityV1 {
             check("RCCS_008", "Visible open-category phrases resolve", RuntimeCameraContextualSpeechAuditor.runtime_visiblePhraseResolvesOnOpenCategory()),
             check("RCCS_009", "Partial-sequence continuation uses workspace context", RuntimeCameraContextualSpeechAuditor.runtime_continuationUsesWorkspaceContext()),
             check("RCCS_010", "Workspace navigation gestures remain separate", RuntimeCameraContextualSpeechAuditor.workspaceNavigationGesturesSeparated()),
-            check("RCCS_011", "Phrase idle timeout remains 3 seconds", RuntimeCameraContextualSpeechAuditor.idleTimeoutThreeSeconds()),
+            check("RCCS_011", "Phrase idle timeout matches the default response time", RuntimeCameraContextualSpeechAuditor.idleTimeoutMatchesDefaultResponseTime()),
             check("RCCS_012", "Voice policy remains phrase-translation-only", RuntimeCameraContextualSpeechAuditor.phraseTranslationOnlyPolicy()),
             check("RCCS_013", "Tests pass and Gradle validation task defined", RuntimeCameraContextualSpeechAuditor.testClassExists() && RuntimeCameraContextualSpeechAuditor.gradleTaskRegistered())
         )

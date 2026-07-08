@@ -1,6 +1,7 @@
 package com.idworx.lisa.features.guidedpartialtimeoutandwrongeyefeedback.audit
 
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.onboardingguide.lessoninteraction.LessonInteractionEngine
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
@@ -101,11 +102,11 @@ object GuidedPartialTimeoutAndWrongEyeFeedbackAuditor {
         return afterTwoRights && pleaseComplete
     }
 
-    fun phraseSpeechAfterThreeSecondFinalization(): Boolean {
+    fun phraseSpeechAfterDefaultResponseTimeFinalization(): Boolean {
         val main = readMainActivity() ?: return false
         val controller = readControllerSource() ?: return false
         return main.contains("shouldFinalizeSequence") &&
-            SEQUENCE_IDLE_TIMEOUT_MS == 3000L &&
+            SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS) &&
             controller.contains("beginInteractiveLessonSuccess") &&
             controller.contains("SUCCESS_VISUAL_PAUSE_MS")
     }

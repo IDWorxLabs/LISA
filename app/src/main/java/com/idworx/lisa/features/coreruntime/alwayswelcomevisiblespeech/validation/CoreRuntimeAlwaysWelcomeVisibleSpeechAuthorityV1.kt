@@ -25,7 +25,7 @@ object CoreRuntimeAlwaysWelcomeVisibleSpeechAuthorityV1 {
             check("CRAW_010", "Visible phrase resolves on open page", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.runtime_visiblePhraseResolves()),
             check("CRAW_011", "Hidden page phrase does not resolve", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.runtime_hiddenPageDoesNotResolve()),
             check("CRAW_012", "Sequence finalize resets blink buffer", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.finalizeSequenceResetsTrainingBuffer()),
-            check("CRAW_013", "Idle timeout remains 3 seconds", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.idleTimeoutThreeSeconds()),
+            check("CRAW_013", "Idle timeout matches the default response time", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.idleTimeoutMatchesDefaultResponseTime()),
             check("CRAW_014", "Voice policy remains phrase-translation-only", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.phraseTranslationOnly()),
             check("CRAW_015", "Tests pass and Gradle validation task defined", CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.testClassExists() && CoreRuntimeAlwaysWelcomeVisibleSpeechAuditor.gradleTaskRegistered())
         )

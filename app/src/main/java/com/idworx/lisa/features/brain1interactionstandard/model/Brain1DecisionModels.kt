@@ -26,6 +26,20 @@ data class Brain1DecisionState(
     fun clear(): Brain1DecisionState = Brain1DecisionState()
 }
 
+/**
+ * Prompt-only decisions skip straight to [Brain1DecisionPhase.AwaitingConfirm] (see
+ * [com.idworx.lisa.features.brain1interactionstandard.engine.Brain1DecisionEngine.beginAwaitingConfirm]) —
+ * there is no alternate choice to make, so a cancel gesture must fully clear the decision (and,
+ * for Emergency, its armed/awaiting-confirm banner) instead of re-prompting the same decision.
+ * Contrast with the choice-based kinds (FirstLaunchGuidedLearning/FirstLaunchSkipWorkspace), whose
+ * "choose again" cancel legitimately re-opens the original A/B choice.
+ */
+val Brain1DecisionKind.isPromptOnly: Boolean
+    get() = this == Brain1DecisionKind.EmergencyMode ||
+        this == Brain1DecisionKind.ResetLearningProgress ||
+        this == Brain1DecisionKind.ReplayLearning ||
+        this == Brain1DecisionKind.Recalibration
+
 sealed class Brain1DecisionOutcome {
     data object None : Brain1DecisionOutcome()
     data object ChooseAgain : Brain1DecisionOutcome()

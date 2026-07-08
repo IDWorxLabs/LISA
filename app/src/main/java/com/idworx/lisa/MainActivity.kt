@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var countdownDurationSec = 3
     private var sequenceIdleTimeoutMs = SEQUENCE_IDLE_TIMEOUT_MS
-    private var sequenceMaxWindowMs = ResponseSpeed.default.maxSequenceWindowMs()
+    private var sequenceMaxWindowMs = SequenceProcessingDelay.maxWindowMs(SequenceProcessingDelay.DEFAULT_SECONDS)
 
     private val sensitivityPresets = (MIN_SENSITIVITY_LEVEL..MAX_SENSITIVITY_LEVEL).associateWith { level ->
         BlinkDetectionTuning.forSensitivityLevel(level)
@@ -327,6 +327,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onSensitivityDecrease = { changeSensitivity(-1) },
                         onSensitivityIncrease = { changeSensitivity(1) },
+                        onResponseTimeDecrease = { changeResponseTime(-1) },
+                        onResponseTimeIncrease = { changeResponseTime(1) },
                         onSettingsPlaceholderChange = { updated ->
                             updateActiveProfile { it.withUpdatedSettings(updated) }
                         },
@@ -796,9 +798,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun effectiveSequenceMaxWindowMs(): Long =
         if (trainingSession.shouldShowTraining()) {
-            ResponseSpeed.fromProcessingDelaySeconds(
-                trainingSession.state.progress.preferences.guidedResponseTimeSec
-            ).maxSequenceWindowMs()
+            SequenceProcessingDelay.maxWindowMs(trainingSession.state.progress.preferences.guidedResponseTimeSec)
         } else {
             sequenceMaxWindowMs
         }
@@ -1324,7 +1324,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun applySequenceProcessingDelay(seconds: Int, persist: Boolean = true) {
         val sec = SequenceProcessingDelay.coerce(seconds)
         sequenceIdleTimeoutMs = SequenceProcessingDelay.toMillis(sec)
-        sequenceMaxWindowMs = ResponseSpeed.fromProcessingDelaySeconds(sec).maxSequenceWindowMs()
+        sequenceMaxWindowMs = SequenceProcessingDelay.maxWindowMs(sec)
         uiSequenceProcessingDelaySec.value = sec
         uiSettingsState.value = uiSettingsState.value.copy(
             sequenceProcessingDelaySec = sec,
@@ -1891,6 +1891,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (newLevel == uiSensitivityLevel.value) return
         applySensitivityLevel(newLevel)
         blinkProcessor.resetGestureFlags()
+    }
+
+    /**
+     * Everyday Communication Workspace response time — the +/- controls next to Sensitivity at
+     * the top of the screen. Persists via [applySequenceProcessingDelay] (same path the Guided
+     * Vocabulary "Adjust response time" flow already uses), so runtime gesture detection
+     * ([effectiveSequenceIdleTimeoutMs]) always reflects whichever value the user last picked.
+     */
+    private fun changeResponseTime(deltaSeconds: Int) {
+        val newSeconds = SequenceProcessingDelay.coerce(uiSequenceProcessingDelaySec.value + deltaSeconds)
+        if (newSeconds == uiSequenceProcessingDelaySec.value) return
+        applySequenceProcessingDelay(newSeconds)
     }
 
     /**

@@ -643,15 +643,30 @@ object GuidedNavigationController {
         else -> GuidedSequenceResult.Unmatched
     }
 
+    /**
+     * Same up/down-availability rule the Navigation Panel itself uses to enable/disable its
+     * Previous/Next buttons (see `canGoPrevious`/`canGoNext` in [com.idworx.lisa.GuidedModeNavigationPanel]'s
+     * caller) — a scroll-style gesture only ever executes when its target is currently reachable,
+     * never a silent same-state no-op. General across every category: driven entirely by the
+     * live selection/count, never a hardcoded index.
+     */
     private fun processCategoryMenuGesture(
         left: Int,
         right: Int,
         state: GuidedNavigationState
     ): GuidedSequenceResult = when {
         GuidedModeNavigation.isPreviousSequence(left, right) ->
-            GuidedSequenceResult.Navigate(moveCategorySelectionUp(state))
+            if (state.categoryMenuSelection > 0) {
+                GuidedSequenceResult.Navigate(moveCategorySelectionUp(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
         GuidedModeNavigation.isNextSequence(left, right) ->
-            GuidedSequenceResult.Navigate(moveCategorySelectionDown(state))
+            if (state.categoryMenuSelection < GuidedVocabularyCategory.PAGE_COUNT - 1) {
+                GuidedSequenceResult.Navigate(moveCategorySelectionDown(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
         GuidedModeNavigation.isSelectSequence(left, right) ->
             GuidedSequenceResult.Navigate(openSelectedCategory(state))
         GuidedModeNavigation.isBackSequence(left, right) ->
@@ -674,10 +689,21 @@ object GuidedNavigationController {
         entryCount: Int,
         visibleEntryCap: Int
     ): GuidedSequenceResult = when {
+        // Previous/Next Phrase Page only ever execute when that page action is actually visible
+        // (matches the header's guidedPhrasePageScrollHint and the panel's canGoPrevious/canGoNext) —
+        // a gesture whose target page doesn't exist is Unmatched, never a same-state no-op.
         GuidedModeNavigation.isPreviousSequence(left, right) ->
-            GuidedSequenceResult.Navigate(movePhrasePagePrevious(state))
+            if (state.phrasePageIndex > 0) {
+                GuidedSequenceResult.Navigate(movePhrasePagePrevious(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
         GuidedModeNavigation.isNextSequence(left, right) ->
-            GuidedSequenceResult.Navigate(movePhrasePageNext(state, entryCount, visibleEntryCap))
+            if (state.phrasePageIndex < phrasePageCount(entryCount, visibleEntryCap) - 1) {
+                GuidedSequenceResult.Navigate(movePhrasePageNext(state, entryCount, visibleEntryCap))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
         GuidedModeNavigation.isCategoriesSequence(left, right) ->
             GuidedSequenceResult.Navigate(openCategoryMenu(state))
         GuidedModeNavigation.isBackSequence(left, right) ->

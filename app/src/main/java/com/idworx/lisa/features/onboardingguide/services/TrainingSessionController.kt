@@ -27,6 +27,7 @@ import com.idworx.lisa.features.brain1interactionstandard.dialogue.Brain1Decisio
 import com.idworx.lisa.features.brain1interactionstandard.engine.Brain1DecisionEngine
 import com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind
 import com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionOutcome
+import com.idworx.lisa.features.brain1interactionstandard.model.isPromptOnly
 import com.idworx.lisa.features.experiencepolish.firstfiveminutes.FirstFiveMinutesExperience
 import com.idworx.lisa.features.experiencepolish.patientcommunicationcoach.PatientCommunicationCoachExperience
 import com.idworx.lisa.features.experiencepolish.emotionalpresence.EmotionalPresenceEngine
@@ -404,9 +405,9 @@ class TrainingSessionController(
                 speakBrain1Dialogues(
                     Brain1DecisionDialogueProvider.repeatForKind(outcome.kind, outcome.label)
                 )
-            Brain1DecisionOutcome.ChooseAgain -> when (state.progress.currentPhase) {
-                TrainingPhase.FirstLaunchChoice -> firstLaunchChoiceNarration()
-                TrainingPhase.SkipConfirm -> {
+            Brain1DecisionOutcome.ChooseAgain -> when {
+                state.progress.currentPhase == TrainingPhase.FirstLaunchChoice -> firstLaunchChoiceNarration()
+                state.progress.currentPhase == TrainingPhase.SkipConfirm -> {
                     state = state.copy(
                         progress = state.progress.copy(currentPhase = TrainingPhase.FirstLaunchChoice),
                         brain1Decision = Brain1DecisionEngine.beginDecision(
@@ -416,6 +417,14 @@ class TrainingSessionController(
                     store.save(state.progress)
                     onPersist(state)
                     firstLaunchChoiceNarration()
+                }
+                // Prompt-only decisions (Emergency, Reset, Replay, Recalibration) have no alternate
+                // choice to re-ask — cancel must fully clear the decision so any armed/awaiting-confirm
+                // UI (e.g. the Emergency banner) disappears immediately, instead of silently re-arming
+                // the same decision via beginAwaitingBrain1Decision.
+                updated.kind.isPromptOnly -> {
+                    state = state.copy(brain1Decision = state.brain1Decision.clear())
+                    onPersist(state)
                 }
                 else -> beginAwaitingBrain1Decision(updated.kind)
             }

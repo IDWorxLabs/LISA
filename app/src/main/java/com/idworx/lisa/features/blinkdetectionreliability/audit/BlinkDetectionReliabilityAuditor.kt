@@ -1,6 +1,7 @@
 package com.idworx.lisa.features.blinkdetectionreliability.audit
 
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkEyeProbabilities
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionProcessor
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
@@ -77,7 +78,7 @@ object BlinkDetectionReliabilityAuditor {
     fun noisyBlinkDoesNotFinalizeEarly(): Boolean {
         val main = readMainActivity() ?: return false
         return main.contains("shouldFinalizeSequence") &&
-            SEQUENCE_IDLE_TIMEOUT_MS == 3000L &&
+            SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS) &&
             main.contains("hasCountedWinks")
     }
 

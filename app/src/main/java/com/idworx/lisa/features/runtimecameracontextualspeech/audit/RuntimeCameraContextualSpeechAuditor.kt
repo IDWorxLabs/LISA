@@ -8,6 +8,7 @@ import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.SEQUENCE_IDLE_TIMEOUT_MS
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.WorkspacePhraseResolver
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
@@ -174,10 +175,10 @@ object RuntimeCameraContextualSpeechAuditor {
             !LisaSpeechPolicy.allowsNarration() &&
             LisaSpeechPolicy.allowsPhraseTranslation()
 
-    fun idleTimeoutThreeSeconds(): Boolean {
+    fun idleTimeoutMatchesDefaultResponseTime(): Boolean {
         val main = readMainActivity() ?: return false
         return main.contains("SEQUENCE_IDLE_TIMEOUT_MS") &&
-            SEQUENCE_IDLE_TIMEOUT_MS == 3000L
+            SEQUENCE_IDLE_TIMEOUT_MS == SequenceProcessingDelay.toMillis(SequenceProcessingDelay.DEFAULT_SECONDS)
     }
 
     fun testClassExists(): Boolean =
