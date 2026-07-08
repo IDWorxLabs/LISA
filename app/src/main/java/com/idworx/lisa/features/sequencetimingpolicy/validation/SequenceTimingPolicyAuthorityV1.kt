@@ -1,0 +1,180 @@
+package com.idworx.lisa.features.sequencetimingpolicy.validation
+
+import com.idworx.lisa.features.sequencetimingpolicy.audit.SequenceTimingPolicyAuditor
+import com.idworx.lisa.features.sequencetimingpolicy.metadata.SequenceTimingPolicyMetadata
+import com.idworx.lisa.validation.ValidationCheckResult
+import com.idworx.lisa.validation.ValidationOutcome
+import com.idworx.lisa.validation.ValidationReport
+
+/**
+ * SEQUENCE_TIMING_POLICY_V1
+ *
+ * System-wide audit proving the 5-second blink/wink idle allowance is the single, authoritative
+ * sequence-timing policy app-wide — no old 3-second default, no duplicated/conflicting timeout
+ * constant, and no premature-finalize path bypasses it. A completed gesture only ever resolves
+ * immediately when it is unambiguous against the currently visible gesture set (phrase rows,
+ * category rows, navigation-panel actions, Emergency); otherwise it waits for the full configured
+ * idle window, exactly the same in Guided Training as in the normal Communication Workspace.
+ */
+object SequenceTimingPolicyAuthorityV1 {
+
+    const val AUTHORITY_NAME: String = "LISA_SEQUENCE_TIMING_POLICY_V1"
+    const val PASS_TOKEN: String = SequenceTimingPolicyMetadata.PASS_TOKEN
+
+    fun validate(): ValidationReport {
+        val checks = listOf(
+            check(
+                "STP_001",
+                "Default response time is 5 seconds everywhere (workspace and Guided Training)",
+                SequenceTimingPolicyAuditor.defaultResponseTimeIsFiveSecondsEverywhere(),
+                "Keep SequenceProcessingDelay.DEFAULT_SECONDS, GUIDED_DEFAULT_SECONDS, and SEQUENCE_IDLE_TIMEOUT_MS all equal to 5s in LisaResponseSpeed.kt."
+            ),
+            check(
+                "STP_002",
+                "No hardcoded 3000ms/3_000ms sequence-timing literal or separate PARTIAL_SEQUENCE_IDLE_MS constant remains",
+                SequenceTimingPolicyAuditor.noHardcodedThreeSecondMillisecondLiteralRemains(),
+                "Remove any hardcoded 3000L/3_000L sequence-idle literal and route it through SequenceProcessingDelay/effectiveSequenceIdleTimeoutMs() instead."
+            ),
+            check(
+                "STP_003",
+                "Every finalize decision in MainActivity reads the authoritative idle timeout/max window (never a separate constant)",
+                SequenceTimingPolicyAuditor.mainActivityUsesTheAuthoritativeIdleTimeoutAtEveryFinalizeDecision(),
+                "Route processSequenceWinks(), updateSequencePauseState(), and syncLessonPartialSequenceTimeout() all through effectiveSequenceIdleTimeoutMs()/effectiveSequenceMaxWindowMs()."
+            ),
+            check(
+                "STP_004",
+                "Guided Training and Communication Workspace both resolve their idle timeout through SequenceProcessingDelay",
+                SequenceTimingPolicyAuditor.guidedLearningAndWorkspaceShareTheSamePolicyObject(),
+                "Keep effectiveSequenceIdleTimeoutMs()/effectiveSequenceMaxWindowMs() switching only which seconds value feeds SequenceProcessingDelay.toMillis()/maxWindowMs(), never a second parallel implementation."
+            ),
+            check(
+                "STP_005",
+                "QUICK_RESOLVE_IDLE_MS is defined exactly once",
+                SequenceTimingPolicyAuditor.quickResolveIdleConstantIsDefinedExactlyOnce(),
+                "Keep QUICK_RESOLVE_IDLE_MS declared only in GuidedModeNavigation (LisaGuidedMode.kt)."
+            ),
+            check(
+                "STP_006",
+                "Global-navigation gestures no longer bypass ambiguity checking as a blanket rule",
+                SequenceTimingPolicyAuditor.quickResolveNoLongerBlanketExemptsAllGlobalNavigation(),
+                "isQuicklyResolvableGesture() must only fast-path single-eye reserved codes (Previous/Next/Categories/Finish Training); Select/Back must go through isUnambiguousVisibleMatch like every other gesture."
+            ),
+            check(
+                "STP_007",
+                "Select (L1 R1) is a proven component-wise prefix of Yes (L2 R1) and Stop (L2 R3) — the exact real-device bug this policy prevents",
+                SequenceTimingPolicyAuditor.selectIsAProvenComponentWisePrefixOfYesAndStop(),
+                "This is a mathematical fact about the reserved gesture codes, not something to \"fix\" — it is why STP_006/STP_008 matter."
+            ),
+            check(
+                "STP_008",
+                "Select waits on the Category Menu when a direct category shortcut numerically extends it",
+                SequenceTimingPolicyAuditor.selectWaitsOnCategoryMenu_whenDirectShortcutsAreVisible(),
+                "Keep isQuicklyResolvableGesture() routing Select (a two-eye code) through isUnambiguousVisibleMatch(currentVisibleGestureSet())."
+            ),
+            check(
+                "STP_009",
+                "Back waits when a longer visible category shortcut numerically extends it",
+                SequenceTimingPolicyAuditor.backWaitsOnCategoryMenu_whenALongerShortcutDominatesIt(),
+                "Keep isQuicklyResolvableGesture() routing Back (a two-eye code) through isUnambiguousVisibleMatch(currentVisibleGestureSet())."
+            ),
+            check(
+                "STP_010",
+                "Previous/Next/Categories/Finish Training remain single-eye codes, structurally unambiguous by construction",
+                SequenceTimingPolicyAuditor.previousNextCategoriesRemainSingleEyeCodes_neverAmbiguousByConstruction(),
+                "Keep these four reserved codes with one blink count exactly zero (GuidedModeNavigation)."
+            ),
+            check(
+                "STP_011",
+                "Ambiguous visible phrase (Yes) waits for the full idle window; unambiguous visible phrase (Stop) may resolve quickly",
+                SequenceTimingPolicyAuditor.ambiguousPhraseMustWaitTheFullIdleWindow_yesVsStop(),
+                "Keep isAmbiguousVisibleMatch/isUnambiguousVisibleMatch as the sole ambiguity gate for phrase finalization."
+            ),
+            check(
+                "STP_012",
+                "Category shortcuts respect the same ambiguity rule as phrases",
+                SequenceTimingPolicyAuditor.categoryShortcutsRespectTheSameAmbiguityRuleAsPhrases(),
+                "Keep GuidedVocabularyCatalogValidation ensuring no category shortcut is a component-wise prefix of another."
+            ),
+            check(
+                "STP_013",
+                "Hidden/off-screen phrase-page entries never create ambiguity or execute",
+                SequenceTimingPolicyAuditor.hiddenPhrasePageEntryNeverCreatesAmbiguityOrExecutes(),
+                "Keep currentVisibleGestureSet()/continuationMappings() scoped to only the current phrase page, and GuidedNavigationController.processSequence returning Unmatched for entries on other pages."
+            ),
+            check(
+                "STP_014",
+                "Emergency's 6-left sequence is never cut off across up to 5s gaps between each blink",
+                SequenceTimingPolicyAuditor.emergencySequenceNeverCutOffAcrossFiveSecondGapsBetweenEachBlink(),
+                "Keep shouldFinalizeSequence() only finalizing on left==0&&right==0 short-circuit, idle timeout, or absolute max-window safety cap — never a partial-progress cutoff."
+            ),
+            check(
+                "STP_015",
+                "Emergency is dispatched before the quick-resolve/ambiguity gate in MainActivity, so it is never delayed by it",
+                SequenceTimingPolicyAuditor.emergencyDispatchedBeforeAmbiguityGate_inMainActivity(),
+                "Keep the isEmergencySequence(leftWinks, rightWinks) short-circuit in processSequenceWinks() strictly before the quickResolved computation."
+            ),
+            check(
+                "STP_016",
+                "Confirm (Left-then-Right) and Cancel (Right-then-Left) remain order-sensitive and distinct",
+                SequenceTimingPolicyAuditor.confirmAndCancelRemainOrderSensitive(),
+                "Keep UniversalInteractionGestures.isConfirm/isCancel keyed off BlinkSequenceOrder, never raw left/right counts alone."
+            ),
+            check(
+                "STP_017",
+                "Guided Training uses its own adjustable delay sourced from the same authoritative policy, never a hardcoded one",
+                SequenceTimingPolicyAuditor.guidedTrainingUsesItsOwnAdjustableDelayNotAHardcodedOne(),
+                "Keep effectiveSequenceIdleTimeoutMs() branching on trainingSession.shouldShowTraining()."
+            ),
+            check(
+                "STP_018",
+                "Test class exists and Gradle validation task is registered",
+                SequenceTimingPolicyAuditor.testClassExists() && SequenceTimingPolicyAuditor.gradleTaskRegistered(),
+                "Add SequenceTimingPolicyAuthorityV1Test and register validateLisaSequenceTimingPolicyV1 in app/build.gradle.kts."
+            )
+        )
+
+        val failed = checks.filter { !it.passed }
+        val outcome = ValidationReport.resolveOutcome(checks)
+        return ValidationReport(
+            authorityName = AUTHORITY_NAME,
+            outcome = outcome,
+            passToken = if (outcome == ValidationOutcome.PASS) PASS_TOKEN else null,
+            evidenceSummary = "Sequence Timing Policy V1 verified ${checks.size} checks. " +
+                "Passed: ${checks.count { it.passed }}. Failed: ${failed.size}.",
+            checksPerformed = checks.map { "${it.checkId}: ${it.description}" },
+            failedChecks = failed.map { "${it.checkId}: ${it.description}" },
+            observations = listOf(
+                SequenceTimingPolicyMetadata.TIMING_RULE,
+                SequenceTimingPolicyMetadata.AMBIGUITY_RULE
+            ),
+            affectedLicArticles = listOf(
+                "Article 1.4.1.3 — User must never become trapped",
+                "Article 3.3.1.3 — Reserved gestures not vocabulary selections"
+            ),
+            affectedLiecArticles = listOf(
+                "Article 2.16 — Guided Learning teaches the real interface, not mock screens"
+            ),
+            affectedLvcArticles = listOf(
+                "Article 3.37 — Sequence Timing Policy V1 validation"
+            ),
+            remediationGuidance = failed.mapNotNull { it.remediation }.distinct(),
+            checkResults = checks,
+            rootCause = failed.firstOrNull()?.let { "${it.checkId} — ${it.description}" },
+            validationReasoning = if (outcome == ValidationOutcome.PASS) {
+                "One authoritative sequence-timing policy governs the whole app: the default 5s " +
+                    "response time and idle-restart-per-blink rule apply identically in Guided " +
+                    "Training and the normal Communication Workspace, every completed gesture only " +
+                    "resolves immediately when unambiguous against the currently visible gesture set " +
+                    "(covering phrases, category shortcuts, and the two-eye reserved navigation codes " +
+                    "Select/Back alike), hidden/off-screen gestures never affect that ambiguity check, " +
+                    "and Emergency is dispatched ahead of the whole gate so it is never delayed."
+            } else {
+                "${failed.size} Sequence Timing Policy V1 checks failed."
+            },
+            subsystem = "Sequence Timing Policy"
+        )
+    }
+
+    private fun check(id: String, description: String, passed: Boolean, remediation: String? = null) =
+        ValidationCheckResult(checkId = id, description = description, passed = passed, remediation = remediation)
+}

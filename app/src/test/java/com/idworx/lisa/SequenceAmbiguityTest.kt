@@ -58,7 +58,9 @@ class SequenceAmbiguityTest {
 
     /** Mirrors [MainActivity.isQuicklyResolvableGesture] (outside Guided Training). */
     private fun isQuicklyResolvable(left: Int, right: Int, state: GuidedNavigationState): Boolean {
-        if (GuidedModeNavigation.isGlobalNavigationSequence(left, right)) return true
+        val isSingleEyeGlobalNavigation = GuidedModeNavigation.isGlobalNavigationSequence(left, right) &&
+            (left == 0 || right == 0)
+        if (isSingleEyeGlobalNavigation) return true
         return isUnambiguousVisibleMatch(left, right, visibleGestureSetFor(state))
     }
 
@@ -232,6 +234,93 @@ class SequenceAmbiguityTest {
             PreferredLanguage.English, uiStrings, catalogContext = catalogContext
         )
         assertEquals(GuidedSequenceResult.Unmatched, result)
+    }
+
+    // --- Two-eye reserved navigation codes (Select, Back) share the vocabulary ambiguity rule ---
+
+    @Test
+    fun selectCode_isNotEvenAValidActionOnTheVocabularyPage_soItMustNeverQuickResolveThere() {
+        // Select (L1 R1) isn't a recognised action while viewing phrases at all (it only means
+        // something on the Category Menu / preferences-adjustment screens) — this was the real-device
+        // bug: the OLD code treated ANY exact match of a reserved global-nav code as always
+        // "quickly resolvable" purely by number, regardless of whether it was actually valid on the
+        // current screen. Since L1 R1 is a component-wise prefix of both Yes (L2 R1) and Stop
+        // (L2 R3), that stray early finalize silently reset the whole sequence — cutting the user off
+        // before they could complete either phrase.
+        val state = conversationState()
+        val result = GuidedNavigationController.processSequence(
+            left = GuidedModeNavigation.SELECT_LEFT, right = GuidedModeNavigation.SELECT_RIGHT, state = state,
+            language = PreferredLanguage.English, uiStrings = uiStrings, catalogContext = catalogContext
+        )
+        assertEquals(GuidedSequenceResult.Unmatched, result)
+        assertFalse(
+            (GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT) in visibleGestureSetFor(state)
+        )
+        assertFalse(isQuicklyResolvable(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, state))
+        assertFalse(
+            finalizes(
+                GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, state,
+                idleMs = GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS + 200L
+            )
+        )
+    }
+
+    private fun categoryMenuState(): GuidedNavigationState =
+        GuidedNavigationState(
+            screenMode = GuidedOverlayScreenMode.CategoryMenu,
+            categoryMenuSelection = 0,
+            draftResponseTimeSec = catalogContext.responseTimeSec,
+            draftSensitivityLevel = catalogContext.sensitivityLevel
+        )
+
+    @Test
+    fun selectSequence_isAmbiguous_onCategoryMenu_becauseDirectCategoryShortcutsDominateIt() {
+        // On the Category Menu, Select (L1 R1) IS a real action (confirm the highlighted category) —
+        // but every one of the six direct category shortcuts (e.g. L2 R1) also component-wise
+        // dominates L1 R1, so Select must wait for the full idle timeout here too rather than
+        // quick-resolving, exactly like Yes/Stop on the phrase page.
+        val state = categoryMenuState()
+        val visible = visibleGestureSetFor(state)
+        assertTrue((GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT) in visible)
+        assertTrue(isAmbiguousVisibleMatch(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, visible))
+        assertFalse(isQuicklyResolvable(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, state))
+        val result = GuidedNavigationController.processSequence(
+            left = GuidedModeNavigation.SELECT_LEFT, right = GuidedModeNavigation.SELECT_RIGHT, state = state,
+            language = PreferredLanguage.English, uiStrings = uiStrings, catalogContext = catalogContext
+        )
+        assertTrue(result is GuidedSequenceResult.Navigate)
+    }
+
+    @Test
+    fun backSequence_isAmbiguous_onCategoryMenu_whenALongerVisibleCategoryShortcutDominatesIt() {
+        // Back is L2 R2. Category shortcuts L3 R2 and L2 R3 both component-wise dominate it, so Back
+        // must also wait rather than always quick-resolve.
+        val state = categoryMenuState()
+        val visible = visibleGestureSetFor(state)
+        assertTrue((GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT) in visible)
+        assertTrue(isAmbiguousVisibleMatch(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, visible))
+        assertFalse(isQuicklyResolvable(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, state))
+    }
+
+    @Test
+    fun selectAndBack_stillResolveAfterTheFullIdleTimeout_onCategoryMenu() {
+        val state = categoryMenuState()
+        val idleTimeoutMs = SequenceProcessingDelay.toMillis(catalogContext.responseTimeSec)
+        assertTrue(finalizes(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, state, idleMs = idleTimeoutMs))
+        assertTrue(finalizes(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, state, idleMs = idleTimeoutMs))
+    }
+
+    @Test
+    fun previousNextCategories_remainAlwaysQuicklyResolvable_asSingleEyeCodes() {
+        // Previous (L2 R0), Next (L0 R2) and Categories (L3 R0) each have a zero blink count on one
+        // eye — structurally impossible to confuse with any two-eye vocabulary content — so they must
+        // keep the original fast-resolve behavior regardless of what else is visible.
+        val state = conversationState()
+        assertTrue(isQuicklyResolvable(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state))
+        assertTrue(isQuicklyResolvable(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state))
+        assertTrue(
+            isQuicklyResolvable(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state)
+        )
     }
 
     // --- Emergency arming is unaffected by ambiguity gating -----------------------------------

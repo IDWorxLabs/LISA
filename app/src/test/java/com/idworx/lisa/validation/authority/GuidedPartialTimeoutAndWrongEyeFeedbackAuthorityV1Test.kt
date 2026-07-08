@@ -1,9 +1,11 @@
 package com.idworx.lisa.validation.authority
 
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.features.guidedpartialtimeoutandwrongeyefeedback.metadata.GuidedPartialTimeoutAndWrongEyeFeedbackMetadata
 import com.idworx.lisa.features.guidedpartialtimeoutandwrongeyefeedback.validation.GuidedPartialTimeoutAndWrongEyeFeedbackAuthorityV1
 import com.idworx.lisa.features.onboardingguide.lessoninteraction.LessonInteractionEngine
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
+import com.idworx.lisa.features.zerotouchprinciple.audit.ZeroTouchFileProbe
 import com.idworx.lisa.validation.ValidationOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,7 +59,16 @@ class GuidedPartialTimeoutAndWrongEyeFeedbackAuthorityV1Test {
     }
 
     @Test
-    fun partialTimeout_usesFiveSecondIdle() {
-        assertEquals(5_000L, LessonInteractionEngine.PARTIAL_SEQUENCE_IDLE_MS)
+    fun partialTimeout_usesTheAuthoritativeIdleTimeoutPolicy_defaultingToFiveSeconds() {
+        // No separate hardcoded partial-timeout constant anymore — it reuses
+        // effectiveSequenceIdleTimeoutMs(), whose Guided Training default is
+        // SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS (5s), so it scales with the user's chosen
+        // Guided Training response time instead of drifting out of sync with it.
+        assertEquals(5, SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS)
+        val main = ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/MainActivity.kt")
+        assertTrue(main != null)
+        assertTrue(
+            main!!.contains("mainHandler.postDelayed(lessonPartialSequenceTimeoutRunnable, effectiveSequenceIdleTimeoutMs())")
+        )
     }
 }

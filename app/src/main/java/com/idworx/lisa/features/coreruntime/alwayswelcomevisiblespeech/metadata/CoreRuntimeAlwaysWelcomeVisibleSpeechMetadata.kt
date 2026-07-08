@@ -8,5 +8,6 @@ object CoreRuntimeAlwaysWelcomeVisibleSpeechMetadata {
         "Every cold launch starts at Welcome; saved workspace/training state never restores the first screen."
 
     const val SEQUENCE_RULE: String =
-        "Visible blink sequences finalize after 3s idle and speak only matching open-screen phrases."
+        "Visible blink sequences finalize after the configured response-time idle allowance " +
+            "(default 5s) and speak only matching open-screen phrases."
 }

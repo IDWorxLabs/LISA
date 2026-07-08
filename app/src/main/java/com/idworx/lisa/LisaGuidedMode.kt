@@ -1239,7 +1239,7 @@ object GuidedVocabularyCatalogValidation {
 
     fun preferencesMatchWorksOnlyWhenOpen(): Boolean {
         val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
-        val context = GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+        val context = GuidedCatalogContext(responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS, sensitivityLevel = 5)
         val uiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
         val pages = GuidedVocabularyCatalog.buildPages(
             PreferredLanguage.English,

@@ -5,9 +5,6 @@ import com.idworx.lisa.features.onboardingguide.model.CommunicationLesson
 
 object LessonInteractionEngine {
 
-    /** Idle time before an incomplete lesson sequence resets with visual feedback. */
-    const val PARTIAL_SEQUENCE_IDLE_MS: Long = 5_000L
-
     fun successVisualMessage(lessonIndex: Int): String =
         if (lessonIndex % 2 == 0) "Well done" else "You did it"
 

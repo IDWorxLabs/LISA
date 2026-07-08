@@ -126,14 +126,20 @@ class GestureConflictAuthorityV1Test {
         assertTrue(GestureConflictAuthorityV1.GlobalGestureAudit.globalPrecedenceOverLocal().passed)
         assertTrue(GestureConflictAuthorityV1.ResolutionOrderAudit.globalGesturesCannotBeShadowed(
             com.idworx.lisa.LisaUiStrings.forLanguage(com.idworx.lisa.PreferredLanguage.English),
-            com.idworx.lisa.GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+            com.idworx.lisa.GuidedCatalogContext(
+                responseTimeSec = com.idworx.lisa.SequenceProcessingDelay.DEFAULT_SECONDS,
+                sensitivityLevel = 5
+            )
         ).passed)
     }
 
     @Test
     fun validatesHiddenPageVocabularyCannotTrigger() {
         val uiStrings = com.idworx.lisa.LisaUiStrings.forLanguage(com.idworx.lisa.PreferredLanguage.English)
-        val catalogContext = com.idworx.lisa.GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+        val catalogContext = com.idworx.lisa.GuidedCatalogContext(
+            responseTimeSec = com.idworx.lisa.SequenceProcessingDelay.DEFAULT_SECONDS,
+            sensitivityLevel = 5
+        )
         assertTrue(
             GestureConflictAuthorityV1.LocalVocabularyGestureAudit.hiddenPageCannotTrigger(
                 uiStrings,

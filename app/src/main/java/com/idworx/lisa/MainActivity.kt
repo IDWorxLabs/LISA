@@ -772,10 +772,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
         mainHandler.removeCallbacks(lessonPartialSequenceTimeoutRunnable)
-        mainHandler.postDelayed(
-            lessonPartialSequenceTimeoutRunnable,
-            com.idworx.lisa.features.onboardingguide.lessoninteraction.LessonInteractionEngine.PARTIAL_SEQUENCE_IDLE_MS
-        )
+        // Uses the SAME authoritative settle time as every other sequence-finalization path (see
+        // effectiveSequenceIdleTimeoutMs()) instead of a separate hardcoded constant, so raising the
+        // Guided Training response-time setting (up to 8s) also gives a partial lesson attempt that
+        // much longer before it resets — no duplicated/conflicting timing constant here anymore.
+        mainHandler.postDelayed(lessonPartialSequenceTimeoutRunnable, effectiveSequenceIdleTimeoutMs())
     }
 
     private fun cancelLessonPartialSequenceTimeout() {
@@ -1114,18 +1115,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * its own slower settle time so multi-step lesson gestures are not cut off mid-sequence.
      *
      * Two cases:
-     * 1. An exact, reserved global-navigation sequence (Previous/Next/Select/Back/Categories) — the
-     *    original real-device responsiveness fix, unchanged.
-     * 2. Any other currently visible gesture that is *unambiguous*: no other visible gesture could
-     *    still be reached by continuing to blink. This is the general form of the Core Rule — "a
-     *    visible gesture may execute immediately only when it is unambiguous" — so e.g. Stop
-     *    (L2 R3) can resolve quickly when nothing longer is visible, while Yes (L2 R1) must fall
-     *    through to the full [shouldFinalizeSequence] idle-timeout path whenever Stop (L2 R3) is
-     *    also visible on the same page. See [isAmbiguousVisibleMatch].
+     * 1. A *single-eye* reserved global-navigation sequence — Previous (L2 R0), Next (L0 R2),
+     *    Categories (L3 R0), Finish Training (L0 R3) — where one blink count is exactly zero. Every
+     *    piece of vocabulary content (every phrase and category shortcut) requires at least one
+     *    blink on BOTH eyes (see [GuidedVocabularyCatalogValidation.allVocabularyUsesAlternatingEyePattern]),
+     *    so a user who has so far blinked only one eye can never actually be partway into a
+     *    two-eye phrase/category gesture — these keep resolving the instant they're complete,
+     *    exactly like the original real-device responsiveness fix.
+     * 2. Any other currently visible gesture — including the two *two-eye* reserved codes Select
+     *    (L1 R1) and Back (L2 R2), which are shaped exactly like vocabulary content — that is
+     *    *unambiguous*: no other visible gesture could still be reached by continuing to blink.
+     *    This is the general form of the Core Rule — "a visible gesture may execute immediately
+     *    only when it is unambiguous" — so e.g. Stop (L2 R3) can resolve quickly when nothing
+     *    longer is visible, while Yes (L2 R1) and Select (L1 R1) must fall through to the full
+     *    [shouldFinalizeSequence] idle-timeout path whenever Stop (L2 R3) is also visible on the
+     *    same page (Select's L1 R1 is a component-wise prefix of both Yes L2 R1 and Stop L2 R3).
+     *    See [isAmbiguousVisibleMatch].
      */
     private fun isQuicklyResolvableGesture(left: Int, right: Int): Boolean {
         if (trainingSession.shouldShowTraining()) return false
-        if (GuidedModeNavigation.isGlobalNavigationSequence(left, right)) return true
+        val isSingleEyeGlobalNavigation = GuidedModeNavigation.isGlobalNavigationSequence(left, right) &&
+            (left == 0 || right == 0)
+        if (isSingleEyeGlobalNavigation) return true
         return isUnambiguousVisibleMatch(left, right, currentVisibleGestureSet())
     }
 

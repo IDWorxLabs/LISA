@@ -18,11 +18,13 @@ object GuidedPartialTimeoutAndWrongEyeFeedbackAuditor {
 
     fun partialSequenceResetsAfterFiveSeconds(): Boolean {
         val main = readMainActivity() ?: return false
-        val engine = readLessonInteractionEngine() ?: return false
-        return engine.contains("PARTIAL_SEQUENCE_IDLE_MS") &&
-            engine.contains("5_000L") &&
-            main.contains("lessonPartialSequenceTimeoutRunnable") &&
-            main.contains("applyPartialSequenceTimeout")
+        // The partial-lesson-reset timeout is no longer a separate hardcoded constant — it now
+        // reuses the single authoritative effectiveSequenceIdleTimeoutMs() policy (default 5s via
+        // SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS), so it automatically tracks the user's
+        // selected Guided Training response time instead of drifting out of sync with it.
+        return main.contains("lessonPartialSequenceTimeoutRunnable") &&
+            main.contains("applyPartialSequenceTimeout") &&
+            main.contains("mainHandler.postDelayed(lessonPartialSequenceTimeoutRunnable, effectiveSequenceIdleTimeoutMs())")
     }
 
     fun resetKeepsUserOnSameLesson(): Boolean {

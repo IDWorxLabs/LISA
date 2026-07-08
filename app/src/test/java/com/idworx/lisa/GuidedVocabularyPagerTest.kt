@@ -10,7 +10,10 @@ import org.junit.Test
 class GuidedVocabularyPagerTest {
 
     private val uiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
-    private val catalogContext = GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+    private val catalogContext = GuidedCatalogContext(
+        responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
+        sensitivityLevel = 5
+    )
     private val pages = GuidedVocabularyCatalog.buildPages(
         PreferredLanguage.English,
         uiStrings,
@@ -24,7 +27,7 @@ class GuidedVocabularyPagerTest {
         GuidedNavigationState(
             screenMode = GuidedOverlayScreenMode.Vocabulary,
             categoryIndex = categoryIndex,
-            draftResponseTimeSec = 3,
+            draftResponseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
             draftSensitivityLevel = 5
         )
 
@@ -35,7 +38,7 @@ class GuidedVocabularyPagerTest {
             categoryMenuSelection = selection
         )
 
-    private fun adjustResponseTimeState(draftSec: Int = 3): GuidedNavigationState =
+    private fun adjustResponseTimeState(draftSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS): GuidedNavigationState =
         vocabularyState().copy(
             preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
             draftResponseTimeSec = draftSec
@@ -88,7 +91,7 @@ class GuidedVocabularyPagerTest {
             .first { it.phrase == "Adjust response time" }
         val result = process(adjustEntry.left, adjustEntry.right, vocabularyState()) as GuidedSequenceResult.Navigate
         assertEquals(GuidedPreferencesAdjustMode.ResponseTime, result.newState.preferencesAdjustMode)
-        assertEquals(3, result.newState.draftResponseTimeSec)
+        assertEquals(SequenceProcessingDelay.DEFAULT_SECONDS, result.newState.draftResponseTimeSec)
     }
 
     @Test
@@ -316,7 +319,7 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun preferencesShowsCurrentValues() {
-        assertTrue(preferencesPhrases().contains("Current response time: 3 seconds"))
+        assertTrue(preferencesPhrases().contains("Current response time: ${SequenceProcessingDelay.DEFAULT_SECONDS} seconds"))
         assertTrue(preferencesPhrases().contains("Current sensitivity: 5"))
     }
 

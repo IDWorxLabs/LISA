@@ -18,6 +18,7 @@ import com.idworx.lisa.GuidedVocabularyCatalogValidation
 import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.isEmergencySequence
 import com.idworx.lisa.validation.ValidationCheckResult
 import com.idworx.lisa.validation.ValidationOutcome
@@ -87,7 +88,10 @@ object GestureConflictAuthorityV1 {
 
     fun validate(
         language: PreferredLanguage = PreferredLanguage.English,
-        catalogContext: GuidedCatalogContext = GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+        catalogContext: GuidedCatalogContext = GuidedCatalogContext(
+            responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
+            sensitivityLevel = 5
+        )
     ): ValidationReport {
         val uiStrings = LisaUiStrings.forLanguage(language)
         val modeContexts = GuidedNavigationAuthorityV1.buildModeContexts(catalogContext)

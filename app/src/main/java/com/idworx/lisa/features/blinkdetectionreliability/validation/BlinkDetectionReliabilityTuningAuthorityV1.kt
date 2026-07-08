@@ -47,7 +47,7 @@ object BlinkDetectionReliabilityTuningAuthorityV1 {
             checkResults = checks,
             rootCause = failed.firstOrNull()?.let { "${it.checkId} — ${it.description}" },
             validationReasoning = if (outcome == ValidationOutcome.PASS) {
-                "Blink detection is more forgiving with live feedback and unchanged 3 s sequence finalization."
+                "Blink detection is more forgiving with live feedback and unchanged 5 s sequence finalization."
             } else {
                 "${failed.size} blink detection reliability checks failed."
             },

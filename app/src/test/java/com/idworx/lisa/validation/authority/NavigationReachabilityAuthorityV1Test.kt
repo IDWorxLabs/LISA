@@ -20,7 +20,10 @@ import org.junit.Test
 class NavigationReachabilityAuthorityV1Test {
 
     private val uiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
-    private val catalogContext = com.idworx.lisa.GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+    private val catalogContext = com.idworx.lisa.GuidedCatalogContext(
+        responseTimeSec = com.idworx.lisa.SequenceProcessingDelay.DEFAULT_SECONDS,
+        sensitivityLevel = 5
+    )
 
     @Test
     fun fullValidation_passesAndEmitsPassToken() {

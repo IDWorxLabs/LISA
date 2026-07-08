@@ -8,5 +8,5 @@ object BlinkDetectionReliabilityMetadata {
         "Blink detection uses forgiving cooldown, streak grace, and sequence-aware jitter tolerance."
 
     const val SEQUENCE_RULE: String =
-        "Sequence finalization remains 3 s idle after last accepted blink; phrase speech only."
+        "Sequence finalization remains 5 s idle (default response time) after last accepted blink; phrase speech only."
 }

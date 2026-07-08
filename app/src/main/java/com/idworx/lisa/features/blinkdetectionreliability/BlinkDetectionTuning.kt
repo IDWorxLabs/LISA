@@ -6,7 +6,8 @@ import com.idworx.lisa.MIN_SENSITIVITY_LEVEL
 
 /**
  * Tunable blink detection parameters — tuned for reliable on-device wink capture
- * without changing sequence finalization (3 s idle) or phrase speech rules.
+ * without changing sequence finalization (5 s idle, see [com.idworx.lisa.SequenceProcessingDelay])
+ * or phrase speech rules.
  */
 data class BlinkDetectionTuning(
     val closedEyeThreshold: Float,

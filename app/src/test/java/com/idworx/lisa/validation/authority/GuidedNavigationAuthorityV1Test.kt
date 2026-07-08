@@ -122,7 +122,10 @@ class GuidedNavigationAuthorityV1Test {
             GuidedNavigationAuthorityV1.RecoveryAudit.hasRecoveryPath(
                 trappedContext,
                 uiStrings,
-                com.idworx.lisa.GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+                com.idworx.lisa.GuidedCatalogContext(
+                    responseTimeSec = com.idworx.lisa.SequenceProcessingDelay.DEFAULT_SECONDS,
+                    sensitivityLevel = 5
+                )
             )
         )
 

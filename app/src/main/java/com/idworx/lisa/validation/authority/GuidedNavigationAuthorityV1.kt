@@ -18,6 +18,7 @@ import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferenceAdjustmentController
 import com.idworx.lisa.PreferredLanguage
+import com.idworx.lisa.SequenceProcessingDelay
 import com.idworx.lisa.validation.ValidationCheckResult
 import com.idworx.lisa.validation.ValidationOutcome
 import com.idworx.lisa.validation.ValidationReport
@@ -81,7 +82,10 @@ object GuidedNavigationAuthorityV1 {
 
     fun validate(
         language: PreferredLanguage = PreferredLanguage.English,
-        catalogContext: GuidedCatalogContext = GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+        catalogContext: GuidedCatalogContext = GuidedCatalogContext(
+            responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
+            sensitivityLevel = 5
+        )
     ): ValidationReport {
         val uiStrings = LisaUiStrings.forLanguage(language)
         val modeContexts = buildModeContexts(catalogContext)
@@ -119,7 +123,10 @@ object GuidedNavigationAuthorityV1 {
     }
 
     fun buildModeContexts(
-        catalogContext: GuidedCatalogContext = GuidedCatalogContext(responseTimeSec = 3, sensitivityLevel = 5)
+        catalogContext: GuidedCatalogContext = GuidedCatalogContext(
+            responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
+            sensitivityLevel = 5
+        )
     ): List<GuidedModeContext> {
         val base = GuidedNavigationState(
             draftResponseTimeSec = catalogContext.responseTimeSec,

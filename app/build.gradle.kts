@@ -809,4 +809,19 @@ afterEvaluate {
             events("passed", "failed", "skipped", "standardOut")
         }
     }
+
+    tasks.register<Test>("validateLisaSequenceTimingPolicyV1") {
+        group = "verification"
+        description = "Run LISA_SEQUENCE_TIMING_POLICY_V1 validation and emit pass token on success"
+        val unitTestTask = tasks.named<Test>("testDebugUnitTest")
+        dependsOn(unitTestTask)
+        testClassesDirs = unitTestTask.get().testClassesDirs
+        classpath = unitTestTask.get().classpath
+        filter {
+            includeTestsMatching("com.idworx.lisa.validation.authority.SequenceTimingPolicyAuthorityV1Test")
+        }
+        testLogging {
+            events("passed", "failed", "skipped", "standardOut")
+        }
+    }
 }
