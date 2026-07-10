@@ -43,27 +43,6 @@ object GuidedModeNavigation {
     const val INCREASE_VALUE_LEFT = 1
     const val INCREASE_VALUE_RIGHT = 3
 
-    /**
-     * Real-device testing showed Previous/Next Phrase Page (and the other short global-navigation
-     * gestures) feeling unresponsive: because their exact counts are a *prefix* of longer
-     * per-page vocabulary gestures (e.g. L2 R0 is a prefix of the L2 R1 phrase every category's
-     * first slot uses), the sequence engine has to wait out the full response-speed idle timeout
-     * (up to a few seconds) before it can be sure the user isn't about to add one more wink toward
-     * a phrase. That full wait is appropriate for genuinely *ambiguous* input, but far too slow for
-     * a navigation action — or any other currently visible gesture — that isn't actually ambiguous.
-     *
-     * Generalized beyond pure navigation: any currently visible gesture (phrase, category, or nav
-     * action) may use this short grace window once it is *unambiguous* — no other visible gesture
-     * could still be reached by continuing to blink (see [com.idworx.lisa.isAmbiguousVisibleMatch]).
-     * A genuinely ambiguous match (e.g. Yes = L2 R1 while Stop = L2 R3 is also visible) always falls
-     * through to the full idle timeout instead, so a user still building toward the longer gesture
-     * is never short-circuited into the shorter one. Real wink-to-wink gaps are on the order of a
-     * few hundred ms — see [com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning.WINK_COOLDOWN_MS] —
-     * so this window still gives a genuine longer-gesture attempt time to continue. Never applied
-     * during Guided Training, which deliberately keeps its own slower, lesson-friendly settle time.
-     */
-    const val QUICK_RESOLVE_IDLE_MS = 900L
-
     fun isPreviousSequence(left: Int, right: Int): Boolean =
         left == PREVIOUS_LEFT && right == PREVIOUS_RIGHT
 
@@ -631,9 +610,8 @@ object GuidedNavigationController {
      * Reserved global-navigation gestures that are actually actionable from [state] right now —
      * probes [processSequence] itself for each reserved code rather than duplicating
      * [processCategoryMenuGesture]/[processVocabularyGesture]'s boundary rules, so this can never
-     * drift out of sync with what actually executes. Used to build the "currently visible gesture
-     * set" for sequence-ambiguity detection (see [isAmbiguousVisibleMatch]) — Emergency and Finish
-     * Training are handled upstream of this controller entirely, so callers add those separately.
+     * drift out of sync with what actually executes. Emergency and Finish Training are handled
+     * upstream of this controller entirely, so callers add those separately.
      */
     fun visibleGlobalNavigationGestures(
         state: GuidedNavigationState,

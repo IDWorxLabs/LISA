@@ -7,20 +7,20 @@ object SequenceTimingPolicyMetadata {
     const val TIMING_RULE: String =
         "One authoritative sequence timing policy (SequenceProcessingDelay) app-wide: default " +
             "response time is 5 seconds everywhere (workspace and Guided Training alike), every " +
-            "blink/wink restarts the idle timer, and a sequence is only ever finalized when its " +
-            "completed gesture is unambiguous against the currently visible gesture set, or the full " +
-            "configured idle window has elapsed with no further input. Hidden/off-screen gestures " +
-            "never affect ambiguity. No separate/duplicated hardcoded timeout constant is allowed to " +
-            "drift out of sync with the selected response time."
+            "blink/wink restarts the idle timer, and NO gesture — phrase, category, navigation, " +
+            "confirm, cancel, or Emergency — is ever executed while the user is still adding " +
+            "blinks/winks. A sequence is finalized exactly once, only after the full configured " +
+            "idle window has elapsed with no further input. Hidden/off-screen gestures never " +
+            "execute. No separate/duplicated hardcoded timeout constant is allowed to drift out of " +
+            "sync with the selected response time."
 
-    const val AMBIGUITY_RULE: String =
-        "A visible gesture may execute immediately (\"quick resolve\") only when it is unambiguous: " +
-            "no other currently visible gesture could still be reached by continuing to blink. This " +
-            "applies uniformly to phrases, category shortcuts, and the two-eye reserved navigation " +
-            "codes (Select L1 R1, Back L2 R2) — e.g. Select must wait rather than fire early when a " +
-            "longer visible phrase/category shortcut like Yes (L2 R1) or Stop (L2 R3) numerically " +
-            "extends it. Single-eye reserved codes (Previous L2 R0, Next L0 R2, Categories L3 R0, " +
-            "Finish Training L0 R3) are structurally distinct from all two-eye vocabulary content and " +
-            "keep resolving immediately. Emergency is dispatched before this gate entirely, so it is " +
-            "never delayed or cut off."
+    const val NO_EARLY_EXECUTION_RULE: String =
+        "There is no early-execution / quick-resolve / \"unambiguous visible match can execute " +
+            "early\" fast path anywhere in the app. QUICK_RESOLVE_IDLE_MS and " +
+            "isQuicklyResolvableGesture() have been removed entirely. This applies uniformly to " +
+            "phrases, category shortcuts, the reserved navigation codes (Previous, Next, Select, " +
+            "Back, Categories, Finish Training), Confirm/Cancel, and Emergency — e.g. Stop (L2 R3) " +
+            "and Yes (L2 R1) both simply wait for the full idle window, and Emergency (L6 R0) is " +
+            "processed through the exact same idle-timeout gate as everything else rather than a " +
+            "separate immediate short-circuit. Reliability is prioritized over speed."
 }

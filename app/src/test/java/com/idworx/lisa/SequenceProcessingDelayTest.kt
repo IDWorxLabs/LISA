@@ -145,8 +145,4 @@ class SequenceProcessingDelayTest {
         assertTrue("max window must grow with the selected response time", atMax > atMin)
     }
 
-    @Test
-    fun quickResolveIdleWindow_isShorterThanTheMinimumAllowedResponseTime() {
-        assertTrue(GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS < SequenceProcessingDelay.toMillis(SequenceProcessingDelay.MIN_SECONDS))
-    }
 }

@@ -1109,37 +1109,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * fallback for any gesture that isn't a recognised global-navigation sequence — in Vocabulary
      * mode that is exactly how a specific phrase entry is picked (each phrase blinks its own code).
      */
-    /**
-     * True when [left]/[right] may resolve as soon as the user stops blinking, without waiting out
-     * the full response-time idle timeout — never during Guided Training, which intentionally keeps
-     * its own slower settle time so multi-step lesson gestures are not cut off mid-sequence.
-     *
-     * Two cases:
-     * 1. A *single-eye* reserved global-navigation sequence — Previous (L2 R0), Next (L0 R2),
-     *    Categories (L3 R0), Finish Training (L0 R3) — where one blink count is exactly zero. Every
-     *    piece of vocabulary content (every phrase and category shortcut) requires at least one
-     *    blink on BOTH eyes (see [GuidedVocabularyCatalogValidation.allVocabularyUsesAlternatingEyePattern]),
-     *    so a user who has so far blinked only one eye can never actually be partway into a
-     *    two-eye phrase/category gesture — these keep resolving the instant they're complete,
-     *    exactly like the original real-device responsiveness fix.
-     * 2. Any other currently visible gesture — including the two *two-eye* reserved codes Select
-     *    (L1 R1) and Back (L2 R2), which are shaped exactly like vocabulary content — that is
-     *    *unambiguous*: no other visible gesture could still be reached by continuing to blink.
-     *    This is the general form of the Core Rule — "a visible gesture may execute immediately
-     *    only when it is unambiguous" — so e.g. Stop (L2 R3) can resolve quickly when nothing
-     *    longer is visible, while Yes (L2 R1) and Select (L1 R1) must fall through to the full
-     *    [shouldFinalizeSequence] idle-timeout path whenever Stop (L2 R3) is also visible on the
-     *    same page (Select's L1 R1 is a component-wise prefix of both Yes L2 R1 and Stop L2 R3).
-     *    See [isAmbiguousVisibleMatch].
-     */
-    private fun isQuicklyResolvableGesture(left: Int, right: Int): Boolean {
-        if (trainingSession.shouldShowTraining()) return false
-        val isSingleEyeGlobalNavigation = GuidedModeNavigation.isGlobalNavigationSequence(left, right) &&
-            (left == 0 || right == 0)
-        if (isSingleEyeGlobalNavigation) return true
-        return isUnambiguousVisibleMatch(left, right, currentVisibleGestureSet())
-    }
-
     private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
         GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
@@ -1427,33 +1396,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun mappingsForSequenceContinuation(): List<WinkMapping> =
         if (guidedOverlayActive()) workspaceContinuationMappings() else mappingsState.toList()
-
-    /**
-     * Every gesture the user can currently see and act on: visible phrase rows, visible category
-     * rows/shortcuts, visible navigation-panel actions (Previous/Next only when that page actually
-     * exists, Select/Back/Categories), plus the always-visible Emergency arming gesture and Finish
-     * Training (both handled upstream of [GuidedNavigationController] in [finalizeSequence], so they
-     * are added directly rather than probed). Hidden/off-screen gestures are never included, so they
-     * can never create ambiguity or execute — see [isAmbiguousVisibleMatch].
-     */
-    private fun currentVisibleGestureSet(): Set<Pair<Int, Int>> {
-        val emergencyAndSystem = setOf(
-            EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS,
-            GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT
-        )
-        if (!guidedOverlayActive()) {
-            return emergencyAndSystem + mappingsState.map { it.left to it.right }.toSet()
-        }
-        val navigation = GuidedNavigationController.visibleGlobalNavigationGestures(
-            state = uiGuidedNavigationState.value,
-            language = activeLanguage(),
-            uiStrings = guidedUiStrings(),
-            catalogContext = guidedCatalogContext(),
-            visibleEntryCap = guidedVisibleEntryCap()
-        )
-        val content = mappingsForSequenceContinuation().map { it.left to it.right }.toSet()
-        return emergencyAndSystem + navigation + content
-    }
 
     private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
         GuidedVocabularyCatalog.categoryAt(
@@ -2132,10 +2074,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             leftWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             onWinkCounted(isLeft = true)
-            if (isEmergencySequence(leftWinks, rightWinks)) {
-                finalizeSequence()
-                return
-            }
         }
 
         if (result.acceptRight) {
@@ -2144,10 +2082,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             rightWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             onWinkCounted(isLeft = false)
-            if (isEmergencySequence(leftWinks, rightWinks)) {
-                finalizeSequence()
-                return
-            }
         }
 
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0
@@ -2156,21 +2090,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         if (lastWinkTimeMs == 0L) return
 
+        // No early/quick-resolve fast path: every sequence — phrase, category, navigation,
+        // confirm, cancel, or Emergency — must wait for the user to stop blinking/winking for the
+        // full configured response-time idle window before it is ever processed. This is the sole
+        // finalize gate in the app; there is no way to execute a gesture before this fires.
         val idleMs = now - lastWinkTimeMs
         val totalWindowMs = now - sequenceStartMs
-        val quickResolved = isQuicklyResolvableGesture(leftWinks, rightWinks) &&
-            idleMs >= GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS
         val finalize = hasCountedWinks && !activelyWinking &&
-            (
-                quickResolved ||
-                    shouldFinalizeSequence(
-                        left = leftWinks,
-                        right = rightWinks,
-                        idleMs = idleMs,
-                        sequenceAgeMs = totalWindowMs,
-                        idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
-                        maxWindowMs = effectiveSequenceMaxWindowMs()
-                    )
+            shouldFinalizeSequence(
+                left = leftWinks,
+                right = rightWinks,
+                idleMs = idleMs,
+                sequenceAgeMs = totalWindowMs,
+                idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
+                maxWindowMs = effectiveSequenceMaxWindowMs()
             )
 
         if (finalize) {

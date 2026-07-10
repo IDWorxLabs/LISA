@@ -28,8 +28,8 @@ object SequenceProcessingDelay {
      * [com.idworx.lisa.EMERGENCY_LEFT_WINKS] gaps at the slowest allowed response time) so a long,
      * fully visible gesture like 6 Left Winks is never cut off mid-sequence just because the user
      * paused close to the per-wink allowance between blinks. This is a runaway-input safety net,
-     * not a practical limiter: real gestures finish either by going idle for [toMillis] or by
-     * resolving to an unambiguous match well before this is ever reached.
+     * not a practical limiter: every real gesture finishes by going idle for [toMillis] — there is
+     * no early-resolve fast path that reaches this cutoff sooner.
      */
     private const val MAX_WINDOW_MULTIPLIER = 8
 

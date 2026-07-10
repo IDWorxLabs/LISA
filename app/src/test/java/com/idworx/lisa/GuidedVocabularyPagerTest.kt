@@ -473,12 +473,6 @@ class GuidedVocabularyPagerTest {
     }
 
     @Test
-    fun quickResolveIdleWindow_isShorterThanFullSequenceIdleTimeout() {
-        assertTrue(GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS < SEQUENCE_IDLE_TIMEOUT_MS)
-        assertTrue(GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS > 0)
-    }
-
-    @Test
     fun scrollHint_null_whenOnlyOnePhrasePage() {
         assertEquals(null, uiStrings.guidedPhrasePageScrollHint(0, 1))
     }

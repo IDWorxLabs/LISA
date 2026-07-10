@@ -21,32 +21,11 @@ fun hasLongerContinuation(left: Int, right: Int, mappings: List<WinkMapping>): B
     }
 
 /**
- * True when [left]/[right] exactly matches a currently visible gesture and at least one *other*
- * visible gesture could still be reached by continuing to blink — e.g. Yes (L2 R1) while Stop
- * (L2 R3) is also visible on the same phrase page. Ambiguous matches must wait for the full
- * configured response-time idle timeout instead of resolving immediately, so a user still building
- * toward a longer visible gesture is never short-circuited into executing a shorter visible prefix
- * of it. Only gestures in [visibleGestures] are considered — hidden/off-screen gestures (a phrase on
- * another page, an inactive category shortcut, an unavailable Previous/Next) never create ambiguity.
- */
-fun isAmbiguousVisibleMatch(left: Int, right: Int, visibleGestures: Set<Pair<Int, Int>>): Boolean {
-    if (left to right !in visibleGestures) return false
-    return visibleGestures.any { (otherLeft, otherRight) ->
-        otherLeft >= left && otherRight >= right && (otherLeft != left || otherRight != right)
-    }
-}
-
-/**
- * True when [left]/[right] is an exact, currently visible match with no ambiguity — safe to resolve
- * as soon as the user stops blinking (see [com.idworx.lisa.GuidedModeNavigation.QUICK_RESOLVE_IDLE_MS])
- * rather than waiting out the full response-time idle timeout. See [isAmbiguousVisibleMatch].
- */
-fun isUnambiguousVisibleMatch(left: Int, right: Int, visibleGestures: Set<Pair<Int, Int>>): Boolean =
-    (left to right) in visibleGestures && !isAmbiguousVisibleMatch(left, right, visibleGestures)
-
-/**
- * Finalize when idle after the most recent confirmed wink.
- * [sequenceAgeMs] is only used as an absolute safety cap for very long sequences.
+ * Finalize ONLY when idle after the most recent confirmed wink — there is no early/quick-resolve
+ * fast path anymore. No gesture (phrase, category, navigation, confirm, cancel, or emergency) may
+ * execute while the user is still actively blinking; every sequence, ambiguous or not, waits out
+ * the full configured response-time idle allowance before it is processed. [sequenceAgeMs] is only
+ * used as an absolute safety cap for very long sequences that never go idle.
  */
 fun shouldFinalizeSequence(
     left: Int,

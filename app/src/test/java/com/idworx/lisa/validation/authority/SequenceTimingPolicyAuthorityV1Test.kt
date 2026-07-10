@@ -39,49 +39,53 @@ class SequenceTimingPolicyAuthorityV1Test {
     }
 
     @Test
-    fun globalNavigation_noLongerBlanketBypassesAmbiguity() {
-        assertTrue(SequenceTimingPolicyAuditor.quickResolveNoLongerBlanketExemptsAllGlobalNavigation())
+    fun quickResolveIdleConstant_noLongerExistsAnywhere() {
+        assertTrue(SequenceTimingPolicyAuditor.noQuickResolveIdleConstantRemainsAnywhere())
     }
 
     @Test
-    fun select_isAProvenPrefixOfYesAndStop_andThereforeWaitsWhenTheyAreVisible() {
-        assertTrue(SequenceTimingPolicyAuditor.selectIsAProvenComponentWisePrefixOfYesAndStop())
-        assertTrue(SequenceTimingPolicyAuditor.selectWaitsOnCategoryMenu_whenDirectShortcutsAreVisible())
+    fun quickResolveFunction_noLongerExistsInMainActivity() {
+        assertTrue(SequenceTimingPolicyAuditor.noQuickResolveFunctionRemainsInMainActivity())
     }
 
     @Test
-    fun back_waitsWhenALongerVisibleShortcutDominatesIt() {
-        assertTrue(SequenceTimingPolicyAuditor.backWaitsOnCategoryMenu_whenALongerShortcutDominatesIt())
+    fun finalizeDecision_isGatedSolelyByShouldFinalizeSequence() {
+        assertTrue(SequenceTimingPolicyAuditor.finalizeIsGatedSolelyByShouldFinalizeSequence())
     }
 
     @Test
-    fun singleEyeReservedCodes_remainStructurallyUnambiguous() {
-        assertTrue(SequenceTimingPolicyAuditor.previousNextCategoriesRemainSingleEyeCodes_neverAmbiguousByConstruction())
+    fun emergency_hasNoShortCircuitBeforeTheIdleTimeoutGate() {
+        assertTrue(SequenceTimingPolicyAuditor.emergencyHasNoShortCircuitBeforeTheIdleTimeoutGate())
     }
 
     @Test
-    fun yesWaits_stopResolvesQuickly() {
-        assertTrue(SequenceTimingPolicyAuditor.ambiguousPhraseMustWaitTheFullIdleWindow_yesVsStop())
+    fun stop_doesNotTriggerYesEarly_bothWaitForTheFullIdleWindow() {
+        assertTrue(SequenceTimingPolicyAuditor.stopDoesNotTriggerYesEarly_bothWaitForTheFullIdleWindow())
     }
 
     @Test
-    fun categoryShortcuts_respectTheSameAmbiguityRule() {
-        assertTrue(SequenceTimingPolicyAuditor.categoryShortcutsRespectTheSameAmbiguityRuleAsPhrases())
+    fun emergencyBuildUp_doesNotTriggerShorterNavActionsEarly() {
+        assertTrue(SequenceTimingPolicyAuditor.emergencyBuildUpDoesNotTriggerShorterNavActionsEarly())
     }
 
     @Test
-    fun hiddenPhrasePageEntries_neverCreateAmbiguityOrExecute() {
-        assertTrue(SequenceTimingPolicyAuditor.hiddenPhrasePageEntryNeverCreatesAmbiguityOrExecutes())
+    fun confirmAndCancel_waitForTheFullIdleWindow() {
+        assertTrue(SequenceTimingPolicyAuditor.confirmAndCancelWaitForTheFullIdleWindow())
+    }
+
+    @Test
+    fun everyNewBlink_restartsTheIdleTimer() {
+        assertTrue(SequenceTimingPolicyAuditor.everyNewBlinkRestartsTheIdleTimer())
+    }
+
+    @Test
+    fun hiddenPhrasePageEntries_neverExecute() {
+        assertTrue(SequenceTimingPolicyAuditor.hiddenPhrasePageEntryNeverExecutes())
     }
 
     @Test
     fun emergency_neverCutOffAcrossFiveSecondGaps() {
         assertTrue(SequenceTimingPolicyAuditor.emergencySequenceNeverCutOffAcrossFiveSecondGapsBetweenEachBlink())
-    }
-
-    @Test
-    fun emergency_dispatchedBeforeTheAmbiguityGate() {
-        assertTrue(SequenceTimingPolicyAuditor.emergencyDispatchedBeforeAmbiguityGate_inMainActivity())
     }
 
     @Test
@@ -96,8 +100,8 @@ class SequenceTimingPolicyAuthorityV1Test {
     }
 
     @Test
-    fun quickResolveConstant_definedExactlyOnce() {
-        assertTrue(SequenceTimingPolicyAuditor.quickResolveIdleConstantIsDefinedExactlyOnce())
+    fun responseTimeControls_updateTheActualRuntimeIdleTimeout() {
+        assertTrue(SequenceTimingPolicyAuditor.responseTimeControlsUpdateTheActualRuntimeIdleTimeout())
     }
 
     @Test
