@@ -363,10 +363,6 @@ fun LisaRootUI(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CompactTimelineChip(uiStrings = uiStrings, activeStage = userDisplay.timelineStage)
-
-            Spacer(Modifier.height(4.dp))
-
             if (userDisplay.showIntentPreview && userDisplay.phrase != null) {
                 IntentPreviewCard(phrase = userDisplay.phrase, compact = !countdownActive)
                 Spacer(Modifier.height(4.dp))
@@ -636,20 +632,6 @@ data class DeveloperPanelInfo(
     val sensitivityLevel: Int,
     val detectionState: String
 )
-
-@Composable
-private fun CompactTimelineChip(uiStrings: LisaUiStrings, activeStage: CommunicationTimelineStage) {
-    Text(
-        text = activeStage.localizedLabel(uiStrings),
-        color = LisaWhite,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.35f))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    )
-}
 
 @Composable
 private fun CompactSensitivityControls(

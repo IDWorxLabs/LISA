@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiCommunicationState = mutableStateOf<LisaCommunicationState>(LisaCommunicationState.WaitingForFace)
     private val uiFacePresent = mutableStateOf(false)
     private val uiEyesDetected = mutableStateOf(false)
+    private val uiTrackingLost = mutableStateOf(false)
     private val uiEmergencyActive = mutableStateOf(false)
     private val uiLastSpoken = mutableStateOf("")
     private val uiDiagLeftEye = mutableStateOf("--")
@@ -287,7 +288,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         pendingPhrase = uiPendingPhrase.value,
                         countdown = uiCountdown.value,
                         leftWinkDots = uiDiagLeftCount.value,
-                        rightWinkDots = uiDiagRightCount.value
+                        rightWinkDots = uiDiagRightCount.value,
+                        eyeTrackingBanner = eyeTrackingBannerContext()
                     )
                     LisaRootUI(
                         uiStrings = uiStrings,
@@ -924,6 +926,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", packageName, null)
             }
+        )
+    }
+
+    private fun eyeTrackingBannerContext(): EyeTrackingBannerContext {
+        val calibrationActive = trainingSession.shouldShowTraining() &&
+            uiGuidedTrainingState.value.phase == TrainingPhase.Calibration
+        return EyeTrackingBannerContext(
+            calibrationActive = calibrationActive,
+            trackingLost = uiTrackingLost.value,
+            faceDetected = uiFacePresent.value,
+            eyesDetected = uiEyesDetected.value
         )
     }
 
@@ -1963,6 +1976,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     return@addOnSuccessListener
                 }
                 if (faces.isEmpty()) {
+                    uiTrackingLost.value = false
                     uiFacePresent.value = false
                     uiEyesDetected.value = false
                     blinkProcessor.clearPreviousProbabilities()
@@ -1975,6 +1989,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
                     return@addOnSuccessListener
                 }
+                uiTrackingLost.value = false
                 uiFacePresent.value = true
                 if (trainingSession.state.phase == TrainingPhase.Setup) {
                     trainingSession.onFaceDetectedDuringSetup()
@@ -1994,6 +2009,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 handleWinks(face)
             }
             .addOnFailureListener {
+                uiTrackingLost.value = true
                 uiFacePresent.value = false
                 uiEyesDetected.value = false
                 blinkProcessor.clearPreviousProbabilities()

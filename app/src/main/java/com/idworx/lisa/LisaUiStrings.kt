@@ -40,11 +40,30 @@ data class LisaUiStrings(val language: PreferredLanguage) {
 
     // Communication display
     val ready: String get() = t("READY", "GEREE", "SILINDILE")
-    val listening: String get() = t("LISTENING...", "LUISTER...", "IYALALELE...")
-    val watchingYourEyes: String get() = t(
-        "Watching your eyes...",
-        "Kykers na jou oë...",
-        "Ibabheke amehlo akho..."
+    val eyeTrackingStatusWatching: String get() = t(
+        "WATCHING YOUR EYES...",
+        "KYK NA JOU OË...",
+        "IBHEKA AMEHLO AKHO..."
+    )
+    val eyeTrackingStatusNoFace: String get() = t(
+        "NO FACE DETECTED",
+        "GEEN GESIG BESPEUR NIE",
+        "AKUKHO UBUSO OBUTHOLAKALAYO"
+    )
+    val eyeTrackingStatusLookAtCamera: String get() = t(
+        "PLEASE LOOK AT THE CAMERA",
+        "KYK ASSEBLIEF NA DIE KAMERA",
+        "SICELA UBHEKE IKHAMERA"
+    )
+    val eyeTrackingStatusCalibrating: String get() = t(
+        "CALIBRATING EYE TRACKING...",
+        "KALIBREER OOGNASPOOR...",
+        "KULUNGISELANA UKULANDELELA AMEHLO..."
+    )
+    val eyeTrackingStatusTrackingLost: String get() = t(
+        "TRACKING LOST",
+        "NASPOOR VERLORE",
+        "UKULANDELELA KULAHLEKILE"
     )
     val buildingYourMessage: String get() = t(
         "Building your message...",

@@ -37,6 +37,35 @@ data class LisaUserDisplay(
     val rightWinkDots: Int = 0
 )
 
+data class EyeTrackingBannerContext(
+    val calibrationActive: Boolean = false,
+    val trackingLost: Boolean = false,
+    val faceDetected: Boolean = false,
+    val eyesDetected: Boolean = false
+)
+
+fun EyeTrackingBannerContext.bannerMessage(strings: LisaUiStrings): String = when {
+    calibrationActive -> strings.eyeTrackingStatusCalibrating
+    trackingLost -> strings.eyeTrackingStatusTrackingLost
+    !faceDetected -> strings.eyeTrackingStatusNoFace
+    !eyesDetected -> strings.eyeTrackingStatusLookAtCamera
+    else -> strings.eyeTrackingStatusWatching
+}
+
+private fun LisaCommunicationState.toEyeTrackingBannerDisplay(
+    strings: LisaUiStrings,
+    eyeTrackingBanner: EyeTrackingBannerContext?,
+    timelineStage: CommunicationTimelineStage,
+    leftWinkDots: Int,
+    rightWinkDots: Int
+): LisaUserDisplay = LisaUserDisplay(
+    headline = eyeTrackingBanner?.bannerMessage(strings) ?: strings.eyeTrackingStatusWatching,
+    subtitle = "",
+    timelineStage = timelineStage,
+    leftWinkDots = leftWinkDots,
+    rightWinkDots = rightWinkDots
+)
+
 fun LisaCommunicationState.toTimelineStage(): CommunicationTimelineStage = when (this) {
     LisaCommunicationState.WaitingForFace,
     LisaCommunicationState.Ready,
@@ -70,24 +99,18 @@ fun LisaCommunicationState.toUserDisplay(
     pendingPhrase: String?,
     countdown: Int?,
     leftWinkDots: Int = 0,
-    rightWinkDots: Int = 0
+    rightWinkDots: Int = 0,
+    eyeTrackingBanner: EyeTrackingBannerContext? = null
 ): LisaUserDisplay {
     val timelineStage = toTimelineStage()
     return when (this) {
         LisaCommunicationState.WaitingForFace,
         LisaCommunicationState.Ready,
         LisaCommunicationState.Reset,
-        LisaCommunicationState.Cancelled -> LisaUserDisplay(
-            headline = strings.listening,
-            subtitle = strings.watchingYourEyes,
-            timelineStage = timelineStage,
-            leftWinkDots = leftWinkDots,
-            rightWinkDots = rightWinkDots
-        )
-
-        LisaCommunicationState.Listening -> LisaUserDisplay(
-            headline = strings.listening,
-            subtitle = strings.watchingYourEyes,
+        LisaCommunicationState.Cancelled,
+        LisaCommunicationState.Listening -> toEyeTrackingBannerDisplay(
+            strings = strings,
+            eyeTrackingBanner = eyeTrackingBanner,
             timelineStage = timelineStage,
             leftWinkDots = leftWinkDots,
             rightWinkDots = rightWinkDots
