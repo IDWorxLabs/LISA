@@ -98,23 +98,14 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
 
     @Test
     fun numericLayoutContainsDigitsZeroThroughNine() {
-        val digits = buildSet {
-            for (row in 0 until KeyboardLayout.NUMBER_DIGIT_ROW_COUNT) {
-                for (col in 0 until KeyboardLayout.rowLength(numbers, row)) {
-                    add(KeyboardLayout.keyAt(numbers, row, col))
-                }
-            }
-            for (col in 0 until KeyboardLayout.rowLength(numbers, KeyboardLayout.NUMBER_BOTTOM_ROW_INDEX)) {
-                add(KeyboardLayout.keyAt(numbers, KeyboardLayout.NUMBER_BOTTOM_ROW_INDEX, col))
-            }
-        }
-        assertEquals(('0'..'9').toSet(), digits.filterNotNull().filter { it.isDigit() }.toSet())
+        val digits = KeyboardLayout.numberRows.flatMap { it }.filter { it.isDigit() }.toSet()
+        assertEquals(('0'..'9').toSet(), digits)
     }
 
     @Test
     fun numericLayoutContainsDecimalAndComma() {
-        assertTrue(KeyboardLayout.numberBottomRow.contains('.'))
-        assertTrue(KeyboardLayout.numberBottomRow.contains(','))
+        assertTrue(KeyboardLayout.numberRows[2].contains('.'))
+        assertTrue(KeyboardLayout.numberRows[2].contains(','))
     }
 
     @Test
@@ -183,7 +174,7 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     fun selectingPunctuationOnEmptyPhraseIsSafe() {
         var state = keyboardState(
             layoutMode = numbers,
-            cursorRow = KeyboardLayout.NUMBER_PUNCTUATION_ROW_INDEX,
+            cursorRow = 2,
             cursorCol = 0
         )
         state = processCommand(state, PhraseComposerActionId.SelectKey)
@@ -238,7 +229,7 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     fun keyboardLayoutsAreCompactAndComplete() {
         assertTrue(KeyboardLayout.allKeysReachable())
         assertEquals(4, KeyboardLayout.totalRowCount(letters))
-        assertEquals(6, KeyboardLayout.totalRowCount(numbers))
+        assertEquals(4, KeyboardLayout.totalRowCount(numbers))
     }
 
     private fun readSource(relativePath: String): String {

@@ -45,6 +45,10 @@ fun EyeControlledPhraseComposerOverlay(
     visible: Boolean,
     composerEyeFeedback: ComposerEyeFeedback,
     inputSuspended: Boolean = false,
+    onSensitivityDecrease: () -> Unit = {},
+    onSensitivityIncrease: () -> Unit = {},
+    onResponseTimeDecrease: () -> Unit = {},
+    onResponseTimeIncrease: () -> Unit = {},
     onEmergency: () -> Unit,
     onEntrySelected: (PhraseComposerEntry) -> Unit,
     onCommandSelected: (PhraseComposerEntry) -> Unit,
@@ -75,6 +79,10 @@ fun EyeControlledPhraseComposerOverlay(
                     composerEyeFeedback = composerEyeFeedback,
                     commandEntries = commandEntries,
                     inputSuspended = inputSuspended,
+                    onSensitivityDecrease = onSensitivityDecrease,
+                    onSensitivityIncrease = onSensitivityIncrease,
+                    onResponseTimeDecrease = onResponseTimeDecrease,
+                    onResponseTimeIncrease = onResponseTimeIncrease,
                     onEmergency = onEmergency,
                     onCommandSelected = onCommandSelected
                 )
@@ -100,13 +108,21 @@ private fun KeyboardComposerLayout(
     composerEyeFeedback: ComposerEyeFeedback,
     commandEntries: List<PhraseComposerEntry>,
     inputSuspended: Boolean,
+    onSensitivityDecrease: () -> Unit,
+    onSensitivityIncrease: () -> Unit,
+    onResponseTimeDecrease: () -> Unit,
+    onResponseTimeIncrease: () -> Unit,
     onEmergency: () -> Unit,
     onCommandSelected: (PhraseComposerEntry) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         ComposerEyeStatusBar(
             uiStrings = uiStrings,
-            eyeFeedback = composerEyeFeedback
+            eyeFeedback = composerEyeFeedback,
+            onSensitivityDecrease = onSensitivityDecrease,
+            onSensitivityIncrease = onSensitivityIncrease,
+            onResponseTimeDecrease = onResponseTimeDecrease,
+            onResponseTimeIncrease = onResponseTimeIncrease
         )
 
         Spacer(Modifier.height(6.dp))

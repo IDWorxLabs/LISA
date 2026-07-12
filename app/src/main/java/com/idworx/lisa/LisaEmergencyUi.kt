@@ -6,10 +6,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -18,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,12 +45,20 @@ fun GlobalEmergencyOverlayLayer(
     uiStrings: LisaUiStrings,
     emergencyActive: Boolean,
     emergencyAwaitingConfirm: Boolean,
+    blinkFeedback: ComposerEyeFeedback,
+    onCancelOrStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
-        emergencyActive -> EmergencyAlarmOverlay(uiStrings = uiStrings, modifier = modifier)
+        emergencyActive -> EmergencyAlarmOverlay(
+            uiStrings = uiStrings,
+            onStopEmergency = onCancelOrStopEmergency,
+            modifier = modifier
+        )
         emergencyAwaitingConfirm -> Brain1EmergencyConfirmOverlay(
             uiStrings = uiStrings,
+            blinkFeedback = blinkFeedback,
+            onCancelEmergency = onCancelOrStopEmergency,
             modifier = modifier
         )
     }
@@ -55,6 +68,7 @@ fun GlobalEmergencyOverlayLayer(
 @Composable
 fun EmergencyAlarmOverlay(
     uiStrings: LisaUiStrings,
+    onStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "emergency_flash")
@@ -71,21 +85,41 @@ fun EmergencyAlarmOverlay(
             .background(LisaEmergencyRed.copy(alpha = flashAlpha)),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(LisaEmergencyRed.copy(alpha = 0.95f))
+                .padding(horizontal = 18.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                text = uiStrings.emergency,
+                text = uiStrings.emergencyActiveTitle,
                 color = LisaWhite,
-                fontSize = 36.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.padding(5.dp))
             Text(
-                text = uiStrings.callingForHelp,
+                text = uiStrings.emergencyAlarmActiveMessage,
                 color = LisaWhite,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.padding(4.dp))
+            Text(
+                text = uiStrings.callingForHelp,
+                color = LisaWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.padding(10.dp))
+            EmergencyManualButton(
+                label = uiStrings.stopEmergency,
+                onClick = onStopEmergency
             )
         }
     }
@@ -95,6 +129,8 @@ fun EmergencyAlarmOverlay(
 @Composable
 fun Brain1EmergencyConfirmOverlay(
     uiStrings: LisaUiStrings,
+    blinkFeedback: ComposerEyeFeedback,
+    onCancelEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -127,6 +163,82 @@ fun Brain1EmergencyConfirmOverlay(
                 textAlign = TextAlign.Center,
                 lineHeight = 26.sp
             )
+            Spacer(modifier = Modifier.padding(8.dp))
+            EmergencyBlinkFeedbackRows(
+                uiStrings = uiStrings,
+                blinkFeedback = blinkFeedback
+            )
+            Spacer(modifier = Modifier.padding(10.dp))
+            EmergencyManualButton(
+                label = uiStrings.cancelEmergency,
+                onClick = onCancelEmergency
+            )
         }
+    }
+}
+
+@Composable
+private fun EmergencyBlinkFeedbackRows(
+    uiStrings: LisaUiStrings,
+    blinkFeedback: ComposerEyeFeedback
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = uiStrings.leftDots(blinkFeedback.leftWinkCount),
+                color = LisaWhite,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = uiStrings.rightDots(blinkFeedback.rightWinkCount),
+                color = LisaWhite,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        blinkFeedback.partialSequenceLabel()?.let { sequence ->
+            Text(
+                text = "${uiStrings.phraseComposerPartialSequenceLabel}: $sequence",
+                color = LisaWhite,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmergencyManualButton(
+    label: String,
+    onClick: () -> Unit
+) {
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = label },
+        shape = RoundedCornerShape(12.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = LisaWhite,
+            contentColor = LisaEmergencyRed
+        )
+    ) {
+        Text(
+            text = label,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaEmergencyRed,
+            textAlign = TextAlign.Center
+        )
     }
 }

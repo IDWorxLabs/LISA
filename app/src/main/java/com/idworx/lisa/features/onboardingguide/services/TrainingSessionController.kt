@@ -384,6 +384,11 @@ class TrainingSessionController(
         beginAwaitingBrain1Decision(Brain1DecisionKind.EmergencyMode)
     }
 
+    fun clearBrain1Decision() {
+        state = state.copy(brain1Decision = state.brain1Decision.clear())
+        onPersist(state)
+    }
+
     fun handleBrain1Interaction(left: Int, right: Int, blinkOrder: List<Boolean> = emptyList()): Boolean {
         if (!hasActiveBrain1Decision()) return false
 

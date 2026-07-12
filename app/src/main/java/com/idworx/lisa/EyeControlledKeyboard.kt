@@ -2,6 +2,7 @@ package com.idworx.lisa
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -125,35 +127,18 @@ private fun EyeControlledKeyboardGrid(
                     }
                 }
                 EyeKeyboardLayoutMode.Numbers -> {
-                    for (row in 0 until KeyboardLayout.NUMBER_DIGIT_ROW_COUNT) {
+                    for (row in 0 until KeyboardLayout.NUMBER_ROW_COUNT) {
                         KeyboardKeyRow(
-                            keys = KeyboardLayout.numberDigitRows[row].map { it.toString() },
+                            keys = KeyboardLayout.numberRows[row].map { it.toString() },
                             row = row,
                             cursorRow = cursorRow,
                             cursorCol = cursorCol,
                             keyHeight = keyHeight,
                             keyFontSp = keyFontSp,
-                            bottomAnchored = bottomAnchored
+                            bottomAnchored = bottomAnchored,
+                            spreadHorizontally = true
                         )
                     }
-                    KeyboardKeyRow(
-                        keys = KeyboardLayout.numberBottomRow.map { it.toString() },
-                        row = KeyboardLayout.NUMBER_BOTTOM_ROW_INDEX,
-                        cursorRow = cursorRow,
-                        cursorCol = cursorCol,
-                        keyHeight = keyHeight,
-                        keyFontSp = keyFontSp,
-                        bottomAnchored = bottomAnchored
-                    )
-                    KeyboardKeyRow(
-                        keys = KeyboardLayout.punctuationRow.map { it.toString() },
-                        row = KeyboardLayout.NUMBER_PUNCTUATION_ROW_INDEX,
-                        cursorRow = cursorRow,
-                        cursorCol = cursorCol,
-                        keyHeight = keyHeight,
-                        keyFontSp = keyFontSp,
-                        bottomAnchored = bottomAnchored
-                    )
                 }
             }
             KeyboardSpaceRow(
@@ -176,11 +161,16 @@ private fun KeyboardKeyRow(
     cursorCol: Int,
     keyHeight: androidx.compose.ui.unit.Dp,
     keyFontSp: Int,
-    bottomAnchored: Boolean
+    bottomAnchored: Boolean,
+    spreadHorizontally: Boolean = false
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = if (spreadHorizontally) {
+            Arrangement.spacedBy(4.dp)
+        } else {
+            Arrangement.Center
+        },
         verticalAlignment = Alignment.CenterVertically
     ) {
         keys.forEachIndexed { col, label ->
@@ -190,7 +180,9 @@ private fun KeyboardKeyRow(
                 wide = false,
                 keyHeight = keyHeight,
                 keyFontSp = keyFontSp,
-                bottomAnchored = bottomAnchored
+                bottomAnchored = bottomAnchored,
+                modifier = if (spreadHorizontally) Modifier.weight(1f) else Modifier,
+                enforceMinWidth = !spreadHorizontally
             )
         }
     }
@@ -217,7 +209,8 @@ private fun KeyboardSpaceRow(
             wide = true,
             keyHeight = keyHeight,
             keyFontSp = keyFontSp,
-            bottomAnchored = bottomAnchored
+            bottomAnchored = bottomAnchored,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -229,19 +222,22 @@ private fun KeyboardKey(
     wide: Boolean,
     keyHeight: androidx.compose.ui.unit.Dp,
     keyFontSp: Int,
-    bottomAnchored: Boolean = false
+    bottomAnchored: Boolean = false,
+    modifier: Modifier = Modifier,
+    enforceMinWidth: Boolean = true
 ) {
     val shape = RoundedCornerShape(10.dp)
     Box(
-        modifier = Modifier
-            .padding(horizontal = 3.dp)
+        modifier = modifier
+            .padding(horizontal = if (wide) 0.dp else 3.dp)
             .height(keyHeight)
-            .widthIn(min = when {
-                wide && bottomAnchored -> 240.dp
-                wide -> 200.dp
-                bottomAnchored -> 30.dp
-                else -> 34.dp
-            })
+            .then(
+                if (enforceMinWidth && !wide) {
+                    Modifier.widthIn(min = if (bottomAnchored) 30.dp else 34.dp)
+                } else {
+                    Modifier
+                }
+            )
             .clip(shape)
             .background(if (highlighted) KeyHighlightFill else KeyBackground)
             .then(
@@ -328,6 +324,10 @@ fun SaveConfirmationSummary(
 fun ComposerEyeStatusBar(
     uiStrings: LisaUiStrings,
     eyeFeedback: ComposerEyeFeedback,
+    onSensitivityDecrease: () -> Unit = {},
+    onSensitivityIncrease: () -> Unit = {},
+    onResponseTimeDecrease: () -> Unit = {},
+    onResponseTimeIncrease: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -336,27 +336,70 @@ fun ComposerEyeStatusBar(
             .clip(RoundedCornerShape(10.dp))
             .background(Color.Black.copy(alpha = 0.38f))
             .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = eyeFeedback.bannerMessage(uiStrings),
             color = LisaWhite,
             fontWeight = FontWeight.Bold,
             fontSize = 13.sp,
-            maxLines = 1
-        )
-        Text(
-            text = uiStrings.listeningStatusLine(
-                eyeFeedback.sensitivityLevel,
-                eyeFeedback.responseTimeSec
-            ),
-            color = LisaWhite.copy(alpha = 0.82f),
-            fontSize = 10.sp,
-            maxLines = 1
+            maxLines = 2,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ComposerStatusControlButton(
+                text = uiStrings.sensitivityDecrease,
+                onClick = onSensitivityDecrease,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = uiStrings.composerSensitivityLine(eyeFeedback.sensitivityLevel),
+                color = LisaWhite.copy(alpha = 0.82f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                modifier = Modifier.weight(1.2f),
+                textAlign = TextAlign.Center
+            )
+            ComposerStatusControlButton(
+                text = uiStrings.sensitivityIncrease,
+                onClick = onSensitivityIncrease,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ComposerStatusControlButton(
+                text = uiStrings.responseTimeDecrease,
+                onClick = onResponseTimeDecrease,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = uiStrings.composerResponseTimeLine(eyeFeedback.responseTimeSec),
+                color = LisaWhite.copy(alpha = 0.82f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                modifier = Modifier.weight(1.2f),
+                textAlign = TextAlign.Center
+            )
+            ComposerStatusControlButton(
+                text = uiStrings.responseTimeIncrease,
+                onClick = onResponseTimeIncrease,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -382,5 +425,30 @@ fun ComposerEyeStatusBar(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Composable
+private fun ComposerStatusControlButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .background(Color.White.copy(alpha = 0.92f))
+            .padding(horizontal = 6.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = LisaBlueDark,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
     }
 }

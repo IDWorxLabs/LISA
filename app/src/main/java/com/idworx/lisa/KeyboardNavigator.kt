@@ -54,20 +54,19 @@ object KeyboardNavigator {
     private fun moveUp(row: Int, col: Int, layoutMode: EyeKeyboardLayoutMode): KeyboardCursor {
         if (row <= 0) return KeyboardCursor(row, col)
         val targetRow = row - 1
-        val clampedCol = col.coerceIn(0, KeyboardLayout.rowLength(layoutMode, targetRow) - 1)
-        return KeyboardCursor(targetRow, clampedCol)
+        return KeyboardCursor(targetRow, nearestColumn(col, layoutMode, targetRow))
     }
 
     private fun moveDown(row: Int, col: Int, layoutMode: EyeKeyboardLayoutMode): KeyboardCursor {
         val maxRow = KeyboardLayout.totalRowCount(layoutMode) - 1
         if (row >= maxRow) return KeyboardCursor(row, col)
         val targetRow = row + 1
-        val clampedCol = if (KeyboardLayout.isSpaceRow(layoutMode, targetRow)) {
+        val targetCol = if (KeyboardLayout.isSpaceRow(layoutMode, targetRow)) {
             0
         } else {
-            col.coerceIn(0, KeyboardLayout.rowLength(layoutMode, targetRow) - 1)
+            nearestColumn(col, layoutMode, targetRow)
         }
-        return KeyboardCursor(targetRow, clampedCol)
+        return KeyboardCursor(targetRow, targetCol)
     }
 
     private fun moveLeft(row: Int, col: Int, layoutMode: EyeKeyboardLayoutMode): KeyboardCursor {
@@ -79,5 +78,11 @@ object KeyboardNavigator {
         val maxCol = KeyboardLayout.rowLength(layoutMode, row) - 1
         if (col < maxCol) return KeyboardCursor(row, col + 1)
         return KeyboardCursor(row, col)
+    }
+
+    /** Closest valid column when moving between rows of different lengths. */
+    internal fun nearestColumn(col: Int, layoutMode: EyeKeyboardLayoutMode, targetRow: Int): Int {
+        val maxCol = (KeyboardLayout.rowLength(layoutMode, targetRow) - 1).coerceAtLeast(0)
+        return col.coerceIn(0, maxCol)
     }
 }

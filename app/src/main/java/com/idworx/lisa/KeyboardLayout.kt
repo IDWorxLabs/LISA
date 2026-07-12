@@ -6,9 +6,8 @@ package com.idworx.lisa
 object KeyboardLayout {
 
     const val LETTER_ROW_COUNT: Int = 3
-    const val NUMBER_DIGIT_ROW_COUNT: Int = 3
-    const val NUMBER_BOTTOM_ROW_INDEX: Int = 3
-    const val NUMBER_PUNCTUATION_ROW_INDEX: Int = 4
+    /** Horizontal numeric rows before SPACE (RC7D.5). */
+    const val NUMBER_ROW_COUNT: Int = 3
 
     val letterRows: List<List<Char>> = listOf(
         "QWERTYUIOP".toList(),
@@ -16,18 +15,40 @@ object KeyboardLayout {
         "ZXCVBNM".toList()
     )
 
-    val numberDigitRows: List<List<Char>> = listOf(
-        "123".toList(),
-        "456".toList(),
-        "789".toList()
+    /** Full-width horizontal numeric layout: 12345 / 67890 / .,?!- / SPACE */
+    val numberRows: List<List<Char>> = listOf(
+        "12345".toList(),
+        "67890".toList(),
+        ".,?!-".toList()
     )
 
-    val numberBottomRow: List<Char> = listOf('0', '.', ',')
-    val punctuationRow: List<Char> = listOf('?', '!', '-')
+    /** @deprecated Use [numberRows]. */
+    @Deprecated("Use numberRows", ReplaceWith("numberRows"))
+    val numberDigitRows: List<List<Char>> get() = numberRows.take(2)
+
+    /** @deprecated Merged into [numberRows] row 2. */
+    @Deprecated("Use numberRows[2]")
+    val numberBottomRow: List<Char> get() = numberRows[2].take(3)
+
+    /** @deprecated Merged into [numberRows] row 2. */
+    @Deprecated("Use numberRows[2]")
+    val punctuationRow: List<Char> get() = numberRows[2].drop(2)
+
+    /** @deprecated Use [NUMBER_ROW_COUNT]. */
+    @Deprecated("Use NUMBER_ROW_COUNT", ReplaceWith("NUMBER_ROW_COUNT"))
+    const val NUMBER_DIGIT_ROW_COUNT: Int = 2
+
+    /** @deprecated Punctuation is [numberRows][2]. */
+    @Deprecated("Use 2")
+    const val NUMBER_PUNCTUATION_ROW_INDEX: Int = 2
+
+    /** @deprecated Digit zero is on [numberRows][1]. */
+    @Deprecated("Use numberRows")
+    const val NUMBER_BOTTOM_ROW_INDEX: Int = 1
 
     fun spaceRowIndex(mode: EyeKeyboardLayoutMode): Int = when (mode) {
         EyeKeyboardLayoutMode.Letters -> LETTER_ROW_COUNT
-        EyeKeyboardLayoutMode.Numbers -> NUMBER_PUNCTUATION_ROW_INDEX + 1
+        EyeKeyboardLayoutMode.Numbers -> NUMBER_ROW_COUNT
     }
 
     fun totalRowCount(mode: EyeKeyboardLayoutMode): Int = spaceRowIndex(mode) + 1
@@ -39,9 +60,7 @@ object KeyboardLayout {
             else -> 0
         }
         EyeKeyboardLayoutMode.Numbers -> when (row) {
-            in 0 until NUMBER_DIGIT_ROW_COUNT -> numberDigitRows[row].size
-            NUMBER_BOTTOM_ROW_INDEX -> numberBottomRow.size
-            NUMBER_PUNCTUATION_ROW_INDEX -> punctuationRow.size
+            in 0 until NUMBER_ROW_COUNT -> numberRows[row].size
             spaceRowIndex(EyeKeyboardLayoutMode.Numbers) -> 1
             else -> 0
         }
@@ -54,9 +73,7 @@ object KeyboardLayout {
             else -> null
         }
         EyeKeyboardLayoutMode.Numbers -> when (row) {
-            in 0 until NUMBER_DIGIT_ROW_COUNT -> numberDigitRows[row].getOrNull(col)
-            NUMBER_BOTTOM_ROW_INDEX -> numberBottomRow.getOrNull(col)
-            NUMBER_PUNCTUATION_ROW_INDEX -> punctuationRow.getOrNull(col)
+            in 0 until NUMBER_ROW_COUNT -> numberRows[row].getOrNull(col)
             spaceRowIndex(EyeKeyboardLayoutMode.Numbers) -> if (col == 0) ' ' else null
             else -> null
         }

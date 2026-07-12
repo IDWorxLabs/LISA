@@ -110,12 +110,10 @@ class Rc7D_4BottomAlignedKeyboardLayoutTest {
     }
 
     @Test
-    fun numericKeyboardRetainsCurrentOrder() {
-        assertEquals("123", KeyboardLayout.numberDigitRows[0].joinToString(""))
-        assertEquals("456", KeyboardLayout.numberDigitRows[1].joinToString(""))
-        assertEquals("789", KeyboardLayout.numberDigitRows[2].joinToString(""))
-        assertEquals("0.,", KeyboardLayout.numberBottomRow.joinToString(""))
-        assertEquals("?!-", KeyboardLayout.punctuationRow.joinToString(""))
+    fun numericKeyboardRetainsHorizontalOrder() {
+        assertEquals("12345", KeyboardLayout.numberRows[0].joinToString(""))
+        assertEquals("67890", KeyboardLayout.numberRows[1].joinToString(""))
+        assertEquals(".,?!-", KeyboardLayout.numberRows[2].joinToString(""))
     }
 
     @Test

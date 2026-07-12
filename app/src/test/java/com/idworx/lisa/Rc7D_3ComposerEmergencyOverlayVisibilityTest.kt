@@ -220,7 +220,7 @@ class Rc7D_3ComposerEmergencyOverlayVisibilityTest {
     fun numericLayoutFullyVisibleOnCompactPortrait() {
         val height = ComposerKeyboardLayoutMetrics.keyHeightDp(availableHeightDp = 280, mode = numbers)
         assertTrue(height >= ComposerKeyboardLayoutMetrics.MIN_KEY_HEIGHT_DP)
-        assertEquals(6, ComposerKeyboardLayoutMetrics.rowCount(numbers))
+        assertEquals(4, ComposerKeyboardLayoutMetrics.rowCount(numbers))
     }
 
     @Test

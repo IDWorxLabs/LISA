@@ -156,6 +156,7 @@ fun LisaRootUI(
     onPhraseComposerEntry: (PhraseComposerEntry) -> Unit = {},
     onPhraseComposerCommand: (PhraseComposerEntry) -> Unit = {},
     onPhraseComposerEmergency: () -> Unit = {},
+    onCancelOrStopEmergency: () -> Unit = {},
     guidedTrainingActive: Boolean = false,
     guidedTrainingState: GuidedTrainingUiState = GuidedTrainingUiState(),
     guidedTrainingSetupStep: Int = 0,
@@ -459,6 +460,10 @@ fun LisaRootUI(
             visible = phraseComposerActive,
             composerEyeFeedback = composerEyeFeedback,
             inputSuspended = composerInputSuspended,
+            onSensitivityDecrease = onSensitivityDecrease,
+            onSensitivityIncrease = onSensitivityIncrease,
+            onResponseTimeDecrease = onResponseTimeDecrease,
+            onResponseTimeIncrease = onResponseTimeIncrease,
             onEmergency = onPhraseComposerEmergency,
             onEntrySelected = onPhraseComposerEntry,
             onCommandSelected = onPhraseComposerCommand,
@@ -645,6 +650,8 @@ fun LisaRootUI(
             uiStrings = uiStrings,
             emergencyActive = emergencyActive,
             emergencyAwaitingConfirm = emergencyAwaitingConfirm,
+            blinkFeedback = composerEyeFeedback,
+            onCancelOrStopEmergency = onCancelOrStopEmergency,
             modifier = Modifier.fillMaxSize()
         )
     }

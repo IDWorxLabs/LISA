@@ -268,6 +268,20 @@ data class LisaUiStrings(val language: PreferredLanguage) {
             "Ukuzwela: $sensitivityLevel · Isikhathi sokuphendula: ${responseTimeSec}s"
         )
 
+    fun composerSensitivityLine(sensitivityLevel: Int): String =
+        t(
+            "Sensitivity: $sensitivityLevel",
+            "Sensitiwiteit: $sensitivityLevel",
+            "Ukuzwela: $sensitivityLevel"
+        )
+
+    fun composerResponseTimeLine(responseTimeSec: Int): String =
+        t(
+            "Response time: ${responseTimeSec}s",
+            "Reaksietyd: ${responseTimeSec}s",
+            "Isikhathi sokuphendula: ${responseTimeSec}s"
+        )
+
     fun guidedPreferenceLabel(
         labelKey: String,
         responseTimeSec: Int,
@@ -446,6 +460,26 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Calling for help...",
         "Roep om hulp...",
         "Ibizela usizo..."
+    )
+    val emergencyActiveTitle: String get() = t(
+        "EMERGENCY ACTIVE",
+        "NOOD AKTIEF",
+        "USIZO OLUPHUTHUMAYO LUYASEBENZA"
+    )
+    val emergencyAlarmActiveMessage: String get() = t(
+        "LISA is sounding the emergency alarm.",
+        "LISA laat die noodalarm klink.",
+        "I-LISA ikhalisa i-alamu yosizo oluphuthumayo."
+    )
+    val cancelEmergency: String get() = t(
+        "Cancel Emergency",
+        "Kanselleer Nood",
+        "Khansela Usizo Oluphuthumayo"
+    )
+    val stopEmergency: String get() = t(
+        "Stop Emergency",
+        "Stop Nood",
+        "Misa Usizo Oluphuthumayo"
     )
     val possibleMatch: String get() = t("POSSIBLE MATCH", "MOONTLIKE TREFFER", "KUNGASE KULINGANE")
     val continueOrPause: String get() = t(

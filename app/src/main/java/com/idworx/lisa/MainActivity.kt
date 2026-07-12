@@ -431,6 +431,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             applyPhraseComposerTouchNavigation(entry.left, entry.right)
                         },
                         onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
+                        onCancelOrStopEmergency = { cancelOrStopEmergency() },
                         guidedTrainingActive = trainingSession.shouldShowTraining(),
                         guidedTrainingState = uiGuidedTrainingState.value,
                         guidedTrainingSetupStep = uiGuidedTrainingState.value.setupStep,
@@ -959,6 +960,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             speechPhrase = LisaUiStrings.forLanguage(uiActiveLanguage.value).emergencySpeechPhrase
         )
         resetSequence()
+    }
+
+    private fun cancelOrStopEmergency() {
+        emergencyAlarmController.stop()
+        tts?.stop()
+        emergencyActive = false
+        uiEmergencyActive.value = false
+        if (trainingSession.hasActiveBrain1Decision()) {
+            trainingSession.clearBrain1Decision()
+            refreshTrainingActiveState()
+        }
+        resetSequence()
+        updateReadyOrWaitingState()
     }
 
     private fun refreshCameraPermissionState() {
