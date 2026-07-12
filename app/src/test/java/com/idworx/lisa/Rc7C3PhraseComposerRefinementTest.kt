@@ -127,7 +127,7 @@ class Rc7C3PhraseComposerRefinementTest {
         assertTrue(KeyboardLayout.allKeysReachable())
         val mainActivity = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
         assertTrue(mainActivity.contains("handlePhraseComposerSequence"))
-        assertTrue(readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt").contains("EyeControlledKeyboard"))
+        assertTrue(readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt").contains("BottomAlignedEyeKeyboard"))
     }
 
     private fun process(state: PhraseComposerState, actionId: PhraseComposerActionId): PhraseComposerState {

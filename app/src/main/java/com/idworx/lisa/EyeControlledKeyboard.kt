@@ -31,6 +31,35 @@ import com.idworx.lisa.ui.theme.LisaWhite
 private val KeyBackground = Color.White.copy(alpha = 0.94f)
 private val KeyHighlightFill = LisaBlue.copy(alpha = 0.58f)
 private val KeyHighlightBorder = LisaBlueDark
+private val KeyboardTrayBackground = Color(0xFF1A2332).copy(alpha = 0.92f)
+
+/**
+ * Bottom-anchored keyboard tray for RC7D.4 — familiar mobile keyboard placement.
+ */
+@Composable
+fun BottomAlignedEyeKeyboard(
+    uiStrings: LisaUiStrings,
+    layoutMode: EyeKeyboardLayoutMode,
+    cursorRow: Int,
+    cursorCol: Int,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+            .background(KeyboardTrayBackground)
+            .padding(horizontal = 6.dp, vertical = 8.dp)
+    ) {
+        EyeControlledKeyboardGrid(
+            uiStrings = uiStrings,
+            layoutMode = layoutMode,
+            cursorRow = cursorRow,
+            cursorCol = cursorCol,
+            bottomAnchored = true
+        )
+    }
+}
 
 /**
  * Full letter and numeric keyboard grids with cursor highlight for the RC7D composer.
@@ -48,16 +77,39 @@ fun EyeControlledKeyboard(
             .fillMaxWidth()
             .fillMaxHeight()
     ) {
-        val availableHeightDp = maxHeight.value.toInt()
-        val keyHeightDp = ComposerKeyboardLayoutMetrics.keyHeightDp(availableHeightDp, layoutMode)
-        val keyFontSp = ComposerKeyboardLayoutMetrics.keyFontSp(keyHeightDp)
-        val rowSpacing = ComposerKeyboardLayoutMetrics.ROW_SPACING_DP.dp
-        val keyHeight = keyHeightDp.dp
+        EyeControlledKeyboardGrid(
+            uiStrings = uiStrings,
+            layoutMode = layoutMode,
+            cursorRow = cursorRow,
+            cursorCol = cursorCol,
+            bottomAnchored = false,
+            availableHeightDp = maxHeight.value.toInt()
+        )
+    }
+}
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(rowSpacing)
-        ) {
+@Composable
+private fun EyeControlledKeyboardGrid(
+    uiStrings: LisaUiStrings,
+    layoutMode: EyeKeyboardLayoutMode,
+    cursorRow: Int,
+    cursorCol: Int,
+    bottomAnchored: Boolean,
+    availableHeightDp: Int = 0
+) {
+    val keyHeightDp = if (bottomAnchored) {
+        ComposerKeyboardLayoutMetrics.bottomAnchoredKeyHeightDp(layoutMode)
+    } else {
+        ComposerKeyboardLayoutMetrics.keyHeightDp(availableHeightDp, layoutMode)
+    }
+    val keyFontSp = ComposerKeyboardLayoutMetrics.keyFontSp(keyHeightDp)
+    val rowSpacing = ComposerKeyboardLayoutMetrics.ROW_SPACING_DP.dp
+    val keyHeight = keyHeightDp.dp
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(rowSpacing)
+    ) {
             when (layoutMode) {
                 EyeKeyboardLayoutMode.Letters -> {
                     for (row in 0 until KeyboardLayout.LETTER_ROW_COUNT) {
@@ -67,7 +119,8 @@ fun EyeControlledKeyboard(
                             cursorRow = cursorRow,
                             cursorCol = cursorCol,
                             keyHeight = keyHeight,
-                            keyFontSp = keyFontSp
+                            keyFontSp = keyFontSp,
+                            bottomAnchored = bottomAnchored
                         )
                     }
                 }
@@ -79,7 +132,8 @@ fun EyeControlledKeyboard(
                             cursorRow = cursorRow,
                             cursorCol = cursorCol,
                             keyHeight = keyHeight,
-                            keyFontSp = keyFontSp
+                            keyFontSp = keyFontSp,
+                            bottomAnchored = bottomAnchored
                         )
                     }
                     KeyboardKeyRow(
@@ -88,7 +142,8 @@ fun EyeControlledKeyboard(
                         cursorRow = cursorRow,
                         cursorCol = cursorCol,
                         keyHeight = keyHeight,
-                        keyFontSp = keyFontSp
+                        keyFontSp = keyFontSp,
+                        bottomAnchored = bottomAnchored
                     )
                     KeyboardKeyRow(
                         keys = KeyboardLayout.punctuationRow.map { it.toString() },
@@ -96,7 +151,8 @@ fun EyeControlledKeyboard(
                         cursorRow = cursorRow,
                         cursorCol = cursorCol,
                         keyHeight = keyHeight,
-                        keyFontSp = keyFontSp
+                        keyFontSp = keyFontSp,
+                        bottomAnchored = bottomAnchored
                     )
                 }
             }
@@ -106,9 +162,9 @@ fun EyeControlledKeyboard(
                 cursorCol = cursorCol,
                 label = uiStrings.phraseComposerKeyboardSpaceLabel,
                 keyHeight = keyHeight,
-                keyFontSp = keyFontSp
+                keyFontSp = keyFontSp,
+                bottomAnchored = bottomAnchored
             )
-        }
     }
 }
 
@@ -119,7 +175,8 @@ private fun KeyboardKeyRow(
     cursorRow: Int,
     cursorCol: Int,
     keyHeight: androidx.compose.ui.unit.Dp,
-    keyFontSp: Int
+    keyFontSp: Int,
+    bottomAnchored: Boolean
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -132,7 +189,8 @@ private fun KeyboardKeyRow(
                 highlighted = cursorRow == row && cursorCol == col,
                 wide = false,
                 keyHeight = keyHeight,
-                keyFontSp = keyFontSp
+                keyFontSp = keyFontSp,
+                bottomAnchored = bottomAnchored
             )
         }
     }
@@ -145,7 +203,8 @@ private fun KeyboardSpaceRow(
     cursorCol: Int,
     label: String,
     keyHeight: androidx.compose.ui.unit.Dp,
-    keyFontSp: Int
+    keyFontSp: Int,
+    bottomAnchored: Boolean = false
 ) {
     val spaceRow = KeyboardLayout.spaceRowIndex(layoutMode)
     Row(
@@ -157,7 +216,8 @@ private fun KeyboardSpaceRow(
             highlighted = cursorRow == spaceRow && cursorCol == 0,
             wide = true,
             keyHeight = keyHeight,
-            keyFontSp = keyFontSp
+            keyFontSp = keyFontSp,
+            bottomAnchored = bottomAnchored
         )
     }
 }
@@ -168,14 +228,20 @@ private fun KeyboardKey(
     highlighted: Boolean,
     wide: Boolean,
     keyHeight: androidx.compose.ui.unit.Dp,
-    keyFontSp: Int
+    keyFontSp: Int,
+    bottomAnchored: Boolean = false
 ) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier = Modifier
             .padding(horizontal = 3.dp)
             .height(keyHeight)
-            .widthIn(min = if (wide) 200.dp else 34.dp)
+            .widthIn(min = when {
+                wide && bottomAnchored -> 240.dp
+                wide -> 200.dp
+                bottomAnchored -> 30.dp
+                else -> 34.dp
+            })
             .clip(shape)
             .background(if (highlighted) KeyHighlightFill else KeyBackground)
             .then(

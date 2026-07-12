@@ -156,7 +156,7 @@ class Rc7D_1DirectCustomComposerEntryTest {
         assertTrue(ui.contains("if (!phraseComposerActive)"))
         assertTrue(ui.contains("EyeControlledPhraseComposerOverlay"))
         val composerUi = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
-        assertTrue(composerUi.contains("EyeControlledKeyboard"))
+        assertTrue(composerUi.contains("BottomAlignedEyeKeyboard"))
     }
 
     // 10–13. Composer panel commands and cursor behaviour.
@@ -337,7 +337,7 @@ class Rc7D_1DirectCustomComposerEntryTest {
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
         assertFalse(main.contains("openPhraseComposer(LisaPanel.CreatePhrase)"))
         val ui = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
-        assertTrue(ui.contains("EyeControlledKeyboard"))
+        assertTrue(ui.contains("BottomAlignedEyeKeyboard"))
         assertFalse(ui.contains("phraseComposerAlphabetPageTitle"))
     }
 

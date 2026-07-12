@@ -8,11 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,8 +36,7 @@ private val ComposerOverlayScrim = Color.Black.copy(alpha = 0.48f)
 private val ComposerPanelBackground = Color(0xFF0D1B2A).copy(alpha = 0.72f)
 private val ComposerEntryBackground = Color.White.copy(alpha = 0.94f)
 private val ComposerEntryHighlight = LisaBlue.copy(alpha = 0.22f)
-/** Matches the bright Communication command panel ([LisaGuidedModeUi] NavBackground). */
-private val ComposerCommandPanelBackground = Color.White.copy(alpha = 0.88f)
+private val ComposerPhraseFieldBackground = Color.White.copy(alpha = 0.94f)
 
 @Composable
 fun EyeControlledPhraseComposerOverlay(
@@ -64,137 +61,247 @@ fun EyeControlledPhraseComposerOverlay(
             .background(ComposerOverlayScrim)
             .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(14.dp))
                 .background(ComposerPanelBackground)
                 .padding(10.dp)
         ) {
-            Column(modifier = Modifier.weight(1f).fillMaxSize()) {
-                if (state.mode == PhraseComposerMode.Keyboard) {
-                    ComposerEyeStatusBar(
-                        uiStrings = uiStrings,
-                        eyeFeedback = composerEyeFeedback
-                    )
-                    Spacer(Modifier.height(4.dp))
-                }
-
-                PhraseComposerHeader(
+            when (state.mode) {
+                PhraseComposerMode.Keyboard -> KeyboardComposerLayout(
                     uiStrings = uiStrings,
                     state = state,
-                    showTitle = state.mode != PhraseComposerMode.Keyboard,
-                    compact = state.mode == PhraseComposerMode.Keyboard
+                    composerEyeFeedback = composerEyeFeedback,
+                    commandEntries = commandEntries,
+                    inputSuspended = inputSuspended,
+                    onEmergency = onEmergency,
+                    onCommandSelected = onCommandSelected
                 )
-
-                state.errorMessage?.let { message ->
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = message,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = LisaWhite,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(LisaEmergencyRed.copy(alpha = 0.85f))
-                            .padding(horizontal = 10.dp, vertical = 8.dp)
-                    )
-                }
-
-                Spacer(Modifier.height(6.dp))
-
-                if (state.mode != PhraseComposerMode.Keyboard) {
-                    Text(
-                        text = PhraseComposerController.screenTitle(state, uiStrings),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = LisaWhite
-                    )
-                }
-
-                if (state.mode == PhraseComposerMode.DestinationCategorySelection) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = uiStrings.phraseComposerDestinationStepBody,
-                        fontSize = 13.sp,
-                        color = LisaWhite.copy(alpha = 0.85f),
-                        lineHeight = 19.sp
-                    )
-                }
-
-                Spacer(Modifier.height(6.dp))
-
-                when (state.mode) {
-                    PhraseComposerMode.Keyboard -> {
-                        EyeControlledKeyboard(
-                            uiStrings = uiStrings,
-                            layoutMode = state.keyboardLayoutMode,
-                            cursorRow = state.cursorRow,
-                            cursorCol = state.cursorCol,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    else -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            when (state.mode) {
-                                PhraseComposerMode.Success -> {
-                                    state.savedMapping?.let { mapping ->
-                                        SuccessSummary(
-                                            uiStrings = uiStrings,
-                                            mapping = mapping
-                                        )
-                                    }
-                                }
-                                PhraseComposerMode.SaveConfirmation -> {
-                                    SaveConfirmationSummary(
-                                        uiStrings = uiStrings,
-                                        state = state
-                                    )
-                                }
-                                PhraseComposerMode.CancelConfirm -> {
-                                    Text(
-                                        text = uiStrings.phraseComposerCancelConfirmBody,
-                                        fontSize = 14.sp,
-                                        color = LisaWhite.copy(alpha = 0.9f),
-                                        lineHeight = 20.sp
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                }
-                                else -> Unit
-                            }
-
-                            entries.forEach { entry ->
-                                val highlighted = state.confirmedLeft == entry.left &&
-                                    state.confirmedRight == entry.right
-                                PhraseComposerEntryRow(
-                                    entry = entry,
-                                    highlighted = highlighted,
-                                    onClick = { onEntrySelected(entry) }
-                                )
-                            }
-                        }
-                    }
-                }
+                else -> NonKeyboardComposerLayout(
+                    uiStrings = uiStrings,
+                    state = state,
+                    entries = entries,
+                    commandEntries = commandEntries,
+                    inputSuspended = inputSuspended,
+                    onEmergency = onEmergency,
+                    onEntrySelected = onEntrySelected,
+                    onCommandSelected = onCommandSelected
+                )
             }
-
-            Spacer(Modifier.width(8.dp))
-
-            PhraseComposerCommandPanel(
-                uiStrings = uiStrings,
-                commandEntries = commandEntries,
-                inputSuspended = inputSuspended,
-                onCommandSelected = onCommandSelected,
-                onEmergency = onEmergency
-            )
         }
     }
+}
+
+@Composable
+private fun KeyboardComposerLayout(
+    uiStrings: LisaUiStrings,
+    state: PhraseComposerState,
+    composerEyeFeedback: ComposerEyeFeedback,
+    commandEntries: List<PhraseComposerEntry>,
+    inputSuspended: Boolean,
+    onEmergency: () -> Unit,
+    onCommandSelected: (PhraseComposerEntry) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        ComposerEyeStatusBar(
+            uiStrings = uiStrings,
+            eyeFeedback = composerEyeFeedback
+        )
+
+        Spacer(Modifier.height(6.dp))
+
+        ComposerPhraseField(
+            uiStrings = uiStrings,
+            state = state
+        )
+
+        state.errorMessage?.let { message ->
+            Spacer(Modifier.height(6.dp))
+            ComposerErrorBanner(message = message)
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        ComposerCommandGrid(
+            uiStrings = uiStrings,
+            commandEntries = commandEntries,
+            inputSuspended = inputSuspended,
+            onCommandSelected = onCommandSelected,
+            onEmergency = onEmergency,
+            modifier = Modifier.weight(1f)
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        BottomAlignedEyeKeyboard(
+            uiStrings = uiStrings,
+            layoutMode = state.keyboardLayoutMode,
+            cursorRow = state.cursorRow,
+            cursorCol = state.cursorCol
+        )
+    }
+}
+
+@Composable
+private fun NonKeyboardComposerLayout(
+    uiStrings: LisaUiStrings,
+    state: PhraseComposerState,
+    entries: List<PhraseComposerEntry>,
+    commandEntries: List<PhraseComposerEntry>,
+    inputSuspended: Boolean,
+    onEmergency: () -> Unit,
+    onEntrySelected: (PhraseComposerEntry) -> Unit,
+    onCommandSelected: (PhraseComposerEntry) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        PhraseComposerHeader(
+            uiStrings = uiStrings,
+            state = state,
+            showTitle = true,
+            compact = false
+        )
+
+        state.errorMessage?.let { message ->
+            Spacer(Modifier.height(6.dp))
+            ComposerErrorBanner(message = message)
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = PhraseComposerController.screenTitle(state, uiStrings),
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = LisaWhite
+        )
+
+        if (state.mode == PhraseComposerMode.DestinationCategorySelection) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = uiStrings.phraseComposerDestinationStepBody,
+                fontSize = 13.sp,
+                color = LisaWhite.copy(alpha = 0.85f),
+                lineHeight = 19.sp
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            when (state.mode) {
+                PhraseComposerMode.Success -> {
+                    state.savedMapping?.let { mapping ->
+                        SuccessSummary(
+                            uiStrings = uiStrings,
+                            mapping = mapping
+                        )
+                    }
+                }
+                PhraseComposerMode.SaveConfirmation -> {
+                    SaveConfirmationSummary(
+                        uiStrings = uiStrings,
+                        state = state
+                    )
+                }
+                PhraseComposerMode.CancelConfirm -> {
+                    Text(
+                        text = uiStrings.phraseComposerCancelConfirmBody,
+                        fontSize = 14.sp,
+                        color = LisaWhite.copy(alpha = 0.9f),
+                        lineHeight = 20.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                else -> Unit
+            }
+
+            entries.forEach { entry ->
+                val highlighted = state.confirmedLeft == entry.left &&
+                    state.confirmedRight == entry.right
+                PhraseComposerEntryRow(
+                    entry = entry,
+                    highlighted = highlighted,
+                    onClick = { onEntrySelected(entry) }
+                )
+            }
+        }
+
+        if (commandEntries.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                commandEntries.forEach { entry ->
+                    ComposerCommandCard(
+                        entry = entry,
+                        enabled = entry.enabled && !inputSuspended,
+                        modifier = Modifier.weight(1f),
+                        onClick = { if (entry.enabled && !inputSuspended) onCommandSelected(entry) }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        ComposerEmergencyCommandCard(
+            uiStrings = uiStrings,
+            onClick = onEmergency
+        )
+    }
+}
+
+@Composable
+private fun ComposerPhraseField(
+    uiStrings: LisaUiStrings,
+    state: PhraseComposerState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposerPhraseFieldBackground)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = uiStrings.phraseComposerCurrentPhraseLabel,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = LisaBlueDark.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = if (state.displayPhrase().isBlank()) "—" else state.displayPhrase(),
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = LisaBlueDark,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun ComposerErrorBanner(message: String) {
+    Text(
+        text = message,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        color = LisaWhite,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(LisaEmergencyRed.copy(alpha = 0.85f))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    )
 }
 
 @Composable
@@ -231,19 +338,21 @@ private fun PhraseComposerHeader(
             )
             Spacer(Modifier.height(4.dp))
         }
-        Text(
-            text = uiStrings.phraseComposerCurrentPhraseLabel,
-            fontSize = if (compact) 11.sp else 12.sp,
-            color = LisaWhite.copy(alpha = 0.75f)
-        )
-        Text(
-            text = if (state.displayPhrase().isBlank()) "—" else state.displayPhrase(),
-            fontWeight = FontWeight.Bold,
-            fontSize = if (compact) 18.sp else 22.sp,
-            color = LisaWhite,
-            maxLines = if (compact) 2 else 3,
-            overflow = TextOverflow.Ellipsis
-        )
+        if (!compact) {
+            Text(
+                text = uiStrings.phraseComposerCurrentPhraseLabel,
+                fontSize = 12.sp,
+                color = LisaWhite.copy(alpha = 0.75f)
+            )
+            Text(
+                text = if (state.displayPhrase().isBlank()) "—" else state.displayPhrase(),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = LisaWhite,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -333,73 +442,4 @@ private fun PhraseComposerEntryRow(
             modifier = Modifier.weight(1f)
         )
     }
-}
-
-@Composable
-private fun PhraseComposerCommandPanel(
-    uiStrings: LisaUiStrings,
-    commandEntries: List<PhraseComposerEntry>,
-    inputSuspended: Boolean,
-    onCommandSelected: (PhraseComposerEntry) -> Unit,
-    onEmergency: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(118.dp)
-            .fillMaxSize()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposerCommandPanelBackground)
-            .padding(5.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
-    ) {
-        commandEntries.forEach { entry ->
-            PhraseComposerCommandButton(
-                entry = entry,
-                enabled = entry.enabled && !inputSuspended,
-                onClick = { if (entry.enabled && !inputSuspended) onCommandSelected(entry) }
-            )
-        }
-        GuidedEmergencyNavButton(
-            symbol = "🚨",
-            title = uiStrings.guidedEmergencyNavTitle,
-            gestureHint = uiStrings.guidedEmergencyNavHint,
-            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
-            compact = true,
-            onClick = onEmergency
-        )
-    }
-}
-
-@Composable
-private fun PhraseComposerCommandButton(
-    entry: PhraseComposerEntry,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    GuidedNavigationActionButton(
-        symbol = commandSymbol(entry.actionId),
-        title = entry.label,
-        gestureHint = entry.label,
-        sequenceLabel = entry.sequenceLabel,
-        enabled = enabled,
-        compact = true,
-        onClick = onClick
-    )
-}
-
-private fun commandSymbol(actionId: PhraseComposerActionId): String = when (actionId) {
-    PhraseComposerActionId.MoveUp -> "↑"
-    PhraseComposerActionId.MoveDown -> "↓"
-    PhraseComposerActionId.MoveLeft -> "←"
-    PhraseComposerActionId.MoveRight -> "→"
-    PhraseComposerActionId.SelectKey -> "✓"
-    PhraseComposerActionId.Backspace -> "⌫"
-    PhraseComposerActionId.Preview -> "🔊"
-    PhraseComposerActionId.Save -> "💾"
-    PhraseComposerActionId.Back -> "↩"
-    PhraseComposerActionId.ToggleKeyboardLayout -> "⌨"
-    PhraseComposerActionId.ConfirmSave -> "💾"
-    PhraseComposerActionId.CancelSave -> "✕"
-    else -> "•"
 }

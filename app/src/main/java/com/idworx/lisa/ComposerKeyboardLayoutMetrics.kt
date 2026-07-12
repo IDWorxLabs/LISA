@@ -26,4 +26,10 @@ object ComposerKeyboardLayoutMetrics {
         val scaled = (keyHeightDp * 0.42f).toInt()
         return scaled.coerceIn(MIN_KEY_FONT_SP, MAX_KEY_FONT_SP)
     }
+
+    /** Fixed comfortable key height when the keyboard is bottom-anchored (RC7D.4). */
+    fun bottomAnchoredKeyHeightDp(mode: EyeKeyboardLayoutMode): Int = when (mode) {
+        EyeKeyboardLayoutMode.Letters -> 44
+        EyeKeyboardLayoutMode.Numbers -> 38
+    }.coerceIn(MIN_KEY_HEIGHT_DP, MAX_KEY_HEIGHT_DP)
 }

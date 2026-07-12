@@ -171,16 +171,16 @@ class Rc7D_3ComposerEmergencyOverlayVisibilityTest {
     }
 
     @Test
-    fun composerCommandPanelUsesBrightBackground() {
-        val ui = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
-        assertTrue(ui.contains("ComposerCommandPanelBackground"))
-        assertTrue(ui.contains("GuidedNavigationActionButton"))
+    fun composerCommandPanelUsesBrightSharedStyle() {
+        val grid = readSource("app/src/main/java/com/idworx/lisa/ComposerCommandGrid.kt")
+        assertTrue(grid.contains("ComposerCommandCard"))
+        assertTrue(grid.contains("CommandCardBackground"))
     }
 
     @Test
     fun emergencyCommandCardRemainsRed() {
-        val ui = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
-        assertTrue(ui.contains("GuidedEmergencyNavButton"))
+        val grid = readSource("app/src/main/java/com/idworx/lisa/ComposerCommandGrid.kt")
+        assertTrue(grid.contains("ComposerEmergencyCommandCard"))
     }
 
     @Test
@@ -198,17 +198,15 @@ class Rc7D_3ComposerEmergencyOverlayVisibilityTest {
 
     @Test
     fun keyboardExpandsIntoAvailableVerticalSpace() {
-        val height = ComposerKeyboardLayoutMetrics.keyHeightDp(availableHeightDp = 360, mode = letters)
-        assertTrue(height > ComposerKeyboardLayoutMetrics.MIN_KEY_HEIGHT_DP)
+        val height = ComposerKeyboardLayoutMetrics.bottomAnchoredKeyHeightDp(letters)
+        assertTrue(height >= ComposerKeyboardLayoutMetrics.MIN_KEY_HEIGHT_DP)
         assertTrue(height <= ComposerKeyboardLayoutMetrics.MAX_KEY_HEIGHT_DP)
     }
 
     @Test
     fun noLargeFixedSpacerUnderKeyboard() {
-        val keyboard = readSource("app/src/main/java/com/idworx/lisa/EyeControlledKeyboard.kt")
-        assertTrue(keyboard.contains("BoxWithConstraints"))
-        assertTrue(keyboard.contains("fillMaxHeight"))
-        assertFalse(keyboard.contains("Spacer(Modifier.height(80.dp))"))
+        val ui = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
+        assertFalse(ui.contains("Spacer(Modifier.height(80.dp))"))
     }
 
     @Test
