@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiCountdown = mutableStateOf<Int?>(null)
     private val uiDeveloperMode = mutableStateOf(false)
     private val uiActivePanel = mutableStateOf(LisaPanel.None)
+    private val uiPanelReturnTarget = mutableStateOf<LisaPanel?>(null)
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
@@ -172,10 +173,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiTextSizeScale = mutableStateOf(1.0f)
 
     private lateinit var profileStore: LisaProfileStore
-    private lateinit var caregiverStore: LisaCaregiverStore
-    private val uiCaregivers = mutableStateListOf<LisaCaregiver>()
     private val uiActiveLanguage = mutableStateOf(PreferredLanguage.English)
-    private val uiEmergencyNotifyNames = mutableStateOf<List<String>>(emptyList())
     private lateinit var releaseStore: LisaReleaseStore
     private val uiOnboardingCompleted = mutableStateOf(false)
     private val uiCameraPermissionGranted = mutableStateOf(false)
@@ -228,7 +226,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         mappingsState.addAll(loadCustomMappings(this))
 
         profileStore = LisaProfileStore(this)
-        caregiverStore = LisaCaregiverStore(this)
         val legacySensitivity = loadSensitivityLevel(this)
         val legacyDeveloperMode = loadDeveloperMode(this)
         val profileState = profileStore.load(legacySensitivity, legacyDeveloperMode)
@@ -236,7 +233,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiProfiles.addAll(profileState.profiles)
         uiActiveProfileId.value = profileState.activeProfileId
         profileState.activeProfile?.let { applyProfileSettings(it, persist = false) }
-        refreshCaregiversForActiveProfile()
 
         releaseStore = LisaReleaseStore(this)
         trainingProgressStore = TrainingProgressStore(this)
@@ -283,6 +279,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             LISATheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
                     val uiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
+                    val appVersionInfo = remember { LisaAppVersionInfo.from(this@MainActivity) }
                     val userDisplay = uiCommunicationState.value.toUserDisplay(
                         strings = uiStrings,
                         pendingPhrase = uiPendingPhrase.value,
@@ -293,9 +290,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     )
                     LisaRootUI(
                         uiStrings = uiStrings,
+                        appVersionInfo = appVersionInfo,
                         userDisplay = userDisplay,
                         emergencyActive = uiEmergencyActive.value,
-                        emergencyNotifyNames = uiEmergencyNotifyNames.value,
                         developerMode = uiDeveloperMode.value,
                         activePanel = uiActivePanel.value,
                         lastSpoken = uiLastSpoken.value,
@@ -310,7 +307,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         textSizeScale = uiTextSizeScale.value,
                         profiles = uiProfiles.toList(),
                         activeProfileId = uiActiveProfileId.value,
-                        caregivers = uiCaregivers.toList(),
                         developerInfo = DeveloperPanelInfo(
                             leftEye = uiDiagLeftEye.value,
                             rightEye = uiDiagRightEye.value,
@@ -324,11 +320,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             sensitivityLevel = uiSensitivityLevel.value,
                             detectionState = uiCommunicationState.value.displayText
                         ),
-                        mappings = mappingsState,
                         onMenuClick = { toggleMenuPanel() },
                         onSelectPanel = { panel -> openPanel(panel) },
                         onClosePanel = { closeAllPanels() },
-                        onBackToMenu = { openPanel(LisaPanel.Menu) },
+                        onBackToMenu = { navigateBackFromPanel() },
+                        onOpenCreatePhrase = { openPanel(LisaPanel.CreatePhrase, LisaPanel.VocabularyTraining) },
+                        onOpenPhraseEditor = { openPanel(LisaPanel.PhraseEditor, LisaPanel.CreatePhrase) },
+                        onPreviewCaregiverPhrase = { phrase -> previewCaregiverPhrase(phrase) },
+                        onSaveCaregiverPhrase = { category, phrase -> saveCaregiverPhrase(category, phrase) },
+                        onReturnToCommunication = { returnToCommunicationWorkspace() },
+                        onOpenDeviceCheck = { openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings) },
+                        onOpenDeveloperTools = { openPanel(LisaPanel.DeveloperTools, LisaPanel.Settings) },
                         onDeveloperModeChange = { enabled ->
                             updateActiveProfile { it.copy(developerMode = enabled) }
                         },
@@ -343,30 +345,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onCreateProfile = { createNewProfile() },
                         onUpdateProfile = { profile -> updateProfile(profile) },
                         onDeleteProfile = { profileId -> deleteProfile(profileId) },
-                        onAddCaregiver = { caregiver -> addCaregiver(caregiver) },
-                        onUpdateCaregiver = { caregiver -> updateCaregiver(caregiver) },
-                        onDeleteCaregiver = { caregiverId -> deleteCaregiver(caregiverId) },
                         onRepeat = {
                             val phrase = uiLastSpoken.value
                             if (phrase.isNotBlank()) speak(phrase)
                         },
                         onReset = { performReset() },
                         onEditCountdown = { editCountdownAndRetry() },
-                        onAddMapping = { left, right, phrase ->
-                            val cleaned = phrase.trim()
-                            if (cleaned.isBlank()) return@LisaRootUI
-                            if (!isSequenceEligibleForSpeech(left, right)) return@LisaRootUI
-                            val newMap = WinkMapping(
-                                left = left,
-                                right = right,
-                                vocabularyId = cleaned,
-                                isCustom = true,
-                                customPhrase = cleaned
-                            )
-                            mappingsState.add(newMap)
-                            saveCustomMappings(this@MainActivity, mappingsState.filter { it.isCustom })
-                            Toast.makeText(this@MainActivity, "Saved: L$left R$right → $cleaned", Toast.LENGTH_SHORT).show()
-                        },
                         onboardingCompleted = uiOnboardingCompleted.value,
                         cameraPermissionGranted = uiCameraPermissionGranted.value,
                         cameraPermissionPermanentlyDenied = uiCameraPermissionPermanentlyDenied.value,
@@ -481,7 +465,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         cameraView = {
                             CameraPreview(
-                                onFrame = { imageProxy -> processFrame(imageProxy) }
+                                onFrame = { imageProxy -> processFrame(imageProxy) },
+                                cameraErrorMessage = uiStrings.cameraStartupFailed
                             )
                         }
                     )
@@ -823,13 +808,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         return true
     }
 
-    private fun openPanel(panel: LisaPanel) {
+    private fun openPanel(panel: LisaPanel, returnTo: LisaPanel? = null) {
+        if (returnTo != null) {
+            uiPanelReturnTarget.value = returnTo
+        }
         uiActivePanel.value = panel
         when (panel) {
             LisaPanel.Menu -> verifyTrainingNavigation(NavigationAction.OpenMenu)
             LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
             LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
-            LisaPanel.CaregiverLinking -> verifyTrainingNavigation(NavigationAction.OpenCaregiver)
             else -> Unit
         }
         if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
@@ -837,10 +824,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun navigateBackFromPanel() {
+        val target = uiPanelReturnTarget.value ?: LisaPanel.Menu
+        uiPanelReturnTarget.value = null
+        openPanel(target)
+    }
+
     private fun closeAllPanels() {
         if (uiActivePanel.value != LisaPanel.None) {
             verifyTrainingNavigation(NavigationAction.CloseMenu)
         }
+        uiPanelReturnTarget.value = null
         uiActivePanel.value = LisaPanel.None
     }
 
@@ -862,7 +856,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         emergencyAlarmController.stop()
         emergencyActive = false
         uiEmergencyActive.value = false
-        uiEmergencyNotifyNames.value = emptyList()
         closeQuickControls()
         closePracticeMode()
         uiGuidedNavigationState.value = GuidedNavigationState()
@@ -884,14 +877,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiEmergencyActive.value = true
         uiLastSpoken.value = "Emergency"
         setCommunicationState(LisaCommunicationState.EmergencyAlarmActive)
-        val profileId = uiActiveProfileId.value
-        val profileCaregivers = caregiverStore.loadForProfile(profileId)
-        uiEmergencyNotifyNames.value = EmergencyNotificationService.notifyCaregiverPlaceholder(
-            profileId = profileId,
-            caregivers = profileCaregivers,
-            sequenceLeft = leftWinks,
-            sequenceRight = rightWinks
-        )
         emergencyAlarmController.start(
             leftWinks,
             rightWinks,
@@ -1300,7 +1285,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
         )
         uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
-        Toast.makeText(this, "Feedback saved locally", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, guidedUiStrings().feedbackSavedConfirmation, Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleChecklistItem(key: String, checked: Boolean) {
@@ -1389,8 +1374,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun guidedCatalogContext(): GuidedCatalogContext =
         GuidedCatalogContext(
             responseTimeSec = uiSequenceProcessingDelaySec.value,
-            sensitivityLevel = uiSensitivityLevel.value
+            sensitivityLevel = uiSensitivityLevel.value,
+            caregiverCustomPhrases = CustomPhraseEngine.toCatalogEntries(mappingsState.filter { it.isCustom })
         )
+
+    private fun saveCaregiverPhrase(
+        category: CustomPhraseEngine.CaregiverPhraseCategory,
+        rawPhrase: String
+    ): CustomPhraseEngine.SavePhraseResult {
+        val result = CustomPhraseEngine.saveNewPhrase(rawPhrase, category, mappingsState.toList())
+        if (result is CustomPhraseEngine.SavePhraseResult.Success) {
+            mappingsState.add(result.mapping)
+            saveCustomMappings(this, mappingsState.filter { it.isCustom })
+        }
+        return result
+    }
+
+    private fun previewCaregiverPhrase(rawPhrase: String) {
+        val normalized = CustomPhraseEngine.normalizePhrase(rawPhrase)
+        if (normalized.isNotBlank()) speak(normalized)
+    }
+
+    private fun returnToCommunicationWorkspace() {
+        closeAllPanels()
+    }
 
     private fun guidedVisibleEntryCap(): Int =
         GuidedVocabularyCatalog.visibleEntryCount(
@@ -1765,7 +1772,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val profile = uiProfiles.find { it.id == profileId } ?: return
         uiActiveProfileId.value = profileId
         applyProfileSettings(profile)
-        refreshCaregiversForActiveProfile()
     }
 
     private fun applyTtsForProfile(profile: LisaUserProfile) {
@@ -1806,7 +1812,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun testTtsVoice() {
         val engine = tts ?: run {
-            Toast.makeText(this, "Speech engine not ready", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, guidedUiStrings().speechEngineNotReady, Toast.LENGTH_SHORT).show()
             return
         }
         activeProfile()?.let { LisaTtsVoiceManager.applyForProfile(engine, it) }
@@ -1818,7 +1824,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         try {
             startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
         } catch (_: Exception) {
-            Toast.makeText(this, "Unable to open voice installer", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, guidedUiStrings().voiceInstallerUnavailable, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1838,33 +1844,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
-        Toast.makeText(this, "Unable to open speech settings", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, guidedUiStrings().speechSettingsUnavailable, Toast.LENGTH_SHORT).show()
     }
 
     private fun activeLanguage(): PreferredLanguage = uiActiveLanguage.value
-
-    private fun refreshCaregiversForActiveProfile() {
-        uiCaregivers.clear()
-        uiCaregivers.addAll(caregiverStore.loadForProfile(uiActiveProfileId.value))
-    }
-
-    private fun addCaregiver(caregiver: LisaCaregiver) {
-        caregiverStore.upsert(caregiver)
-        refreshCaregiversForActiveProfile()
-        Toast.makeText(this, "Caregiver added", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun updateCaregiver(caregiver: LisaCaregiver) {
-        caregiverStore.upsert(caregiver.copy(updatedAt = System.currentTimeMillis()))
-        refreshCaregiversForActiveProfile()
-        Toast.makeText(this, "Caregiver saved", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun deleteCaregiver(caregiverId: String) {
-        caregiverStore.delete(caregiverId)
-        refreshCaregiversForActiveProfile()
-        Toast.makeText(this, "Caregiver removed", Toast.LENGTH_SHORT).show()
-    }
 
     private fun deleteProfile(profileId: String) {
         if (uiProfiles.size <= 1) return
@@ -2395,7 +2378,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
 @Composable
 private fun CameraPreview(
-    onFrame: (ImageProxy) -> Unit
+    onFrame: (ImageProxy) -> Unit,
+    cameraErrorMessage: String
 ) {
     val context = LocalContext.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -2431,7 +2415,7 @@ private fun CameraPreview(
                         analysis
                     )
                 } catch (e: Exception) {
-                    Toast.makeText(ctx, "Camera failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(ctx, cameraErrorMessage, Toast.LENGTH_LONG).show()
                 }
             }, ContextCompat.getMainExecutor(ctx))
 
@@ -2472,13 +2456,9 @@ private fun saveDeveloperMode(context: Context, enabled: Boolean) {
         .apply()
 }
 
-// Format per line: "L,R|phrase"
+// Format per line: "L,R|phrase|category"
 private fun saveCustomMappings(context: Context, custom: List<WinkMapping>) {
-    val text = buildString {
-        custom.forEach { m ->
-            append("${m.left},${m.right}|${m.phrase.replace("\n", " ")}\n")
-        }
-    }
+    val text = CustomPhraseEngine.serializeCustomMappings(custom)
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
         .putString(KEY_CUSTOM_MAPS, text)
@@ -2488,21 +2468,5 @@ private fun saveCustomMappings(context: Context, custom: List<WinkMapping>) {
 private fun loadCustomMappings(context: Context): List<WinkMapping> {
     val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .getString(KEY_CUSTOM_MAPS, "") ?: ""
-
-    if (raw.isBlank()) return emptyList()
-
-    return raw.lines()
-        .mapNotNull { line ->
-            val trimmed = line.trim()
-            if (trimmed.isBlank()) return@mapNotNull null
-            val parts = trimmed.split("|", limit = 2)
-            if (parts.size != 2) return@mapNotNull null
-            val lr = parts[0].split(",", limit = 2)
-            if (lr.size != 2) return@mapNotNull null
-            val l = lr[0].toIntOrNull() ?: return@mapNotNull null
-            val r = lr[1].toIntOrNull() ?: return@mapNotNull null
-            val phrase = parts[1].trim()
-            if (phrase.isBlank()) return@mapNotNull null
-            WinkMapping(l, r, vocabularyId = phrase, isCustom = true, customPhrase = phrase)
-        }
+    return CustomPhraseEngine.parseCustomMappings(raw)
 }

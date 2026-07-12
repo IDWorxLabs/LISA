@@ -20,13 +20,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.idworx.lisa.LisaUiStrings
+import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
+import com.idworx.lisa.features.silentwelcome.metadata.SilentWelcomeLaunchFlowMetadata
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaGray
-import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 
 /** First launch — exact simple Welcome to Lisa screen with two button choices only. */
 @Composable
 fun TrainingFirstLaunchChoiceScreen(
+    uiStrings: LisaUiStrings,
     onStartGuidedLearning: () -> Unit,
     onSkipToWorkspace: () -> Unit,
     onSkipToNavigationTraining: () -> Unit = {}
@@ -43,7 +46,7 @@ fun TrainingFirstLaunchChoiceScreen(
             Spacer(Modifier.height(32.dp))
             TrainingCard {
                 Text(
-                    text = "Welcome to Lisa",
+                    text = uiStrings.welcomeToLisa,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = LisaBlueDark,
@@ -51,7 +54,7 @@ fun TrainingFirstLaunchChoiceScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Lisa will guide the primary user through their first communication journey using only their eyes.",
+                    text = SilentWelcomeLaunchFlowMetadata.SUBTITLE,
                     fontSize = 15.sp,
                     color = LisaBlueDark.copy(alpha = 0.72f),
                     lineHeight = 22.sp,
@@ -60,30 +63,33 @@ fun TrainingFirstLaunchChoiceScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 TrainingPrimaryButton(
-                    text = "Start Guided Learning",
+                    text = uiStrings.startGuidedLearning,
                     onClick = onStartGuidedLearning
                 )
                 TrainingSecondaryButton(
-                    text = "Skip to Communication Workspace",
+                    text = uiStrings.skipToCommunication,
                     onClick = onSkipToWorkspace
                 )
             }
             Spacer(Modifier.height(20.dp))
-            CaregiverTestingSkipLink(onClick = onSkipToNavigationTraining)
+            CaregiverAdvancedSkipLink(
+                text = uiStrings.caregiverAdvancedSkipNavigation,
+                onClick = onSkipToNavigationTraining
+            )
         }
     }
 }
 
 /**
- * Caregiver/testing-only affordance — deliberately small and secondary so the primary user's
+ * Caregiver-only affordance — deliberately small and secondary so the primary user's
  * two-choice screen stays exact and simple. Jumps straight to Lesson 16 of 23 (navigation
- * training) inside the real Communication Workspace in GUIDED_TRAINING mode.
+ * training) inside the real Communication screen in GUIDED_TRAINING mode.
  */
 @Composable
-private fun CaregiverTestingSkipLink(onClick: () -> Unit) {
+private fun CaregiverAdvancedSkipLink(text: String, onClick: () -> Unit) {
     androidx.compose.material3.TextButton(onClick = onClick) {
         Text(
-            text = "Caregiver / testing: Skip to Navigation Training",
+            text = text,
             fontSize = 12.sp,
             color = LisaGray,
             textAlign = TextAlign.Center
@@ -188,6 +194,7 @@ fun TrainingWelcomeScreen(
 
 @Composable
 fun TrainingCompletionScreen(
+    uiStrings: LisaUiStrings,
     showCelebration: Boolean,
     onNarrationStarted: () -> Unit
 ) {
@@ -220,7 +227,7 @@ fun TrainingCompletionScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Let's go to your Communication Workspace.",
+                text = uiStrings.goToCommunication,
                 fontSize = 18.sp,
                 color = LisaGray,
                 lineHeight = 26.sp,

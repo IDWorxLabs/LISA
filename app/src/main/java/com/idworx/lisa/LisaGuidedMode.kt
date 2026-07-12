@@ -141,7 +141,7 @@ object GuidedPageSequences {
     )
 }
 
-/** Direct gesture shortcuts for the six top-level categories in Category Menu mode. */
+/** Direct gesture shortcuts for the top-level categories in Category Menu mode (one per page). */
 object GuidedCategoryShortcuts {
     const val SHORTCUT_COUNT: Int = GuidedVocabularyCategory.PAGE_COUNT
 
@@ -188,13 +188,15 @@ enum class GuidedVocabularyCategory {
     Medical,
     Family,
     BasicSystemControls,
-    Preferences;
+    Preferences,
+    Custom;
 
     companion object {
         val ordered: List<GuidedVocabularyCategory> = entries.toList()
-        const val PAGE_COUNT: Int = 6
+        const val PAGE_COUNT: Int = 7
         const val STANDARD_ENTRIES_PER_PAGE: Int = 10
         const val PREFERENCES_CATEGORY_INDEX: Int = 5
+        const val CUSTOM_CATEGORY_INDEX: Int = 6
     }
 }
 
@@ -384,7 +386,8 @@ object GuidedTouchNavigationSpec {
 
 data class GuidedCatalogContext(
     val responseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
-    val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL
+    val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    val caregiverCustomPhrases: List<CustomPhraseEngine.CaregiverCustomPhraseEntry> = emptyList()
 )
 
 sealed class GuidedSequenceResult {
@@ -857,6 +860,12 @@ object GuidedVocabularyCatalog {
                 CatalogEntrySpec.Preference("current_sensitivity", GuidedOverlayAction.ShowCurrentSensitivity),
                 CatalogEntrySpec.Preference("adjust_sensitivity", GuidedOverlayAction.OpenAdjustSensitivity)
             )
+        ),
+        // Custom holds only caregiver-created phrases (merged in from GuidedCatalogContext);
+        // it deliberately ships with no built-in entries.
+        CatalogSpec(
+            category = GuidedVocabularyCategory.Custom,
+            entries = emptyList()
         )
     )
 
@@ -866,18 +875,31 @@ object GuidedVocabularyCatalog {
         catalogContext: GuidedCatalogContext = GuidedCatalogContext()
     ): List<GuidedCategoryPage> =
         catalog.map { spec ->
+            val builtInEntries = spec.entries.mapIndexedNotNull { index, entrySpec ->
+                resolveEntry(
+                    spec = entrySpec,
+                    slotIndex = index,
+                    language = language,
+                    uiStrings = uiStrings,
+                    catalogContext = catalogContext
+                )
+            }
+            val customEntries = catalogContext.caregiverCustomPhrases
+                .filter { it.category.toGuidedCategory() == spec.category }
+                .mapIndexed { index, custom ->
+                    GuidedVocabularyEntry(
+                        left = custom.left,
+                        right = custom.right,
+                        phrase = custom.phrase,
+                        englishSubtitle = null,
+                        kind = GuidedEntryKind.SpeakPhrase,
+                        slotIndex = builtInEntries.size + index
+                    )
+                }
             GuidedCategoryPage(
                 category = spec.category,
                 title = uiStrings.guidedCategoryTitle(spec.category),
-                entries = spec.entries.mapIndexedNotNull { index, entrySpec ->
-                    resolveEntry(
-                        spec = entrySpec,
-                        slotIndex = index,
-                        language = language,
-                        uiStrings = uiStrings,
-                        catalogContext = catalogContext
-                    )
-                }
+                entries = builtInEntries + customEntries
             )
         }
 
@@ -1190,8 +1212,15 @@ object GuidedVocabularyCatalogValidation {
             page.entries.map { it.left to it.right }.distinct().size == page.entries.size
         }
 
+    /** Pages carrying the standard slot layout — Custom (user phrases only) and Preferences use their own sequences. */
+    private fun standardSlotPages(): List<GuidedCategoryPage> =
+        allPages.filter {
+            it.category != GuidedVocabularyCategory.Preferences &&
+                it.category != GuidedVocabularyCategory.Custom
+        }
+
     fun sequencesRepeatAcrossPages(): Boolean {
-        val standardPages = allPages.filter { it.category != GuidedVocabularyCategory.Preferences }
+        val standardPages = standardSlotPages()
         val page0 = standardPages[0].entries.map { it.left to it.right }
         return standardPages.drop(1).all { page ->
             page.entries.map { it.left to it.right } == page0
@@ -1263,14 +1292,14 @@ object GuidedVocabularyCatalogValidation {
         GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation()
 
     fun categoryShortcutLabelsMatchExpectedSlots(): Boolean {
-        val expected = listOf("L2 R1", "L1 R2", "L3 R1", "L1 R3", "L3 R2", "L2 R3")
+        val expected = listOf("L2 R1", "L1 R2", "L3 R1", "L1 R3", "L3 R2", "L2 R3", "L3 R3")
         return (0 until GuidedVocabularyCategory.PAGE_COUNT).all { index ->
             GuidedCategoryShortcuts.sequenceLabelForCategory(index) == expected[index]
         }
     }
 
     fun sameSlotDifferentPhrasesAcrossPages(): Boolean {
-        val standardPages = allPages.filter { it.category != GuidedVocabularyCategory.Preferences }
+        val standardPages = standardSlotPages()
         val slot0Phrases = standardPages.map { it.entries.first().phrase }.distinct()
         return slot0Phrases.size == standardPages.size
     }

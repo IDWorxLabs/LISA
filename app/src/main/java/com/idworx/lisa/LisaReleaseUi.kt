@@ -294,7 +294,7 @@ fun FeedbackPanel(
     val q3 = uiStrings.t("Did LISA detect your winks correctly?", "Het LISA jou knippe korrek opgespoor?", "Ingabe i-LISA ithole ama-wink akho ngokulungile?")
     val q4 = uiStrings.t("Did speech happen at the right time?", "Het spraak op die regte tyd plaasgevind?", "Ingabe inkulumo yenzekile ngesikhathi esifanele?")
 
-    LisaPanelShell(title = uiStrings.feedback, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.feedback, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -302,15 +302,12 @@ fun FeedbackPanel(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            PanelPurposeLine(uiStrings.feedbackPurpose)
             Text(
-                text = uiStrings.t(
-                    "Help improve LISA during local testing. Responses are saved on this device only.",
-                    "Help om LISA te verbeter tydens plaaslike toetsing. Antwoorde word slegs op hierdie toestel gestoor.",
-                    "Siza ukuthuthukisa i-LISA ngesikhathi sokuhlola endaweni. Izimpendulo zigcinwa kule divayisi kuphela."
-                ),
-                fontSize = 13.sp,
-                color = LisaBlueDark.copy(alpha = 0.8f),
-                lineHeight = 18.sp
+                text = uiStrings.feedbackIntro,
+                fontSize = 11.sp,
+                color = LisaGray,
+                lineHeight = 15.sp
             )
             FeedbackField(q1, workedWell) { workedWell = it }
             FeedbackField(q2, confusing) { confusing = it }
@@ -330,7 +327,7 @@ fun FeedbackPanel(
                 enabled = workedWell.isNotBlank() || confusing.isNotBlank() ||
                     winkDetection.isNotBlank() || speechTiming.isNotBlank()
             ) {
-                Text(uiStrings.t("Save feedback", "Stoor terugvoer", "Londoloza impendulo"))
+                Text(uiStrings.saveFeedback)
             }
         }
     }
@@ -355,14 +352,22 @@ fun TestingChecklistPanel(
     onToggleItem: (String, Boolean) -> Unit,
     onBack: () -> Unit
 ) {
-    LisaPanelShell(title = uiStrings.testingChecklist, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.testingChecklist, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 420.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            PanelPurposeLine(uiStrings.deviceChecklistPurpose)
+            Text(
+                text = uiStrings.testingChecklistIntro,
+                fontSize = 11.sp,
+                color = LisaGray,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
             TestingChecklistItem.entries.forEach { item ->
                 val checked = checklist[item.key] == true
                 val label = uiStrings.testingChecklistLabel(item)
@@ -390,17 +395,17 @@ private fun LisaUiStrings.testingChecklistLabel(item: TestingChecklistItem): Str
     TestingChecklistItem.YesSequenceWorks -> t("Yes sequence works", "Ja-reeks werk", "Uchungechunge lwe-Yebo luyasebenza")
     TestingChecklistItem.NoSequenceWorks -> t("No sequence works", "Nee-reeks werk", "Uchungechunge lwe-Cha luyasebenza")
     TestingChecklistItem.EmergencyAlarmTested -> t("Emergency alarm tested", "Noodalarm getoets", "I-alamu yosizo oluphuthumayo ihloliwe")
-    TestingChecklistItem.ResetStopsAlarm -> t("Reset stops alarm", "Herstel stop alarm", "Ukusetha kabusha kumisa i-alamu")
-    TestingChecklistItem.CaregiverKnowsTestBuild -> t(
-        "Caregiver knows this is a test build",
-        "Versorger weet dit is 'n toetsweergawe",
-        "Umphakeli wokunakekela uyazi ukuthi lokhu kuyakhiwo lokuhlola"
-    )
+    TestingChecklistItem.ResetStopsAlarm -> clearStopsAlarm
+    TestingChecklistItem.CaregiverKnowsTestBuild -> caregiverUnderstandsSetup
 }
 
 @Composable
-fun ReleaseNotesPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
-    LisaPanelShell(title = uiStrings.releaseNotes, onBack = onBack) {
+fun ReleaseNotesPanel(
+    uiStrings: LisaUiStrings,
+    appVersionInfo: LisaAppVersionInfo,
+    onBack: () -> Unit
+) {
+    LisaPanelShell(title = uiStrings.releaseNotes, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -408,14 +413,11 @@ fun ReleaseNotesPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            PanelPurposeLine(uiStrings.releaseNotesPurpose)
             Text(
-                text = uiStrings.t(
-                    "LISA 1.1 Local Testing Build",
-                    "LISA 1.1 Plaaslike Toetsweergawe",
-                    "I-LISA 1.1 Yakhiwo Lokuhlola Lwasendaweni"
-                ),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                text = uiStrings.releaseNotesVersionTitle,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
                 color = LisaBlueDark
             )
             val bullets = listOf(
@@ -423,16 +425,15 @@ fun ReleaseNotesPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
                 uiStrings.t("Wink sequence language", "Knip-reeks taal", "Ulimi lochungechunge lama-wink"),
                 uiStrings.t("Confirmation before speech", "Bevestiging voor spraak", "Ukuqinisekisa ngaphambi kokukhuluma"),
                 uiStrings.t("Emergency alarm", "Noodalarm", "I-alamu yosizo oluphuthumayo"),
-                uiStrings.t("Local profiles", "Plaaslike profiele", "Amaphrofayela endawo"),
-                uiStrings.t("Local caregiver linking", "Plaaslike versorger-koppeling", "Ukuxhumanisa umnakekeli wendawo"),
-                uiStrings.t("About LISA", "Oor LISA", "Mayelana ne-LISA"),
-                uiStrings.t("Testing checklist", "Toets-kontrolelys", "Uhlu lokuhlola")
+                uiStrings.t("Communication profiles", "Kommunikasieprofiele", "Amaphrofayela okuxhumana"),
+                uiStrings.aboutLisa,
+                uiStrings.testingChecklist
             )
             bullets.forEach { item ->
                 Text(text = "• $item", fontSize = 14.sp, color = LisaBlueDark.copy(alpha = 0.88f), lineHeight = 20.sp)
             }
             Text(
-                text = uiStrings.t("Version: 1.1 local testing build", "Weergawe: 1.1 plaaslike toetsweergawe", "Inguqulo: 1.1 yakhiwo lokuhlola lwasendaweni"),
+                text = uiStrings.versionAndBuildLabel(appVersionInfo.versionName, appVersionInfo.versionCode),
                 fontSize = 12.sp,
                 color = LisaGray
             )

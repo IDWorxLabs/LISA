@@ -173,6 +173,7 @@ fun GuidedTrainingFlow(
 
     when (progress.currentPhase) {
         TrainingPhase.FirstLaunchChoice -> TrainingFirstLaunchChoiceScreen(
+            uiStrings = uiStrings,
             onStartGuidedLearning = { onEvent(TrainingEvent.BeginLearning) },
             onSkipToWorkspace = { onEvent(TrainingEvent.ConfirmSkip) },
             onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }
@@ -307,6 +308,7 @@ fun GuidedTrainingFlow(
         }
 
         TrainingPhase.Completion -> TrainingCompletionScreen(
+            uiStrings = uiStrings,
             showCelebration = state.showCelebration,
             onNarrationStarted = onCompletionNarration
         )

@@ -1,5 +1,6 @@
 package com.idworx.lisa
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,19 +8,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlueDark
-import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaWhite
 import java.util.Locale
 
 @Composable
-fun AboutLisaPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
-    LisaPanelShell(title = uiStrings.aboutLisa, onBack = onBack) {
+fun AboutLisaPanel(
+    uiStrings: LisaUiStrings,
+    appVersionInfo: LisaAppVersionInfo,
+    onBack: () -> Unit
+) {
+    LisaPanelShell(title = uiStrings.aboutLisa, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -27,85 +34,23 @@ fun AboutLisaPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            PanelPurposeLine(uiStrings.aboutLisaPurpose)
             AboutHeroBlock(uiStrings = uiStrings)
 
+            AboutSection(title = uiStrings.aboutWhatIsLisaTitle, body = uiStrings.aboutWhatIsLisaBody)
+            AboutSection(title = uiStrings.aboutWhoIsLisaForTitle, body = uiStrings.aboutWhoIsLisaForBody)
+            AboutSection(title = uiStrings.aboutHowLisaWorksTitle, bullets = uiStrings.aboutHowLisaWorksBullets)
+            AboutSection(title = uiStrings.aboutPrivacySummaryTitle, bullets = uiStrings.aboutPrivacySummaryBullets)
+            AboutSection(title = uiStrings.aboutSafetyTitle, bullets = uiStrings.aboutSafetyBullets)
             AboutSection(
-                title = "What is LISA?",
-                body = "LISA is an assistive communication app designed to help people with locked-in syndrome and severe motor impairment communicate using intentional eye movements. LISA watches the user's eyes, interprets blink and wink sequences, and turns selected messages into spoken speech."
+                title = uiStrings.aboutVersionTitle,
+                body = uiStrings.versionAndBuildLabel(appVersionInfo.versionName, appVersionInfo.versionCode)
             )
-
+            AboutSection(title = uiStrings.aboutCreatorTitle, body = uiStrings.aboutCreatorBody)
+            AboutSection(title = uiStrings.aboutCopyrightTitle, body = uiStrings.copyrightNotice)
             AboutSection(
-                title = "Who is LISA for?",
-                body = "LISA is for people with locked-in syndrome, severe motor impairment, and others who cannot speak reliably but can use intentional eye movements to communicate."
-            )
-
-            AboutSection(
-                title = "Mission",
-                body = "Our mission is to help people who cannot speak regain a practical, reliable voice."
-            )
-
-            AboutSection(
-                title = "How LISA works",
-                bullets = listOf(
-                    "The camera detects the face and eyes.",
-                    "Intentional wink sequences are recognized.",
-                    "LISA matches the sequence to a phrase.",
-                    "The user confirms the phrase.",
-                    "LISA speaks it aloud.",
-                    "Emergency sequences can trigger an alarm."
-                )
-            )
-
-            AboutSection(
-                title = "Privacy",
-                bullets = listOf(
-                    "Camera processing happens on the device.",
-                    "Profiles and caregiver data are stored locally for now.",
-                    "No cloud account is used yet.",
-                    "No caregiver notifications are sent yet.",
-                    "Future cloud features will require clear consent."
-                )
-            )
-
-            AboutSection(
-                title = "Safety notice",
-                bullets = listOf(
-                    "LISA is an assistive communication tool.",
-                    "It is not a certified medical device yet.",
-                    "It should not be the only emergency method until professionally validated.",
-                    "Emergency features must be tested with caregivers before real dependency."
-                )
-            )
-
-            AboutSection(
-                title = "Version",
-                body = "Version: 1.1 local testing build\nStage: Real-world family/friend testing preparation"
-            )
-
-            AboutSection(
-                title = "Creator / Organization",
-                body = "Created by Lungelo Richard Zungu\nProduct: LISA\nOrganization: Asgard Dynamics"
-            )
-
-            AboutSection(
-                title = "Support / Contact",
-                bullets = listOf(
-                    "Website: Coming soon",
-                    "Support email: Coming soon",
-                    "Feedback: Coming soon"
-                )
-            )
-
-            AboutSection(
-                title = "Roadmap",
-                bullets = listOf(
-                    "Personalized calibration",
-                    "Real caregiver phone alerts",
-                    "Cloud profiles",
-                    "iOS version",
-                    "Video calling with blink-to-speech",
-                    "Clinical testing and accessibility validation"
-                )
+                title = uiStrings.aboutSupportTitle,
+                bullets = listOf(uiStrings.aboutSupportWebsite, uiStrings.aboutSupportEmail)
             )
         }
     }
@@ -119,25 +64,34 @@ private fun AboutHeroBlock(uiStrings: LisaUiStrings) {
             .clip(RoundedCornerShape(12.dp))
             .background(LisaWhite)
             .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.splash_logo),
+            contentDescription = uiStrings.aboutLisa,
+            modifier = Modifier.size(72.dp)
+        )
         Text(
             text = "LISA",
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = LisaBlueDark
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center
         )
         Text(
             text = uiStrings.lisaFullName,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LisaBlueDark.copy(alpha = 0.8f)
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = LisaBlueDark.copy(alpha = 0.75f),
+            textAlign = TextAlign.Center
         )
         Text(
             text = uiStrings.lisaTagline,
-            fontSize = 13.sp,
-            color = LisaGray,
-            lineHeight = 18.sp
+            fontSize = 12.sp,
+            color = LisaBlueDark.copy(alpha = 0.65f),
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -156,22 +110,22 @@ private fun AboutSection(
                 .clip(RoundedCornerShape(12.dp))
                 .background(LisaWhite)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             if (body != null) {
                 Text(
                     text = body,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     color = LisaBlueDark.copy(alpha = 0.88f),
-                    lineHeight = 20.sp
+                    lineHeight = 18.sp
                 )
             }
             bullets?.forEach { item ->
                 Text(
                     text = "• $item",
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     color = LisaBlueDark.copy(alpha = 0.88f),
-                    lineHeight = 20.sp
+                    lineHeight = 18.sp
                 )
             }
         }

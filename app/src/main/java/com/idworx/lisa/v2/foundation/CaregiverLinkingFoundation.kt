@@ -1,10 +1,17 @@
-package com.idworx.lisa
+package com.idworx.lisa.v2.foundation
 
 import android.content.Context
+import com.idworx.lisa.LisaProfileStore
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+/**
+ * Version 2 foundation — caregiver linking models and local storage.
+ *
+ * Not loaded or executed by Version 1 runtime. Retained for a future caregiver
+ * notification and linking feature without affecting current emergency behaviour.
+ */
 enum class CaregiverRelationship(val label: String) {
     Caregiver("Caregiver"),
     Family("Family"),

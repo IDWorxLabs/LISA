@@ -25,7 +25,8 @@ data class WinkMapping(
     val right: Int,
     val vocabularyId: String,
     val isCustom: Boolean = false,
-    val customPhrase: String? = null
+    val customPhrase: String? = null,
+    val caregiverCategory: CustomPhraseEngine.CaregiverPhraseCategory? = null
 ) {
     /** English text for persistence and legacy paths. */
     val phrase: String

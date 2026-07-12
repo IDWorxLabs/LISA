@@ -211,8 +211,8 @@ object NavigationValidator {
         if (guided?.contains("contentDescription") == true || guided?.contains("Role.Button") == true) passed++
         else issues.add(issue("NAV_003", "Guided navigation labeling incomplete", AccessibilitySeverity.Warning))
 
-        if (nav?.contains("EmergencySetup") == true || nav?.contains("Settings") == true) passed++
-        else issues.add(issue("NAV_004", "Settings and emergency panels not registered"))
+        if (nav?.contains("Settings") == true) passed++
+        else issues.add(issue("NAV_004", "Settings panel not registered"))
 
         return ValidatorResult(
             validatorName = "NavigationValidator",

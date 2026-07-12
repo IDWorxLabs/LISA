@@ -39,8 +39,8 @@ object Brain1InteractionStandardAuditor {
         val welcome = readWelcomeScreen() ?: return false
         return welcome.contains("TrainingFirstLaunchChoiceScreen") &&
             welcome.contains("TrainingPrimaryButton") &&
-            welcome.contains("Start Guided Learning") &&
-            welcome.contains("Skip to Communication Workspace")
+            welcome.contains("startGuidedLearning") &&
+            welcome.contains("skipToCommunication")
     }
 
     fun guidedLearningRequiresConfirmation(): Boolean {

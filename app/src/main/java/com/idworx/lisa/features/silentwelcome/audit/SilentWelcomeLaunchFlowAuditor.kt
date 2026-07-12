@@ -25,10 +25,10 @@ object SilentWelcomeLaunchFlowAuditor {
     fun launchScreenExact(): Boolean {
         val welcome = readWelcomeScreen() ?: return false
         return welcome.contains("TrainingFirstLaunchChoiceScreen") &&
-            welcome.contains("Welcome to Lisa") &&
-            welcome.contains(SilentWelcomeLaunchFlowMetadata.SUBTITLE) &&
-            welcome.contains("Start Guided Learning") &&
-            welcome.contains("Skip to Communication Workspace") &&
+            welcome.contains("welcomeToLisa") &&
+            welcome.contains("SilentWelcomeLaunchFlowMetadata.SUBTITLE") &&
+            welcome.contains("startGuidedLearning") &&
+            welcome.contains("skipToCommunication") &&
             welcome.contains("TrainingCard") &&
             !welcome.contains("LargeGestureChoiceCard")
     }

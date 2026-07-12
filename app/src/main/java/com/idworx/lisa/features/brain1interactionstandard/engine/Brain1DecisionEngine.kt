@@ -95,7 +95,7 @@ object Brain1DecisionEngine {
 
     fun choiceLabel(kind: Brain1DecisionKind): String = when (kind) {
         Brain1DecisionKind.FirstLaunchGuidedLearning -> "Guided Learning"
-        Brain1DecisionKind.FirstLaunchSkipWorkspace -> "Communication Workspace"
+        Brain1DecisionKind.FirstLaunchSkipWorkspace -> "Communication"
         Brain1DecisionKind.EmergencyMode -> "Emergency Mode"
         Brain1DecisionKind.ResetLearningProgress -> "Reset Learning Progress"
         Brain1DecisionKind.ReplayLearning -> "Replay Learning"

@@ -172,11 +172,11 @@ fun QuickControlsOverlay(
         )
 
         QuickControlSectionLabel(uiStrings.quickControlsLanguage)
-        QuickControlPlannedRow(uiStrings.quickControlsLanguage)
+        QuickControlPlannedRow(uiStrings.quickControlsLanguage, uiStrings.touchForNow)
         // TODO: Eye-controlled language selection — left wink cycles, right wink confirms.
 
         QuickControlSectionLabel(uiStrings.quickControlsVolume)
-        QuickControlPlannedRow(uiStrings.quickControlsVolume)
+        QuickControlPlannedRow(uiStrings.quickControlsVolume, uiStrings.touchForNow)
         // TODO: Eye-controlled volume selection — left/right wink adjusts level.
 
         QuickControlSectionLabel(uiStrings.systemRepeatLast)
@@ -338,7 +338,7 @@ private fun QuickControlEyeRow(
 }
 
 @Composable
-private fun QuickControlPlannedRow(label: String) {
+private fun QuickControlPlannedRow(label: String, touchHint: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -348,7 +348,7 @@ private fun QuickControlPlannedRow(label: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = label, fontSize = 12.sp, color = LisaBlueDark, modifier = Modifier.weight(1f))
-        Text(text = "Touch for now", fontSize = 10.sp, color = LisaGray)
+        Text(text = touchHint, fontSize = 10.sp, color = LisaGray)
     }
 }
 
@@ -413,95 +413,6 @@ private fun ResponseSpeedRow(
                 fontSize = 11.sp,
                 color = LisaGray,
                 lineHeight = 15.sp
-            )
-        }
-    }
-}
-
-@Composable
-fun CommunicationSetupPanel(
-    uiStrings: LisaUiStrings,
-    responseSpeed: ResponseSpeed,
-    onResponseSpeedChange: (ResponseSpeed) -> Unit,
-    onBack: () -> Unit
-) {
-    LisaPanelShell(title = uiStrings.communicationSetup, onBack = onBack) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = uiStrings.communicationSetupIntro,
-                fontSize = 12.sp,
-                color = LisaBlueDark.copy(alpha = 0.8f),
-                lineHeight = 17.sp
-            )
-            ResponseSpeedPicker(
-                uiStrings = uiStrings,
-                selected = responseSpeed,
-                onSelect = onResponseSpeedChange
-            )
-            Text(
-                text = uiStrings.settingsSavedToProfileHint,
-                fontSize = 11.sp,
-                color = LisaGray,
-                lineHeight = 15.sp
-            )
-        }
-    }
-}
-
-@Composable
-fun SystemCommandsTrainingSection(
-    uiStrings: LisaUiStrings,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier) {
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = LisaBlue.copy(alpha = 0.25f))
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = uiStrings.systemCommandsTitle,
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            color = LisaBlueDark
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = uiStrings.systemCommandsNote,
-            fontSize = 11.sp,
-            color = LisaGray,
-            lineHeight = 15.sp
-        )
-        Spacer(Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(LisaSoftGray)
-                .padding(10.dp)
-        ) {
-            val shown = LisaSystemLanguage.globalCommands +
-                LisaSystemLanguage.quickControlCommands.filter {
-                    it.action != SystemCommandAction.CloseQuickControls
-                }
-            shown.forEach { cmd ->
-                Text(
-                    text = "${cmd.sequenceLabel} → ${LisaSystemLanguage.labelFor(cmd, uiStrings)}",
-                    fontSize = 12.sp,
-                    color = LisaBlueDark,
-                    lineHeight = 16.sp,
-                    modifier = Modifier.padding(vertical = 2.dp)
-                )
-            }
-            Text(
-                text = "${formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)} → ${uiStrings.emergency}",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = LisaBlueDark,
-                modifier = Modifier.padding(vertical = 2.dp)
             )
         }
     }

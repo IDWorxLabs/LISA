@@ -29,7 +29,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     // Main actions
     val menu: String get() = t("Menu", "Kieslys", "Imenyu")
     val close: String get() = t("Close", "Sluit", "Vala")
-    val reset: String get() = t("Reset", "Herstel", "Setha kabusha")
+    val reset: String get() = t("Clear", "Maak skoon", "Sula")
     val repeat: String get() = t("Repeat", "Herhaal", "Phinda")
     val back: String get() = t("Back", "Terug", "Emuva")
     val save: String get() = t("Save", "Stoor", "Londoloza")
@@ -77,12 +77,6 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val tapOrWinkToResume: String get() = t("Use L2 R2 or Resume to continue", "Gebruik L2 R2 of Hervat om voort te gaan", "Sebenzisa L2 R2 noma Qhubeka ukuze uqhubeke")
 
     // System language
-    val systemCommandsTitle: String get() = t("SYSTEM COMMANDS", "STELSELOPDRAGTE", "IMIYALELO YOHLELO")
-    val systemCommandsNote: String get() = t(
-        "These control LISA. They do not speak aloud.",
-        "Hierdie beheer LISA. Hulle praat nie hardop nie.",
-        "Lezi zilawula i-LISA. Azikhulumi ngokuzwakalayo."
-    )
     val systemOpenQuickControls: String get() = t("Open Quick Controls", "Maak Vinnige Kontroles oop", "Vula Izilawuli Ezisheshayo")
     val systemCloseHelp: String get() = t("Close Help", "Sluit Hulp", "Vala Usizo")
     val systemSpeedFast: String get() = t("Set Response Speed: Fast", "Stel Reaksiespoed: Vinnig", "Setha Isivinini: Shesha")
@@ -209,16 +203,28 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Knip die reeks langs 'n frase om dit te sê. ${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)} open kategorieë. L2 R0 en L0 R2 blaai bladsye. L2 R2 gaan terug.",
         "Cwayiza uchungechunge oluseceleni kwesigwebo ukukukhuluma. I-${formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)} ivula izigaba. I-L2 R0 ne-L0 R2 iskrolela amakhasi. I-L2 R2 ibuyela emuva."
     )
-    val workspaceCommunicationTitle: String get() = t("Communication Workspace", "Kommunikasiewerkruimte", "Indawo Yokuxhumana")
+    val workspaceCommunicationTitle: String get() = t("Communication", "Kommunikasie", "Ukuxhumana")
 
     fun guidedCategoryTitle(category: GuidedVocabularyCategory): String = when (category) {
         GuidedVocabularyCategory.Conversation -> t("Conversation", "Gesprek", "Ingxoxo")
         GuidedVocabularyCategory.BasicNeeds -> t("Basic Needs", "Basiese Behoeftes", "Izidingo Eziyisisekelo")
         GuidedVocabularyCategory.Medical -> t("Medical", "Medies", "Ezesimpilo")
         GuidedVocabularyCategory.Family -> t("Family", "Familie", "Umndeni")
+        GuidedVocabularyCategory.Custom -> t("Custom", "Pasgemaak", "Ngokwezifiso")
         GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
         GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
     }
+
+    val guidedCustomEmptyTitle: String get() = t(
+        "No custom phrases yet.",
+        "Nog geen pasgemaakte frases nie.",
+        "Awekho amabinzana ngokwezifiso okwamanje."
+    )
+    val guidedCustomEmptyBody: String get() = t(
+        "Add phrases from Menu → Vocabulary.",
+        "Voeg frases by vanaf Kieslys → Woordeskat.",
+        "Engeza amabinzana kusuka ku-Imenyu → Amagama."
+    )
 
     fun guidedCurrentResponseTime(seconds: Int): String =
         t("Current response time: $seconds seconds", "Huidige reaksietyd: $seconds sekondes", "Isikhathi sokuphendula samanje: $seconds imizuzwana")
@@ -461,16 +467,8 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     }
     val slower: String get() = t("Slower", "Stadiger", "Kancane kakhulu")
     val faster: String get() = t("Faster", "Vinniger", "Shesha kakhulu")
-    val communicationSetupIntro: String get() = t(
-        "Adjust how long LISA waits after your last wink before processing a sequence.",
-        "Pas aan hoe lank LISA wag na jou laaste knip voordat 'n reeks verwerk word.",
-        "Lungisa ukuthi i-LISA ilinda isikhathi esingakanani ngemuva kokucwayiza kwakho kokugcina ngaphambi kokucubunga uchungechunge."
-    )
-    val settingsSavedToProfileHint: String get() = t(
-        "Settings are saved to the active communication profile.",
-        "Instellings word op die aktiewe kommunikasieprofiel gestoor.",
-        "Izilungiselelo zigcinwa kuphrofayela yokuxhumana esebenzayo."
-    )
+    val communicationSetupIntro: String get() = communicationTimingPurpose
+    val settingsSavedToProfileHint: String get() = settingsSavedNote
 
     // Unknown sequence help
     val unknownHelpHeadline: String get() = t(
@@ -511,8 +509,6 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val quickControlsTitle: String get() = t("Quick Controls", "Vinnige Kontroles", "Izilawuli Ezisheshayo")
     val closeQuickControls: String get() = t("Close", "Sluit", "Vala")
 
-    val wouldNotify: String get() = t("Would notify:", "Sou in kennis stel:", "Kuzomazisa:")
-
     // Countdown
     val leftWinkCancel: String get() = t("Left wink = Cancel", "Linkerknik = Kanselleer", "Ukucwayiza kwesokunxele = Khansela")
     val rightWinkSpeak: String get() = t("Right wink = Speak now", "Regterknik = Praat nou", "Ukucwayiza kwesokudla = Khuluma manje")
@@ -537,19 +533,390 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val responseTimeIncrease: String get() = t("Response time +", "Reaksietyd +", "Isikhathi sokuphendula +")
 
     // Menu items
-    val myCommunication: String get() = t("My Communication", "My Kommunikasie", "Ukuxhumana Kwami")
-    val communicationSetup: String get() = t("Communication Setup", "Kommunikasie-opstelling", "Ukusetha Ukuxhumana")
-    val vocabularyTraining: String get() = t("Vocabulary / Training", "Woordeskat / Opleiding", "Ulimi / Ukuqeqeshwa")
-    val emergencySetup: String get() = t("Emergency Setup", "Noodopstelling", "Ukusetha Usizo Luphuthumayo")
-    val caregiverLinking: String get() = t("Caregiver Linking", "Versorger-koppeling", "Ukuxhumanisa Umphakeli Wokunakekela")
+    val myCommunication: String get() = t("Communication Profile", "Kommunikasieprofiel", "Iphrofayela Yokuxhumana")
+    val communicationSetup: String get() = t("Communication Timing", "Kommunikasie-tydsberekening", "Isikhathi Sokuxhumana")
+    val vocabularyTraining: String get() = t("Vocabulary", "Woordeskat", "Ulimi")
     val settings: String get() = t("Settings", "Instellings", "Izilungiselelo")
     val voice: String get() = t("Voice", "Stem", "Izwi")
-    val testingChecklist: String get() = t("Testing Checklist", "Toets-kontrolelys", "Uhlu Lokuhlola")
+    val testingChecklist: String get() = t("Device Checklist", "Toestel-kontrolelys", "Uhlu Lwedivayisi")
     val feedback: String get() = t("Feedback", "Terugvoer", "Impendulo")
     val releaseNotes: String get() = t("Release Notes", "Vrystellingsnotas", "Amanothi Okukhishwa")
-    val developerTools: String get() = t("Developer Tools", "Developer Tools", "Developer Tools")
+    val developerTools: String get() = t("Developer Tools", "Ontwikkelaarhulpmiddels", "Amathuluzi Othuthukisi")
     val aboutLisa: String get() = t("About LISA", "Oor LISA", "Mayelana ne-LISA")
-    val repeatLastPhrase: String get() = t("Repeat last phrase", "Herhaal laaste frase", "Phinda ibinzana lokugcina")
+    val privacyPolicy: String get() = t("Privacy Policy", "Privaatheidsbeleid", "Inqubomgomo Yobumfihlo")
+    // Menu sections (RC1)
+    val menuSectionCommunication: String get() = t("Communication", "Kommunikasie", "Ukuxhumana")
+    val menuSectionApplication: String get() = t("Application", "Program", "Uhlelo")
+    val menuSectionSupport: String get() = t("Support", "Ondersteuning", "Ukusekela")
+
+    // RC2 — page purpose lines (one short sentence each)
+    val communicationProfilePurpose: String get() = t(
+        "Manage your communication preferences.",
+        "Bestuur jou kommunikasievoorkeure.",
+        "Phatha okuthandayo kwakho kokuxhumana."
+    )
+    val vocabularyPurpose: String get() = t(
+        "Manage your communication phrases.",
+        "Bestuur jou kommunikasiefrases.",
+        "Phatha amabinzana akho okuxhumana."
+    )
+    val createPhraseCardTitle: String get() = t("Create a Phrase", "Skep 'n frase", "Dala ibinzana")
+    val createPhraseCardDescription: String get() = t(
+        "Create your own phrases for Communication.",
+        "Skep jou eie frases vir Kommunikasie.",
+        "Dala amabinzana akho okuxhumana."
+    )
+    val createPhraseButton: String get() = t("Create Phrase", "Skep frase", "Dala ibinzana")
+    val vocabularyBuiltinNote: String get() = t(
+        "Built-in communication phrases are already available on the Communication screen.",
+        "Ingeboude kommunikasiefrases is reeds beskikbaar op die Kommunikasie-skerm.",
+        "Amabinzana okuxhumana afakiwe asevele atholakala esikrinini Sokuxhumana."
+    )
+    val createPhraseTitle: String get() = t("Create Phrase", "Skep frase", "Dala ibinzana")
+    val createPhrasePurpose: String get() = t(
+        "Add personalised communication phrases.",
+        "Voeg persoonlike kommunikasiefrases by.",
+        "Engeza amabinzana okuxhumana asikisisele."
+    )
+    val createPhraseIntroLead: String get() = t(
+        "LISA allows personalised communication phrases to be added alongside the built-in vocabulary.",
+        "LISA laat persoonlike kommunikasiefrases toe om by die ingeboude woordeskat gevoeg te word.",
+        "I-LISA ivumela amabinzana okuxhumana asikisisele engezwe kuhlangene nolimi olufakiwe."
+    )
+    val createPhraseIntroDetail: String get() = t(
+        "These phrases can be customised to match the primary user's daily communication needs.",
+        "Hierdie frases kan aangepas word om by die primêre gebruiker se daaglikse kommunikasiebehoeftes te pas.",
+        "Lawa mabinana angenziwa ngokwezifiso ukuze afanele izidingo zansuku zonke zomsebenzisi oyinhloko."
+    )
+    val createPhraseAudienceNote: String get() = t(
+        "Caregivers and others helping with setup can add phrases from this screen.",
+        "Versorgers en ander wat met opstelling help, kan frases vanaf hierdie skerm byvoeg.",
+        "Abanakekeli nabanye abasiza ngokusetha bangengeza amabinzana kusuka kulesi sikrini."
+    )
+    val createPhraseHowItWorksTitle: String get() = t("How it works", "Hoe dit werk", "Indlela esebenza ngayo")
+    val createPhraseStep1Label: String get() = t("Step 1", "Stap 1", "Isinyathelo 1")
+    val createPhraseStep1Body: String get() = t(
+        "Choose a communication category.",
+        "Kies 'n kommunikasiekategorie.",
+        "Khetha isigaba sokuxhumana."
+    )
+    val createPhraseStep1Examples: String get() = t(
+        "Examples: Conversation, Basic Needs, Medical, Family, Custom",
+        "Voorbeelde: Gesprek, Basiese Behoeftes, Medies, Familie, Pasgemaak",
+        "Izibonelo: Ingxoxo, Izidingo Eziyisisekelo, Ezesimpilo, Umndeni, Ngokwezifiso"
+    )
+    val createPhraseStep2Label: String get() = t("Step 2", "Stap 2", "Isinyathelo 2")
+    val createPhraseStep2Body: String get() = t(
+        "Enter the phrase you want LISA to speak.",
+        "Tik die frase in wat jy wil hê LISA moet praat.",
+        "Faka ibinzana ofuna ukuthi i-LISA likhulume."
+    )
+    val createPhraseStep3Label: String get() = t("Step 3", "Stap 3", "Isinyathelo 3")
+    val createPhraseStep3Body: String get() = t(
+        "LISA will automatically assign a safe blink sequence and add the phrase to Communication.",
+        "LISA sal outomaties 'n veilige knip-reeks toewys en die frase by Kommunikasie voeg.",
+        "I-LISA izonikeza ngokuzenzakalelayo uchungechunge lwe-wink oluphephile bese yengeza ibinzana ekuxhumaneni."
+    )
+    val createPhraseBeginButton: String get() = t("Begin", "Begin", "Qala")
+    val phraseEditorTitle: String get() = t("Phrase Editor", "Fraseredigeerder", "Umhleli Webinzana")
+    val phraseEditorPurpose: String get() = t(
+        "Create a personalised communication phrase.",
+        "Skep 'n persoonlike kommunikasiefrase.",
+        "Dala ibinzana lokuxhumana elenziwe ngokwezifiso."
+    )
+    val phraseEditorCategoryLabel: String get() = t("Category", "Kategorie", "Isigaba")
+    val phraseEditorPhraseLabel: String get() = t("Phrase", "Frase", "Ibinzana")
+    val phraseEditorPreviewLabel: String get() = t("Preview", "Voorskou", "Ukubuka kuqala")
+    val phraseEditorPreviewVoice: String get() = t("Preview Voice", "Voorskou stem", "Buka kuqala izwi")
+    val phraseEditorSave: String get() = t("Save", "Stoor", "Londoloza")
+    val phraseEditorCreateAnother: String get() = t("Create another phrase", "Skep nog 'n frase", "Dala elinye ibinzana")
+    val phraseEditorReturnToCommunication: String get() = t("Return to Communication", "Keer terug na Kommunikasie", "Buyela ekuxhumaneni")
+    val phraseCreatedSuccess: String get() = t("Phrase created successfully.", "Frase suksesvol geskep.", "Ibinzana lidalwe ngempumelelo.")
+    fun phraseCreatedCategoryLine(categoryLabel: String): String =
+        t("Category: $categoryLabel", "Kategorie: $categoryLabel", "Isigaba: $categoryLabel")
+    fun phraseCreatedSequenceLine(sequenceLabel: String): String =
+        t("Blink sequence: $sequenceLabel", "Knipreeks: $sequenceLabel", "Uchungechunge lokucwayiza: $sequenceLabel")
+    val phraseValidationEmpty: String get() = t("Enter a phrase before saving.", "Tik 'n frase in voor jy stoor.", "Faka ibinzana ngaphambi kokulondoloza.")
+    val phraseValidationTooLong: String get() = t(
+        "Phrase is too long. Shorten it and try again.",
+        "Frase is te lank. Verkort dit en probeer weer.",
+        "Ibinzana liyinde kakhulu. Lifinye bese uzama futhi."
+    )
+    val phraseValidationDuplicate: String get() = t(
+        "This phrase already exists. Try different wording.",
+        "Hierdie frase bestaan reeds. Probeer ander bewoording.",
+        "Leli binzana selive likhona. Zama amagama ahlukile."
+    )
+    val phraseValidationNoSequence: String get() = t(
+        "No safe blink sequence is available right now. Remove an unused custom phrase and try again.",
+        "Geen veilige knip-reeks is tans beskikbaar nie. Verwyder 'n ongebruikte pasgemaakte frase en probeer weer.",
+        "Awukho uchungechunge lwe-wink oluphephile olutholakalayo manje. Susa ibinzana elingasetshenziswanga bese uzama futhi."
+    )
+    fun caregiverPhraseCategoryLabel(category: CustomPhraseEngine.CaregiverPhraseCategory): String = when (category) {
+        CustomPhraseEngine.CaregiverPhraseCategory.Conversation -> t("Conversation", "Gesprek", "Ingxoxo")
+        CustomPhraseEngine.CaregiverPhraseCategory.BasicNeeds -> t("Basic Needs", "Basiese Behoeftes", "Izidingo Eziyisisekelo")
+        CustomPhraseEngine.CaregiverPhraseCategory.Medical -> t("Medical", "Medies", "Ezesimpilo")
+        CustomPhraseEngine.CaregiverPhraseCategory.Family -> t("Family", "Familie", "Umndeni")
+        CustomPhraseEngine.CaregiverPhraseCategory.Custom -> t("Custom", "Pasgemaak", "Ngokwezifiso")
+    }
+    val communicationTimingPurpose: String get() = t(
+        "How long LISA waits after your last wink.",
+        "Hoe lank LISA wag na jou laaste knip.",
+        "Isikhathi i-LISA elinda ngemuva kwakho wokugcina ukucwayiza."
+    )
+    val settingsPurpose: String get() = t(
+        "Adjust detection, communication, display, and learning.",
+        "Pas opsporing, kommunikasie, vertoning en leer aan.",
+        "Lungisa ukutholwa, ukuxhumana, ukuboniswa nokufunda."
+    )
+    val feedbackPurpose: String get() = t(
+        "Share what worked and what was confusing.",
+        "Deel wat gewerk het en wat verwarrend was.",
+        "Yabelana ngokuthi yini eyasebenza nokuthi yini eyedidezelayo."
+    )
+    val deviceChecklistPurpose: String get() = t(
+        "Confirm setup is working before daily use.",
+        "Bevestig dat opstelling werk voor daaglikse gebruik.",
+        "Qinisekisa ukuthi ukusetha kusebenza ngaphambi kokusetshenziswa kwansuku zonke."
+    )
+    val developerToolsPurpose: String get() = t(
+        "Tools for setup and troubleshooting.",
+        "Nutsgoed vir opstelling en probleemoplossing.",
+        "Amathuluzi okusetha nokuxazulula izinkinga."
+    )
+    val releaseNotesPurpose: String get() = t(
+        "What's included in this version.",
+        "Wat in hierdie weergawe ingesluit is.",
+        "Okufakiwe kule nguqulo."
+    )
+    val aboutLisaPurpose: String get() = lisaTagline
+    val privacyPolicyPurpose: String get() = t(
+        "How LISA handles your camera and personal information.",
+        "Hoe LISA jou kamera en persoonlike inligting hanteer.",
+        "Indlela i-LISA ejwayisa ngayo ikhamera yakho nolwazi lwakho lomuntu siqu."
+    )
+
+    // RC3 — About page
+    val aboutWhatIsLisaTitle: String get() = t("What is LISA?", "Wat is LISA?", "Yini i-LISA?")
+    val aboutWhatIsLisaBody: String get() = t(
+        "LISA helps you communicate with intentional eye winks. Choose a phrase, confirm, and LISA speaks it aloud.",
+        "LISA help jou om met doelbewuste oogknippe te kommunikeer. Kies 'n frase, bevestig, en LISA praat dit hardop.",
+        "I-LISA ikusiza ukuxhumana ngama-wink ahleliwe ngamabomu. Khetha ibinzana, uqinisekise, bese i-LISA ikhuluma ngokuzwakala."
+    )
+    val aboutWhoIsLisaForTitle: String get() = t("Who is LISA for?", "Vir wie is LISA?", "I-LISA ingabanini?")
+    val aboutWhoIsLisaForBody: String get() = t(
+        "People who cannot speak reliably but can use intentional eye movements.",
+        "Mense wat nie betroubaar kan praat nie, maar doelbewuste oogbewegings kan gebruik.",
+        "Abantu abangakwazi ukukhuluma ngokuthembekile kodwa bangasebenzisa ukunyakaza kwamehlo okuhloswe ngakho."
+    )
+    val aboutHowLisaWorksTitle: String get() = t("How LISA works", "Hoe LISA werk", "Indlela i-LISA esebenza ngayo")
+    val aboutHowLisaWorksBullets: List<String> get() = listOf(
+        t("Camera detects your face and winks", "Kamera detecteer jou gesig en knippe", "Ikhamera ithola ubuso bakho nama-wink"),
+        t("You blink a phrase sequence", "Jy knip 'n frase-reeks", "Ucwayiza uchungechunge lwebinzana"),
+        t("You confirm, then LISA speaks", "Jy bevestig, dan praat LISA", "Uqinisekisa, bese i-LISA ikhuluma"),
+        t("Emergency gestures can trigger an alarm", "Noodgebare kan 'n alarm aktiveer", "Izimpawu zosizo oluphuthumayo zingavula i-alamu")
+    )
+    val aboutPrivacySummaryTitle: String get() = t("Privacy", "Privaatheid", "Ubumfihlo")
+    val aboutPrivacySummaryBullets: List<String> get() = listOf(
+        t("Camera processing stays on your device", "Kamera-verwerking bly op jou toestel", "Ukucutshungulwa kwekhamera kuhlala kudivayisi yakho"),
+        t("Profiles are stored locally", "Profiele word plaaslik gestoor", "Amaphrofayela agcinwa endaweni"),
+        t("No cloud account required", "Geen wolkrekening benodig nie", "Akudingeki i-akhawunti yefu"),
+        t("Read the full Privacy Policy in Menu", "Lees die volledige Privaatheidsbeleid in Kieslys", "Funda Inqubomgomo Yobumfihlo ephelele ku-Imenyu")
+    )
+    val aboutSafetyTitle: String get() = t("Safety", "Veiligheid", "Ukuphepha")
+    val aboutSafetyBullets: List<String> get() = listOf(
+        t("Assistive tool — not a certified medical device", "Hulpmiddel — nie 'n gesertifiseerde mediese toestel nie", "Ithuluzi losizo — hhayi idivayisi yezokwelapha eqinisekisiwe"),
+        t("Practice emergency with a caregiver first", "Oefen noodgeval met 'n versorger eers", "Zilolonge usizo oluphuthumayo nomnakekeli kuqala"),
+        t("Do not rely on LISA as your only emergency method yet", "Moenie nog op LISA as jou enigste noodmetode staatmaak nie", "Ungathembele ku-LISA njengendlela yakho yodwa yosizo oluphuthumayo okwamanje")
+    )
+    val aboutVersionTitle: String get() = t("Version", "Weergawe", "Inguqulo")
+    val aboutCreatorTitle: String get() = t("Creator", "Skepper", "Umdali")
+    val aboutCreatorBody: String get() = t(
+        "Lungelo Richard Zungu · Asgard Dynamics",
+        "Lungelo Richard Zungu · Asgard Dynamics",
+        "Lungelo Richard Zungu · Asgard Dynamics"
+    )
+    val aboutCopyrightTitle: String get() = t("Copyright", "Kopiereg", "Ilungelo lokushicilela")
+    val copyrightNotice: String get() = t(
+        "© 2026 Asgard Dynamics. All rights reserved.",
+        "© 2026 Asgard Dynamics. Alle regte voorbehou.",
+        "© 2026 Asgard Dynamics. Wonke amalungelo agodliwe."
+    )
+    val aboutSupportTitle: String get() = t("Support", "Ondersteuning", "Ukusekela")
+    val aboutSupportWebsite: String get() = t(
+        "Website: details will be published at launch",
+        "Webwerf: besonderhede sal by bekendstelling gepubliseer word",
+        "Iwebhusayithi: imininingwane izokhishwa lapho kukhishwa"
+    )
+    val aboutSupportEmail: String get() = t(
+        "Email: contact details will be published at launch",
+        "E-pos: kontakbesonderhede sal by bekendstelling gepubliseer word",
+        "I-imeyili: imininingwane yokuxhumana izokhishwa lapho kukhishwa"
+    )
+    fun versionAndBuildLabel(versionName: String, versionCode: Long): String = t(
+        "Version $versionName · Build $versionCode",
+        "Weergawe $versionName · Bou $versionCode",
+        "Inguqulo $versionName · Ukwakhiwa $versionCode"
+    )
+
+    // RC3 — Privacy Policy
+    val privacyIntroTitle: String get() = t("Your privacy matters", "Jou privaatheid is belangrik", "Ubumfihlo bakho bubalulekile")
+    val privacyIntroBody: String get() = t(
+        "LISA is built for assistive communication. We designed it so you stay in control of your information.",
+        "LISA is gebou vir hulpkommunikasie. Ons het dit ontwerp sodat jy beheer oor jou inligting behou.",
+        "I-LISA yakhelwe ukuxhumana okusizayo. Sayiklanyele ukuze uhlale ulawula ulwazi lwakho."
+    )
+    val privacyCameraTitle: String get() = t("Camera use", "Kameragebruik", "Ukusetshenziswa kwekhamera")
+    val privacyCameraBody: String get() = t(
+        "LISA uses your front camera only for eye tracking — to see your face and detect intentional winks. The camera is not used for anything else.",
+        "LISA gebruik slegs jou voorste kamera vir oognasporing — om jou gesig te sien en doelbewuste knippe te detecteer. Die kamera word nie vir iets anders gebruik nie.",
+        "I-LISA isebenzisa ikhamera yakho yangaphambili kuphela ukulandelela amehlo — ukubona ubuso bakho nokuthola ama-wink ahleliwe ngamabomu. Ikhamera ayisetshenziswa ngenye indlela."
+    )
+    val privacyOnDeviceTitle: String get() = t("On-device processing", "Verwerking op toestel", "Ukucutshungulwa kudivayisi")
+    val privacyOnDeviceBody: String get() = t(
+        "Video from your camera is processed on this device. LISA does not upload your camera video or store it for sharing online.",
+        "Video van jou kamera word op hierdie toestel verwerk. LISA laai nie jou kameravideo op nie en stoor dit nie vir aanlyn deling nie.",
+        "Ividiyo evela kwekhamera yakho icutshungulwa kule divayisi. I-LISA ayilayishi ngevidiyo yakho yekhamera futhi ayigcini ukuze yabelwe ku-inthanethi."
+    )
+    val privacyNoSellingTitle: String get() = t("We do not sell your data", "Ons verkoop nie jou data nie", "Asithengisi idatha yakho")
+    val privacyNoSellingBody: String get() = t(
+        "Eye movement data is used only to help LISA understand your winks. It is not sold or shared with advertisers.",
+        "Oogbewegingdata word slegs gebruik om LISA te help jou knippe te verstaan. Dit word nie verkoop of met adverteerders gedeel nie.",
+        "Idatha yokunyakaza kwamehlo isetshenziswa kuphela ukusiza i-LISA iqonde ama-wink akho. Ayithengiswa noma yabelwana ngayo nabathengisi."
+    )
+    val privacyYourInfoTitle: String get() = t("Your information", "Jou inligting", "Ulwazi lwakho")
+    val privacyYourInfoBody: String get() = t(
+        "Communication profiles, vocabulary, and feedback stay on this device unless you choose to export or share them yourself.",
+        "Kommunikasieprofiele, woordeskat en terugvoer bly op hierdie toestel tensy jy kies om dit self te stuur of te deel.",
+        "Amaphrofayela okuxhumana, ulimi, nempendulo ahlala kule divayisi ngaphandle kokuthi ukhethe ukuwathumela noma ukuwabelana ngawo."
+    )
+    val privacyControlTitle: String get() = t("You stay in control", "Jy bly in beheer", "Uhlala ulawula")
+    val privacyControlBody: String get() = t(
+        "You can change settings and delete profiles at any time. LISA does not require a cloud account.",
+        "Jy kan enige tyd instellings verander en profiele verwyder. LISA vereis nie 'n wolkrekening nie.",
+        "Ungashintsha izilungiselelo futhi usule amaphrofayela noma nini. I-LISA ayidingi i-akhawunti yefu."
+    )
+    val privacyQuestionsTitle: String get() = t("Questions?", "Vrae?", "Imibuzo?")
+    val privacyQuestionsBody: String get() = t(
+        "Support contact details will be published when LISA launches on Google Play.",
+        "Ondersteuningskontakbesonderhede sal gepubliseer word wanneer LISA op Google Play bekendgestel word.",
+        "Imininingwane yokuxhumana yokusekela izokhishwa lapho i-LISA ikhishwa ku-Google Play."
+    )
+
+    val vocabularyHelpNote: String get() = t(
+        "Use at least $MIN_SEQUENCE_WINKS winks per phrase. A countdown lets you cancel or speak.",
+        "Gebruik minstens $MIN_SEQUENCE_WINKS knippe per frase. 'n Aftelling laat jou kanselleer of praat.",
+        "Sebenzisa okungenani ama-wink angu-$MIN_SEQUENCE_WINKS ibinzana ngalinye. Ukubala kwezinyathelo kukuvumela ukukhansela noma ukukhuluma."
+    )
+
+    // RC1 — panel copy, empty states, and shared labels
+    val quickControlsCommunicationTiming: String get() = t("Communication Timing", "Kommunikasie-tydsberekening", "Isikhathi Sokuxhumana")
+    val quickControlsPauseCommunication: String get() = t("Pause Communication", "Pauzeer kommunikasie", "Misa ukuxhumana")
+    val quickControlsResumeCommunication: String get() = t("Resume Communication", "Hervat kommunikasie", "Qhubeka ukuxhumana")
+    val developerToolsIntro: String get() = developerToolsPurpose
+    val developerModeTitle: String get() = t("Developer Mode", "Ontwikkelaarmodus", "Imodi Yothuthukisi")
+    val developerModeSubtitle: String get() = t(
+        "Show detection details on the main screen",
+        "Wys opsporingbesonderhede op die hoofskerm",
+        "Bonisa imininingwane yokuthola esikrinini esiyinhloko"
+    )
+    val testingChecklistIntro: String get() = t(
+        "Tick each item when it works as expected.",
+        "Merk elke item wanneer dit soos verwag werk.",
+        "Phawula yinto ngayinye uma isebenza njengoba kulindelwe."
+    )
+    val feedbackIntro: String get() = t(
+        "Saved on this device only.",
+        "Gestoor slegs op hierdie toestel.",
+        "Kugcinwe kule divayisi kuphela."
+    )
+    val saveFeedback: String get() = saveLabel
+    val profilesEmptyHint: String get() = t(
+        "Create a profile to save communication settings for this device.",
+        "Skep 'n profiel om kommunikasie-instellings vir hierdie toestel te stoor.",
+        "Dala iphrofayela ukuze ulondoloze izilungiselelo zokuxhumana kule divayisi."
+    )
+    val activeProfileSection: String get() = t("Active profile", "Aktiewe profiel", "Iphrofayela esebenzayo")
+    val savedProfilesSection: String get() = t("Saved profiles", "Gestoorde profiele", "Amaphrofayela alondoloziwe")
+    val createNewProfile: String get() = t("New profile", "Nuwe profiel", "Iphrofayela entsha")
+    val deleteActiveProfile: String get() = t("Delete profile", "Skrap profiel", "Susa iphrofayela")
+    val skipToCommunication: String get() = t("Skip to Communication", "Slaan oor na Kommunikasie", "Yeqela uye Ekuxhumaneni")
+    val goToCommunication: String get() = t(
+        "Let's go to Communication.",
+        "Kom ons gaan na Kommunikasie.",
+        "Asiye ekuxhumaneni."
+    )
+    val caregiverAdvancedSkipNavigation: String get() = t(
+        "For caregivers: Skip to Navigation Training",
+        "Vir versorgers: Slaan oor na Navigasie-opleiding",
+        "Kubaphakeli bokunakekela: Yeqela uye kuqeqesho lokuhamba"
+    )
+    val aboutVersionBody: String get() = t("Version 1.1", "Weergawe 1.1", "Inguqulo 1.1")
+    val startGuidedLearning: String get() = t("Start Guided Learning", "Begin Geleide Leer", "Qala Ukufunda Okukhokhelwayo")
+    val touchForNow: String get() = t("Use touch", "Gebruik aanraking", "Sebenzisa ukuthinta")
+    val settingsSectionDetection: String get() = t("Detection", "Opsporing", "Ukuthola")
+    val settingsSectionDisplay: String get() = t("Display", "Vertoning", "Isibonisi")
+    val textSize: String get() = t("Text size", "Teksgrootte", "Usayizi wombhalo")
+    val settingsSectionCommunication: String get() = t("Communication", "Kommunikasie", "Ukuxhumana")
+    val settingsSectionEmergency: String get() = t("Emergency", "Nood", "Usizo oluphuthumayo")
+    val settingsSectionAdvanced: String get() = t("Advanced", "Gevorderd", "Okuthuthukile")
+    val settingsSectionData: String get() = t("Data", "Data", "Idatha")
+    val settingsSectionLearning: String get() = t("Learning", "Leer", "Ukufunda")
+    val settingsSectionSupportDiagnostics: String get() = t(
+        "Support & Diagnostics",
+        "Ondersteuning en Diagnostiek",
+        "Ukusekela Nokuhlola"
+    )
+    val runDeviceCheckTitle: String get() = t("Run Device Check", "Doen toestel-kontrole", "Qala Ukuhlola Idivayisi")
+    val runDeviceCheckSubtitle: String get() = t(
+        "Confirm camera, wink detection, and emergency alarm.",
+        "Bevestig kamera, knip-opsporing en noodalarm.",
+        "Qinisekisa ikhamera, ukutholwa kwe-wink, ne-alamu yosizo oluphuthumayo."
+    )
+    val calibrationTitle: String get() = t("Calibration", "Kalibrasie", "Ukunquma")
+    val calibrationSubtitle: String get() = t(
+        "Fine-tune eye detection",
+        "Stel oog-opsporing fyn",
+        "Lungisa ukutholwa kwamehlo"
+    )
+    val confirmationCountdownTitle: String get() = t("Confirmation time", "Bevestigingstyd", "Isikhathi sokuqinisekisa")
+    val emergencyAlarmVolumeTitle: String get() = t("Alarm volume", "Alarmvolume", "Ivolumu ye-alamu")
+    val profileBackupTitle: String get() = t("Profile backup", "Profiel-rugsteun", "Isipele sephrofayela")
+    val profileBackupSubtitle: String get() = t("Vocabulary and settings", "Woordeskat en instellings", "Ulimi nezilungiselelo")
+    val exportLabel: String get() = t("Export", "Voer uit", "Thumela ngaphandle")
+    val settingsSavedNote: String get() = t(
+        "Saved to your active profile.",
+        "Gestoor op jou aktiewe profiel.",
+        "Kugcinwe kuphrofayela yakho esebenzayo."
+    )
+    val profileNameSection: String get() = t("Profile name", "Profielnaam", "Igama lephrofayela")
+    val preferredLanguageSection: String get() = t("Preferred language", "Voorkeurtaal", "Ulimi oluthandwayo")
+    val communicationLevelSection: String get() = t("Communication level", "Kommunikasievlak", "Izinga lokuxhumana")
+    val nameLabel: String get() = t("Name", "Naam", "Igama")
+    val saveLabel: String get() = t("Save", "Stoor", "Londoloza")
+    val activeLabel: String get() = t("Active", "Aktief", "Iyasebenza")
+    val addLabel: String get() = t("Add", "Voeg by", "Engeza")
+    val deleteLabel: String get() = t("Delete", "Skrap", "Susa")
+    val cancelLabel: String get() = t("Cancel", "Kanselleer", "Khansela")
+    val releaseNotesVersionTitle: String get() = t("LISA 1.1", "LISA 1.1", "I-LISA 1.1")
+    val clearStopsAlarm: String get() = t("Clear stops alarm", "Maak skoon stop alarm", "Ukusula kumisa i-alamu")
+    val caregiverUnderstandsSetup: String get() = t(
+        "Caregiver understands how LISA works",
+        "Versorger verstaan hoe LISA werk",
+        "Umphakeli wokunakekela uyayiqonda i-LISA"
+    )
+    val openLabel: String get() = t("Open", "Maak oop", "Vula")
+    val replayLearningJourney: String get() = t("Replay tutorial", "Herhaal tutoriaal", "Phinda isifundo")
+    val practiceCommunication: String get() = t("Practice communication", "Oefen kommunikasie", "Zilolonge ukuxhumana")
+    val practiceNavigation: String get() = t("Practice navigation", "Oefen navigasie", "Zilolonge ukuhamba")
+    val clearLearningProgress: String get() = t("Clear progress", "Maak vordering skoon", "Sula inqubekela phambili")
+    val narrationTitle: String get() = t("Narration", "Vertelling", "Ukulandisa")
+    val narrationSubtitle: String get() = t("During training", "Tydens opleiding", "Ngesikhathi sokuqeqeshwa")
+    val voiceSpeedTitle: String get() = t("Voice speed", "Stemspoed", "Isivinini sezwi")
+    val voiceVolumeTitle: String get() = t("Voice volume", "Stemvolume", "Ivolumu yezwi")
+    val tutorialLanguageTitle: String get() = t("Tutorial language", "Tutoriumtaal", "Ulimi lwesifundo")
+    val tutorialLanguageSubtitle: String get() = t("Uses your profile language", "Gebruik jou profieltaal", "Isebenzisa ulimi lwephrofayela yakho")
+    val currentProfileLabel: String get() = t("Current profile", "Huidige profiel", "Iphrofayela yamanje")
 
     // Emergency speech
     val emergencySpeechPhrase: String get() = t(
@@ -573,10 +940,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
 
     fun menuLabel(panel: LisaPanel): String = when (panel) {
         LisaPanel.MyCommunication -> myCommunication
-        LisaPanel.CommunicationSetup -> communicationSetup
         LisaPanel.VocabularyTraining -> vocabularyTraining
-        LisaPanel.EmergencySetup -> emergencySetup
-        LisaPanel.CaregiverLinking -> caregiverLinking
         LisaPanel.Voice -> voice
         LisaPanel.Settings -> settings
         LisaPanel.TestingChecklist -> testingChecklist
@@ -584,89 +948,98 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         LisaPanel.ReleaseNotes -> releaseNotes
         LisaPanel.DeveloperTools -> developerTools
         LisaPanel.AboutLisa -> aboutLisa
+        LisaPanel.PrivacyPolicy -> privacyPolicy
         else -> ""
     }
 
-    val leftLabel: String get() = t("Left", "Links", "Kwesokunxele")
-    val rightLabel: String get() = t("Right", "Regs", "Kwesokudla")
     val leftDots: (Int) -> String get() = { c -> t("Left: ${winkDots(c)}", "Links: ${winkDots(c)}", "Kwesokunxele: ${winkDots(c)}") }
     val rightDots: (Int) -> String get() = { c -> t("Right: ${winkDots(c)}", "Regs: ${winkDots(c)}", "Kwesokudla: ${winkDots(c)}") }
 
-    // Vocabulary / training
-    val coreVocabulary: (Int) -> String get() = { n -> t("Core vocabulary ($n)", "Kernwoordeskat ($n)", "Ulimi oluyisisekelo ($n)") }
-    val customPhrases: String get() = t("Custom phrases", "Pasgemaakte frases", "Ibinzana ezenziwe ngokwezifiso")
-    val addCustomSequence: String get() = t("Add a custom sequence", "Voeg pasgemaakte reeks by", "Engeza uchungechunge olwenziwe ngokwezifiso")
-    val minSequenceNote: String get() = t(
-        "Single winks and natural blinks are ignored.",
-        "Enkelknippe en natuurlike knippe word ignoreer.",
-        "Ukucwayiza okukodwa nokucwebha okujwayelekile akunakwa."
-    )
-    val countdownNote: String get() = t(
-        "Minimum sequence: $MIN_SEQUENCE_WINKS winks. After detection, a countdown lets you cancel or speak.",
-        "Minimum reeks: $MIN_SEQUENCE_WINKS knippe. Na opsporing laat 'n aftelling jou kanselleer of praat.",
-        "Ubuncane bochungechunge: ama-wink angu-$MIN_SEQUENCE_WINKS. Ngemuva kokutholakala, ukubala kwezinyathelo kukuvumela ukukhansela noma ukukhuluma."
-    )
-    fun phraseEnglishSubtitle(vocabularyId: String): String? {
-        if (language == PreferredLanguage.English) return null
-        if (LisaCoreVocabulary.text(vocabularyId, PreferredLanguage.English).isBlank()) return null
-        return LisaCoreVocabulary.text(vocabularyId, PreferredLanguage.English)
-    }
+    val minSequenceNote: String get() = vocabularyHelpNote
+    val countdownNote: String get() = vocabularyHelpNote
 
     // Onboarding
     val stepOf: (Int, Int) -> String get() = { s, t -> t("Step $s of $t", "Stap $s van $t", "Isinyathelo $s kwangu-$t") }
     val welcomeToLisa: String get() = t("Welcome to LISA", "Welkom by LISA", "Siyakwamukela ku-LISA")
     val onboardingWelcomeBody: String get() = t(
-        "LISA — Locked In Syndrome App — helps you communicate using intentional eye movements. This setup takes about one minute.",
-        "LISA — Locked In Syndrome App — help jou om met doelbewuste oogbewegings te kommunikeer. Hierdie opstelling neem ongeveer een minute.",
-        "I-LISA — Locked In Syndrome App — ikusiza ukuthi uxhumane ngokunyakazisa kwamehlo okuhloswe ngakho. Lokhu kuthatha cishe umzuzu owodwa."
+        "LISA helps you communicate using intentional eye winks. Setup takes about one minute.",
+        "LISA help jou om met doelbewuste oogknippe te kommunikeer. Opstelling neem ongeveer een minute.",
+        "I-LISA ikusiza ukuxhumana ngama-wink ahleliwe ngamabomu. Ukusetha kuthatha cishe umzuzu owodwa."
     )
     val whatLisaDoes: String get() = t("What LISA does", "Wat LISA doen", "Okwenziwa yi-LISA")
     val onboardingWhatBody: String get() = t(
-        "LISA uses your front camera to detect deliberate wink sequences, matches them to phrases, asks you to confirm, and speaks your message aloud. Emergency sequences can trigger a local alarm.",
-        "LISA gebruik jou voorste kamera om doelbewuste knip-reekse te detecteer, pas dit by frases, vra jou om te bevestig, en praat jou boodskap hardop. Noodreekse kan 'n plaaslike alarm aktiveer.",
-        "I-LISA isebenzisa ikhamera yangaphambili ukuthola uchungechunge lwama-wink oluhloswe ngakho, lufanise nezisho, likucela ukuqinisekise, bese likhuluma umlayezo wakho ngokuzwakalayo. Uchungechunge lousizo oluphuthumayo lungavula i-alamu yendawo."
+        "LISA detects wink sequences, matches phrases, asks you to confirm, and speaks aloud.",
+        "LISA detecteer knip-reekse, pas frases, vra bevestiging, en praat hardop.",
+        "I-LISA ithola ama-wink, ifanisa ibinzana, ikucela ukuqinisekise, bese ikhuluma ngokuzwakala."
     )
     val cameraPermissionTitle: String get() = t("Camera permission", "Kamera-toestemming", "Imvume yekhamera")
     val onboardingCameraBody: String get() = t(
-        "LISA needs camera access to see your face and detect intentional winks. Video is processed on your device only — nothing is uploaded during this testing build.",
-        "LISA benodig kameratoegang om jou gesig te sien en doelbewuste knippe te detecteer. Video word slegs op jou toestel verwerk — niks word opgelaai tydens hierdie toetsweergawe nie.",
-        "I-LISA idinga ukufinyelela ikhamera ukubona ubuso bakho nokuthola ama-wink ahleliwe ngamabomu. Ividiyo icutshungulwa kuphela kudivayisi yakho — akukho okulayishwayo kulolu suku lokuhlola."
+        "LISA uses your front camera for eye tracking only — to see your face and detect winks. Video is processed on this device and is never uploaded.",
+        "LISA gebruik jou voorste kamera slegs vir oognasporing — om jou gesig te sien en knippe te detecteer. Video word op hierdie toestel verwerk en word nooit opgelaai nie.",
+        "I-LISA isebenzisa ikhamera yakho yangaphambili ukulandelela amehlo kuphela — ukubona ubuso bakho nokuthola ama-wink. Ividiyo icutshungulwa kule divayisi futhi ayilayishwa."
     )
     val allowCameraAccess: String get() = t("Allow camera access", "Laat kameratoegang toe", "Vumela ukufinyelela ikhamera")
     val onboardingSafetyTitle: String get() = t("Safety notice", "Veiligheidskennisgewing", "Isaziso sokuphepha")
     val primaryUserProfile: String get() = t("Primary User profile", "Primêre Gebruiker-profiel", "Iphrofayela yomsebenzisi oyinhloko")
     val confirmProfileName: String get() = t(
-        "Confirm the name for the main communication profile on this device.",
-        "Bevestig die naam vir die hoof kommunikasieprofiel op hierdie toestel.",
-        "Qinisekisa igama lephrofayela yokuxhumana eyinhloko kule divayisi."
+        "Name for the profile on this device.",
+        "Naam vir die profiel op hierdie toestel.",
+        "Igama lephrofayela kule divayisi."
     )
     val profileName: String get() = t("Profile name", "Profielnaam", "Igama lephrofayela")
     val startLisaTitle: String get() = t("Start LISA", "Begin LISA", "Qala i-LISA")
     val onboardingStartBody: String get() = t(
-        "You're ready for local testing. Use Menu → Testing Checklist to verify winks, speech, and emergency before real-world use.",
-        "Jy is gereed vir plaaslike toetsing. Gebruik Kieslys → Toets-kontrolelys om knippe, spraak en nood te verifieer voor regte-wêreld gebruik.",
-        "Usulungele ukuhlola endaweni. Sebenzisa Imenyu → Uhlu Lokuhlola ukuze uqinisekise ama-wink, inkulumo, nousizo oluphuthumayo ngaphambi kokusetshenziswa kwangempela."
+        "Open Menu anytime for vocabulary, voice, and settings.",
+        "Maak Kieslys enige tyd oop vir woordeskat, stem en instellings.",
+        "Vula Imenyu noma nini ukuze uthole ulimi, izwi nezilungiselelo."
     )
     val primaryUserLabel: (String) -> String get() = { name -> t("Primary User: $name", "Primêre Gebruiker: $name", "Umsebenzisi oyinhloko: $name") }
 
     // Camera permission screen
     val cameraAccessNeeded: String get() = t("Camera access needed", "Kameratoegang benodig", "Kudingeka ukufinyelela ikhamera")
     val cameraPermissionExplain: String get() = t(
-        "LISA uses the front camera to detect your face and intentional wink sequences. Without camera access, LISA cannot listen for your messages.",
-        "LISA gebruik die voorste kamera om jou gesig en doelbewuste knip-reekse te detecteer. Sonder kameratoegang kan LISA nie na jou boodskappe luister nie.",
-        "I-LISA isebenzisa ikhamera yangaphambili ukuthola ubuso bakho nochungechunge lwama-wink oluhloswe ngamabomu. Ngaphandle kwemvume yekhamera, i-LISA ayikwazi ukulalela imilayezo yakho."
+        "LISA needs camera access for eye tracking. Without it, LISA cannot see your winks.",
+        "LISA benodig kameratoegang vir oognasporing. Sonder dit kan LISA nie jou knippe sien nie.",
+        "I-LISA idinga ukufinyelela ikhamera ukuze ilandelele amehlo. Ngaphandle kwayo, ayikwazi ukubona ama-wink akho."
     )
     val cameraOnDeviceOnly: String get() = t(
-        "Processing stays on this device. No video is uploaded in this testing build.",
-        "Verwerking bly op hierdie toestel. Geen video word opgelaai in hierdie toetsweergawe nie.",
-        "Ukuhlaziya kuhlala kule divayisi. Ayikho ividiyo elayishwayo kulolu suku lokuhlola."
+        "All video processing happens on this device. LISA does not upload or record your camera video for sharing.",
+        "Alle video-verwerking gebeur op hierdie toestel. LISA laai nie jou kameravideo op of neem dit op vir deling nie.",
+        "Konke ukucutshungulwa kwevidiyo kwenzeka kule divayisi. I-LISA ayilayishi ngevidiyo yakho yekhamera noma ayirekhode ukuze yabelwe."
     )
     val grantCameraPermission: String get() = t("Grant camera permission", "Gee kameratoestemming", "Nikeza imvume yekhamera")
     val openSettings: String get() = t("Open Settings", "Maak Instellings oop", "Vula Izilungiselelo")
     val cameraDeniedSettingsHint: String get() = t(
-        "Camera permission was denied. Open Settings → LISA → Permissions to enable the camera.",
-        "Kameratoestemming is geweier. Maak Instellings → LISA → Toestemmings oop om die kamera te aktiveer.",
-        "Imvume yekhamera yenqatshwe. Vula Izilungiselelo → LISA → Izimvume ukuze unike amandla ikhamera."
+        "Camera permission was denied. Open Settings → LISA → Permissions and turn on Camera.",
+        "Kameratoestemming is geweier. Maak Instellings → LISA → Toestemmings oop en skakel Kamera aan.",
+        "Imvume yekhamera yenqatshwe. Vula Izilungiselelo → LISA → Izimvume bese uvula iKhamera."
+    )
+
+    // RC3 — user-facing errors and confirmations
+    val cameraStartupFailed: String get() = t(
+        "LISA couldn't access the camera. Please check that camera permission is enabled.",
+        "LISA kon nie toegang tot die kamera kry nie. Gaan asseblief na dat kameratoestemming aangeskakel is.",
+        "I-LISA ayikwazanga ukufinyelela ikhamera. Sicela uhlole ukuthi imvume yekhamera ivuliwe."
+    )
+    val speechEngineNotReady: String get() = t(
+        "Speech is not ready yet. Please wait a moment and try again.",
+        "Spraak is nog nie gereed nie. Wag asseblief 'n oomblik en probeer weer.",
+        "Inkulumo ayikakulungeli. Sicela ulinde isikhashana bese uzama futhi."
+    )
+    val voiceInstallerUnavailable: String get() = t(
+        "LISA couldn't open the voice installer. Check your device speech settings.",
+        "LISA kon nie die steminstallering oopmaak nie. Gaan jou toestel se spraakinstellings na.",
+        "I-LISA ayikwazanga ukuvula isifaki sezwi. Hlola izilungiselelo zenkulumo zedivayisi yakho."
+    )
+    val speechSettingsUnavailable: String get() = t(
+        "LISA couldn't open speech settings. Open Settings on your device and look for Text-to-speech.",
+        "LISA kon nie spraakinstellings oopmaak nie. Maak Instellings op jou toestel oop en soek Teks-na-spraak.",
+        "I-LISA ayikwazanga ukuvula izilungiselelo zenkulumo. Vula Izilungiselelo kudivayisi yakho bese ufuna i-Text-to-speech."
+    )
+    val feedbackSavedConfirmation: String get() = t(
+        "Thank you — your feedback was saved on this device.",
+        "Dankie — jou terugvoer is op hierdie toestel gestoor.",
+        "Siyabonga — impendulo yakho ilondoloziwe kule divayisi."
     )
 
     // Voice platform
@@ -689,21 +1062,21 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val myVoiceTitle: String get() = t("My Voice", "My Stem", "Izwi Lami")
     val myVoiceHomeDescription: String get() = t(
-        "Use your own natural voice. Record your voice — LISA will eventually recreate it using AI.",
-        "Gebruik jou eie natuurlike stem. Neem jou stem op — LISA sal dit uiteindelik met AI herskep.",
-        "Sebenzisa izwi lakho elijwayelekile. Rekhoda izwi lakho — i-LISA izolisebenzisa i-AI ngokuhamba kwesikhathi."
+        "Record your voice for LISA to use later.",
+        "Neem jou stem op vir LISA om later te gebruik.",
+        "Rekhoda izwi lakho ukuze i-LISA ilisebenzise kamuva."
+    )
+    val familyVoiceHomeDescription: String get() = t(
+        "A family member can share their voice.",
+        "'n Familielid kan hul stem deel.",
+        "Ilunga lomndeni lingabelana ngezwi lalo."
     )
     val familyVoiceTitle: String get() = t("Family Voice", "Familiestem", "Izwi Lomndeni")
-    val familyVoiceHomeDescription: String get() = t(
-        "Allow a trusted family member to donate their voice. Perfect for maintaining familiar communication.",
-        "Laat 'n vertroude familielid toe om hul stem te skenk. Perfek vir vertroude kommunikasie.",
-        "Vumela ilunga lomndeni elithembekile ukunikeza izwi lalo. Kuhle ukugcina ukuxhumana okujwayelekile."
-    )
     val manage: String get() = t("Manage", "Bestuur", "Phatha")
-    val comingSoon: String get() = t("Coming Soon", "Binnekort", "Kuyeza Maduze")
+    val comingSoon: String get() = t("Coming soon", "Binnekort beskikbaar", "Kuyeza maduzane")
     val statusActive: String get() = t("Active", "Aktief", "Iyasebenza")
     val statusInstalled: String get() = t("Installed", "Geïnstalleer", "Ifakiwe")
-    val statusUnavailable: String get() = t("Unavailable", "Nie beskikbaar nie", "Ayitholakali")
+    val statusUnavailable: String get() = t("Not available yet", "Nog nie beskikbaar nie", "Ayikatholakali okwamanje")
     val naturalEnglish: String get() = t("Natural English", "Natuurlike Engels", "IsiNgisi Esijwayelekile")
     val naturalAfrikaans: String get() = t("Natural Afrikaans", "Natuurlike Afrikaans", "IsiBhunu Esijwayelekile")
     val naturalIsiZulu: String get() = t("Natural isiZulu", "Natuurlike isiZulu", "IsiZulu Esijwayelekile")
@@ -717,9 +1090,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val benefits: String get() = t("Benefits", "Voordele", "Izinzuzo")
     val availableSoon: String get() = t("Available soon", "Binnekort beskikbaar", "Kuyeza maduze")
     val premiumVoicesIntro: String get() = t(
-        "Premium Voices provide more natural speech than standard phone voices.",
-        "Premium-stemme bied meer natuurlike spraak as standaard foonstemme.",
-        "Amazwi e-Premium anikeza inkulumo ejwayelekile kunamazwi afoni ajwayelekile."
+        "More natural speech than standard phone voices.",
+        "Meer natuurlike spraak as standaard foonstemme.",
+        "Inkulumo ejwayelekile kunamazwi afoni ajwayelekile."
     )
     val premiumBenefitPronunciation: String get() = t("Better pronunciation", "Beter uitspraak", "Ukukhuluma okungcono")
     val premiumBenefitAccent: String get() = t("South African accents", "Suid-Afrikaanse aksente", "Amadla e-South Africa")
@@ -727,17 +1100,17 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val premiumBenefitFast: String get() = t("Faster speech generation", "Vinniger spraakgenerering", "Ukukhiqiza inkulumo okusheshayo")
     val premiumBenefitMoreVoices: String get() = t("More voices", "Meer stemme", "Amazwi amaningi")
     val myVoiceIntro: String get() = t(
-        "In a future version you will be able to create your own AI voice.",
-        "In 'n toekomstige weergawe sal jy jou eie AI-stem kan skep.",
-        "Enguqulweni elizayo uzokwazi ukudala izwi lakho le-AI."
+        "Record your own voice for LISA to use. This feature will be available in a future update.",
+        "Neem jou eie stem op vir LISA om te gebruik. Hierdie funksie sal in 'n toekomstige opdatering beskikbaar wees.",
+        "Rekhoda izwi lakho ukuze i-LISA ilisebenzise. Lesi sici sizotholakala esibuyekezweni esizayo."
     )
     val myVoiceStepRecord: String get() = t("Record voice", "Neem stem op", "Rekhoda izwi")
-    val myVoiceStepLearn: String get() = t("AI learns your voice", "AI leer jou stem", "I-AI ifunda izwi lakho")
+    val myVoiceStepLearn: String get() = t("Voice profile is created", "Stemprofiel word geskep", "Iphrofayela yezwi idalwa")
     val myVoiceStepSpeak: String get() = t("LISA speaks using your voice", "LISA praat met jou stem", "I-LISA ikhuluma ngezwi lakho")
     val familyVoiceIntro: String get() = t(
-        "A trusted family member will be able to donate their voice. This allows LISA to communicate using a familiar voice.",
-        "'n Vertroude familielid sal hul stem kan skenk. Dit laat LISA toe om met 'n vertroude stem te kommunikeer.",
-        "Ilunga lomndeni elithembekile lizokwazi ukunikeza izwi lalo. Lokhu kuvumela i-LISA ukuxhumana ngezwi elijwayelekile."
+        "A family member can share a familiar voice for LISA to use.",
+        "'n Familielid kan 'n vertroude stem deel vir LISA om te gebruik.",
+        "Ilunga lomndeni lingabelana ngezwi elijwayelekile ukuze i-LISA ilisebenzise."
     )
     val familyVoiceStepRecord: String get() = t(
         "Family member records voice",
@@ -791,18 +1164,18 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Geen ooreenstemmende stemme vir hierdie taal gevind nie.",
         "Awukho amazwi afanayo alolu limi."
     )
-    val testVoice: String get() = t("Test voice", "Toets stem", "Hlola izwi")
-    val installVoiceData: String get() = t("Install voice data", "Installeer stemdata", "Faka idatha yezwi")
-    val openTtsSettings: String get() = t("Open Text-to-Speech Settings", "Maak teks-na-spraak-instellings oop", "Vula izilungiselelo ze-Text-to-Speech")
+    val testVoice: String get() = t("Preview voice", "Voorskou stem", "Buka kuqala izwi")
+    val installVoiceData: String get() = t("Install voices", "Installeer stemme", "Faka amazwi")
+    val openTtsSettings: String get() = t("Speech settings", "Spraak-instellings", "Izilungiselelo zokukhuluma")
     val poorLocalVoiceWarning: String get() = t(
-        "This phone does not have a good local voice for this language yet. Install voice data or choose another TTS engine.",
-        "Hierdie foon het nog nie 'n goeie plaaslike stem vir hierdie taal nie. Installeer stemdata of kies 'n ander TTS-enjin.",
-        "Le foni alinayo izwi elihle lendawo lolu limi okwamanje. Faka idatha yezwi noma khetha enjini ye-TTS ehlukile."
+        "No good local voice for this language. Install voice data or change the speech engine.",
+        "Geen goeie plaaslike stem vir hierdie taal nie. Installeer stemdata of verander die spraak-enjin.",
+        "Alikho izwi elihle lolu limi. Faka idatha yezwi noma ushintshe injini yokukhuluma."
     )
     val voiceSettingsSavedHint: String get() = t(
-        "Voice choice is saved to the active communication profile.",
-        "Stemkeuse word op die aktiewe kommunikasieprofiel gestoor.",
-        "Ukukhetha kwezwi kugcinwa kuphrofayela yokuxhumana esebenzayo."
+        "Saved to your active profile.",
+        "Gestoor op jou aktiewe profiel.",
+        "Kugcinwe kuphrofayela yakho esebenzayo."
     )
 
     companion object {

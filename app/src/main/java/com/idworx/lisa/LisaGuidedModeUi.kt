@@ -219,6 +219,28 @@ fun GuidedVocabularyOverlay(
                             }
                             Spacer(Modifier.height(6.dp))
 
+                            if (pageEntries.isEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = uiStrings.guidedCustomEmptyTitle,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 16.sp,
+                                        color = LisaWhite
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = uiStrings.guidedCustomEmptyBody,
+                                        fontSize = 13.sp,
+                                        color = LisaWhite.copy(alpha = 0.8f)
+                                    )
+                                }
+                            } else {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -241,6 +263,7 @@ fun GuidedVocabularyOverlay(
                                         onClick = { onPhraseEntry(entry) }
                                     )
                                 }
+                            }
                             }
                         }
                     }

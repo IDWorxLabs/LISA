@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -18,15 +16,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.features.onboardingguide.coach.CommunicationCoachEngine
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
 import com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
 import com.idworx.lisa.ui.theme.LisaBlueDark
-import com.idworx.lisa.ui.theme.LisaGray
-import com.idworx.lisa.ui.theme.LisaWhite
+import java.util.Locale
 
 @Composable
 fun TrainingSettingsSection(
+    uiStrings: LisaUiStrings,
     preferences: TrainingPreferences,
     learningProgress: TrainingProgress? = null,
     onReplayTutorial: () -> Unit,
@@ -41,11 +40,12 @@ fun TrainingSettingsSection(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Learning",
+            text = uiStrings.settingsSectionLearning.uppercase(Locale.getDefault()),
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            color = LisaGray,
-            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            fontSize = 11.sp,
+            color = LisaBlueDark.copy(alpha = 0.55f),
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(start = 2.dp, top = 4.dp, bottom = 4.dp)
         )
 
         learningProgress?.let { progress ->
@@ -69,10 +69,10 @@ fun TrainingSettingsSection(
             }
         }
 
-        LearningActionRow("Replay Learning Journey", onReplayTutorial)
-        LearningActionRow("Practice Communication", onPracticeCommunication)
-        LearningActionRow("Practice Workspace Navigation", onPracticeNavigation)
-        LearningActionRow("Reset Learning Progress", onResetProgress)
+        LearningActionRow(uiStrings.replayLearningJourney, uiStrings.openLabel, onReplayTutorial)
+        LearningActionRow(uiStrings.practiceCommunication, uiStrings.openLabel, onPracticeCommunication)
+        LearningActionRow(uiStrings.practiceNavigation, uiStrings.openLabel, onPracticeNavigation)
+        LearningActionRow(uiStrings.clearLearningProgress, uiStrings.openLabel, onResetProgress)
 
         Row(
             modifier = Modifier
@@ -83,8 +83,8 @@ fun TrainingSettingsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Narration", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
-                Text("Lisa speaks during training", fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
+                Text(uiStrings.narrationTitle, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
+                Text(uiStrings.narrationSubtitle, fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
             }
             Switch(
                 checked = preferences.narrationEnabled,
@@ -93,7 +93,7 @@ fun TrainingSettingsSection(
         }
 
         SettingsSliderRowLocal(
-            title = "Voice Speed",
+            title = uiStrings.voiceSpeedTitle,
             valueLabel = "${(preferences.narrationSpeed * 100).toInt()}%",
             value = preferences.narrationSpeed,
             valueRange = 0.5f..1.5f,
@@ -101,31 +101,17 @@ fun TrainingSettingsSection(
         )
 
         SettingsSliderRowLocal(
-            title = "Voice Volume",
+            title = uiStrings.voiceVolumeTitle,
             valueLabel = "${(preferences.narrationVolume * 100).toInt()}%",
             value = preferences.narrationVolume,
             valueRange = 0.5f..1.0f,
             onValueChange = { onPreferencesChange(preferences.copy(narrationVolume = it)) }
         )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Tutorial Language", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
-                Text("Uses your profile language", fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
-            }
-        }
     }
 }
 
 @Composable
-private fun LearningActionRow(label: String, onClick: () -> Unit) {
+private fun LearningActionRow(label: String, actionLabel: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -136,7 +122,7 @@ private fun LearningActionRow(label: String, onClick: () -> Unit) {
     ) {
         Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark, modifier = Modifier.weight(1f))
         OutlinedButton(onClick = onClick) {
-            Text("Open", fontSize = 12.sp)
+            Text(actionLabel, fontSize = 12.sp)
         }
     }
 }

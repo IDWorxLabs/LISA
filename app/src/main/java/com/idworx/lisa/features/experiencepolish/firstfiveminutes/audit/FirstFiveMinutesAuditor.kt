@@ -14,7 +14,7 @@ object FirstFiveMinutesAuditor {
 
     fun firstLaunchEyeDriven(): Boolean {
         val screen = readWelcomeScreen() ?: return false
-        return screen.contains("Start Guided Learning") &&
+        return screen.contains("startGuidedLearning") &&
             screen.contains("TrainingPrimaryButton") &&
             !screen.contains("L2 R2 to choose again")
     }

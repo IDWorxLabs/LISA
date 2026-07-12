@@ -22,11 +22,11 @@ object GuidedLearningSimplificationAuditor {
         val welcome = ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingWelcomeScreen.kt"
         ) ?: return false
-        return welcome.contains("Welcome to Lisa") &&
-            welcome.contains("Lisa will guide the primary user") &&
+        return welcome.contains("welcomeToLisa") &&
+            welcome.contains("SilentWelcomeLaunchFlowMetadata.SUBTITLE") &&
             welcome.contains("TrainingCard") &&
-            welcome.contains("Start Guided Learning") &&
-            welcome.contains("Skip to Communication Workspace") &&
+            welcome.contains("startGuidedLearning") &&
+            welcome.contains("skipToCommunication") &&
             !welcome.contains("LargeGestureChoiceCard")
     }
 
@@ -64,7 +64,7 @@ object GuidedLearningSimplificationAuditor {
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingWelcomeScreen.kt"
         ) ?: return false
         return welcome.contains("You now know the basics") &&
-            welcome.contains("Communication Workspace")
+            welcome.contains("goToCommunication")
     }
 
     fun friendlyGestureLabels(): Boolean {

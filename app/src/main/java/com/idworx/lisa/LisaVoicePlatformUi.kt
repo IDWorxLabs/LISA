@@ -52,7 +52,7 @@ fun VoiceHomePanel(
     onBack: () -> Unit
 ) {
     val packs = VoicePlatformCatalog.homePacks(uiStrings)
-    LisaPanelShell(title = "", onBack = onBack) {
+    LisaPanelShell(title = "", onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             VoiceHero(title = uiStrings.voice, subtitle = uiStrings.voiceHomeSubtitle)
             Spacer(Modifier.height(4.dp))
@@ -86,7 +86,7 @@ fun DeviceVoicePanel(
     onOpenTtsSettings: () -> Unit,
     onBack: () -> Unit
 ) {
-    LisaPanelShell(title = uiStrings.deviceVoiceTitle, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.deviceVoiceTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             VoiceInfoCard(uiStrings.currentLanguage, state.language.label)
             VoiceInfoCard(uiStrings.currentTtsEngine, state.ttsEngineLabel)
@@ -146,12 +146,6 @@ fun DeviceVoicePanel(
             OutlinedButton(onClick = onOpenTtsSettings, modifier = Modifier.fillMaxWidth()) {
                 Text(uiStrings.openTtsSettings)
             }
-            Text(
-                text = uiStrings.voiceSettingsSavedHint,
-                fontSize = 11.sp,
-                color = LisaGray,
-                lineHeight = 15.sp
-            )
         }
     }
 }
@@ -167,7 +161,7 @@ fun PremiumVoicesPanel(
     val previews = VoicePlatformCatalog.premiumPreviews(uiStrings)
     val benefits = VoicePlatformCatalog.premiumBenefits(uiStrings)
 
-    LisaPanelShell(title = uiStrings.premiumVoicesTitle, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.premiumVoicesTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             Text(
                 text = uiStrings.premiumVoicesIntro,
@@ -206,7 +200,7 @@ fun PremiumVoicesPanel(
 @Composable
 fun MyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
     val steps = VoicePlatformCatalog.myVoiceSteps(uiStrings)
-    LisaPanelShell(title = uiStrings.myVoiceTitle, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.myVoiceTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             Text(
                 text = uiStrings.myVoiceIntro,
@@ -217,7 +211,7 @@ fun MyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             VoiceProcessSteps(steps)
             Spacer(Modifier.height(16.dp))
-            ComingSoonBanner(uiStrings.comingSoon)
+            ComingSoonBanner(uiStrings.availableSoon)
         }
     }
 }
@@ -227,7 +221,7 @@ fun MyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
 @Composable
 fun FamilyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
     val steps = VoicePlatformCatalog.familyVoiceSteps(uiStrings)
-    LisaPanelShell(title = uiStrings.familyVoiceTitle, onBack = onBack) {
+    LisaPanelShell(title = uiStrings.familyVoiceTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             Text(
                 text = uiStrings.familyVoiceIntro,
@@ -238,7 +232,7 @@ fun FamilyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             VoiceProcessSteps(steps)
             Spacer(Modifier.height(16.dp))
-            ComingSoonBanner(uiStrings.comingSoon)
+            ComingSoonBanner(uiStrings.availableSoon)
         }
     }
 }
@@ -385,7 +379,7 @@ private fun VoiceCategoryIcon(category: VoiceCategory) {
 private fun VoiceStatusBadge(status: VoiceStatus, uiStrings: LisaUiStrings) {
     val (label, color) = when (status) {
         VoiceStatus.Active -> uiStrings.statusActive to VoiceActiveGreen
-        VoiceStatus.ComingSoon -> uiStrings.comingSoon to VoiceComingSoonGray
+        VoiceStatus.ComingSoon -> uiStrings.availableSoon to VoiceComingSoonGray
         VoiceStatus.Installed -> uiStrings.statusInstalled to VoiceActiveGreen
         VoiceStatus.Unavailable -> uiStrings.statusUnavailable to VoiceComingSoonGray
     }
@@ -431,7 +425,7 @@ private fun PremiumVoicePreviewCard(uiStrings: LisaUiStrings, preview: VoicePrev
                 Text(uiStrings.preview, fontSize = 12.sp)
             }
             Text(
-                text = uiStrings.comingSoon,
+                text = uiStrings.availableSoon,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = VoiceComingSoonGray,

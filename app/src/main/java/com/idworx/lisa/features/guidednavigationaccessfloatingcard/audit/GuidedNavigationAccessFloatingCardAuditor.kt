@@ -25,7 +25,7 @@ object GuidedNavigationAccessFloatingCardAuditor {
         val welcome = readWelcomeScreen() ?: return false
         val flow = readGuidedTrainingFlow() ?: return false
         return welcome.contains("onSkipToNavigationTraining") &&
-            welcome.contains("Skip to Navigation Training") &&
+            welcome.contains("caregiverAdvancedSkipNavigation") &&
             flow.contains("onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }")
     }
 
