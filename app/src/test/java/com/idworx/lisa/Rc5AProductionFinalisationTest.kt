@@ -19,11 +19,12 @@ class Rc5AProductionFinalisationTest {
 
     @Test
     fun emergencyOverlayHasNoNotifyNamesUi() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertFalse(source.contains("notifyNames"))
-        assertFalse(source.contains("wouldNotify"))
-        assertTrue(source.contains("EmergencyOverlay"))
-        assertTrue(source.contains("callingForHelp"))
+        val root = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        val emergency = readSource("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
+        assertFalse(root.contains("notifyNames"))
+        assertFalse(root.contains("wouldNotify"))
+        assertTrue(root.contains("GlobalEmergencyOverlayLayer"))
+        assertTrue(emergency.contains("callingForHelp"))
     }
 
     @Test

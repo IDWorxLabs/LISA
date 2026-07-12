@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiGuidedConfirmedLeft = mutableStateOf<Int?>(null)
     private val uiGuidedConfirmedRight = mutableStateOf<Int?>(null)
     private val uiListeningPaused = mutableStateOf(false)
+    private val uiPhraseComposerState = mutableStateOf(PhraseComposerController.initialState())
 
     private lateinit var trainingProgressStore: TrainingProgressStore
     private lateinit var trainingSession: TrainingSessionController
@@ -199,6 +200,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
+    private var composeOpenedFromCategoryMenu = false
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -224,6 +226,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         mappingsState.clear()
         mappingsState.addAll(defaultLanguageMappings())
         mappingsState.addAll(loadCustomMappings(this))
+        applyCustomCategoryMigrationIfNeeded()
 
         profileStore = LisaProfileStore(this)
         val legacySensitivity = loadSensitivityLevel(this)
@@ -324,8 +327,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onSelectPanel = { panel -> openPanel(panel) },
                         onClosePanel = { closeAllPanels() },
                         onBackToMenu = { navigateBackFromPanel() },
-                        onOpenCreatePhrase = { openPanel(LisaPanel.CreatePhrase, LisaPanel.VocabularyTraining) },
-                        onOpenPhraseEditor = { openPanel(LisaPanel.PhraseEditor, LisaPanel.CreatePhrase) },
+                        onOpenCreatePhrase = { },
+                        onOpenPhraseEditor = { openComposeModeFromCustom() },
                         onPreviewCaregiverPhrase = { phrase -> previewCaregiverPhrase(phrase) },
                         onSaveCaregiverPhrase = { category, phrase -> saveCaregiverPhrase(category, phrase) },
                         onReturnToCommunication = { returnToCommunicationWorkspace() },
@@ -408,6 +411,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
                         onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
                         onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
+                        phraseComposerState = uiPhraseComposerState.value,
+                        phraseComposerActive = uiActivePanel.value == LisaPanel.PhraseEditor,
+                        composerEyeFeedback = ComposerEyeFeedback(
+                            eyeTrackingBanner = eyeTrackingBannerContext(),
+                            leftWinkCount = uiDiagLeftCount.value,
+                            rightWinkCount = uiDiagRightCount.value,
+                            sensitivityLevel = uiGuidedNavigationState.value.displaySensitivityLevel(
+                                uiSensitivityLevel.value
+                            ),
+                            responseTimeSec = uiGuidedNavigationState.value.displayResponseTimeSec(
+                                uiSequenceProcessingDelaySec.value
+                            )
+                        ),
+                        onPhraseComposerEntry = { entry ->
+                            applyPhraseComposerTouchNavigation(entry.left, entry.right)
+                        },
+                        onPhraseComposerCommand = { entry ->
+                            applyPhraseComposerTouchNavigation(entry.left, entry.right)
+                        },
+                        onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
                         guidedTrainingActive = trainingSession.shouldShowTraining(),
                         guidedTrainingState = uiGuidedTrainingState.value,
                         guidedTrainingSetupStep = uiGuidedTrainingState.value.setupStep,
@@ -808,6 +831,57 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         return true
     }
 
+    private fun openPhraseComposer(returnTo: LisaPanel? = null) {
+        openComposeModeFromCustom()
+        if (returnTo != null) {
+            uiPanelReturnTarget.value = returnTo
+        }
+    }
+
+    /** RC7D.1 — canonical compose entry: keyboard mode immediately, no vocabulary page. */
+    private fun openComposeModeFromCustom() {
+        composeOpenedFromCategoryMenu = uiGuidedNavigationState.value.screenMode ==
+            GuidedOverlayScreenMode.CategoryMenu
+        uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
+        uiActivePanel.value = LisaPanel.PhraseEditor
+        if (uiGuidedNavigationState.value.screenMode == GuidedOverlayScreenMode.CategoryMenu) {
+            uiGuidedNavigationState.value = GuidedNavigationController.closeCategoryMenu(
+                uiGuidedNavigationState.value
+            )
+        }
+    }
+
+    private fun exitComposeMode(
+        openDestinationCategory: CustomPhraseEngine.CaregiverPhraseCategory? = null,
+        returnToCategoryMenu: Boolean = false
+    ) {
+        uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
+        uiActivePanel.value = LisaPanel.None
+        uiPanelReturnTarget.value = null
+        when {
+            openDestinationCategory != null -> {
+                uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+                    uiGuidedNavigationState.value,
+                    openDestinationCategory.toGuidedCategory().ordinal
+                )
+            }
+            returnToCategoryMenu || composeOpenedFromCategoryMenu -> {
+                uiGuidedNavigationState.value = GuidedNavigationController.openCategoryMenu(
+                    uiGuidedNavigationState.value
+                )
+            }
+        }
+        composeOpenedFromCategoryMenu = false
+    }
+
+    private fun applyCustomCategoryMigrationIfNeeded() {
+        val migration = CustomPhraseEngine.migrateCustomCategoryMappings(mappingsState.toList())
+        if (migration.migratedCount == 0) return
+        mappingsState.clear()
+        mappingsState.addAll(migration.mappings)
+        saveCustomMappings(this, migration.mappings.filter { it.isCustom })
+    }
+
     private fun openPanel(panel: LisaPanel, returnTo: LisaPanel? = null) {
         if (returnTo != null) {
             uiPanelReturnTarget.value = returnTo
@@ -836,6 +910,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         uiPanelReturnTarget.value = null
         uiActivePanel.value = LisaPanel.None
+        uiPhraseComposerState.value = PhraseComposerController.initialState()
     }
 
     private fun toggleMenuPanel() {
@@ -1396,7 +1471,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun returnToCommunicationWorkspace() {
-        closeAllPanels()
+        val savedCategory = uiPhraseComposerState.value.savedMapping?.caregiverCategory
+        exitComposeMode(openDestinationCategory = savedCategory)
     }
 
     private fun guidedVisibleEntryCap(): Int =
@@ -1435,6 +1511,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             guidedWorkspaceTrainingActive = trainingSession.isNavigationTrainingActive()
         )
 
+    private fun buildGestureContext(): LisaGestureContext {
+        val guided = uiGuidedNavigationState.value
+        val brain1 = trainingSession.state.brain1Decision
+        return LisaGestureContext(
+            activePanel = uiActivePanel.value,
+            guidedOverlayActive = guidedOverlayActive(),
+            guidedScreenMode = guided.screenMode,
+            isAdjustingPreference = guided.isPreferencesAdjustmentActive,
+            phraseComposerMode = if (uiActivePanel.value == LisaPanel.PhraseEditor) {
+                uiPhraseComposerState.value.mode
+            } else {
+                null
+            },
+            emergencyModalActive = emergencyAwaitingConfirm(brain1)
+        )
+    }
+
     private fun applyGuidedTouchNavigation(left: Int, right: Int) {
         if (trainingSession.isNavigationTrainingActive() &&
             (!acceptedByCurrentNavigationLesson(left, right) || isNavigationLessonOffTargetAttempt(left, right))
@@ -1450,6 +1543,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openGuidedCategoryFromTouch(categoryIndex: Int) {
+        if (categoryIndex == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX) {
+            openComposeModeFromCustom()
+            verifyTrainingNavigation(NavigationAction.SelectCategory)
+            return
+        }
         if (trainingSession.isNavigationTrainingActive()) {
             val expected = trainingSession.expectedNavigationAction()
             val isHighlightedCategory = categoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
@@ -1532,8 +1630,76 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 guidedUiStrings().guidedCurrentSensitivity(uiSensitivityLevel.value)
             )
             GuidedOverlayAction.OpenAdjustResponseTime,
-            GuidedOverlayAction.OpenAdjustSensitivity -> Unit
+            GuidedOverlayAction.OpenAdjustSensitivity,
+            GuidedOverlayAction.OpenPhraseComposer -> openComposeModeFromCustom()
         }
+    }
+
+    private fun applyPhraseComposerTouchNavigation(left: Int, right: Int) {
+        handlePhraseComposerSequence(left, right)
+    }
+
+    private fun handlePhraseComposerSequence(left: Int, right: Int) {
+        if (emergencyActive || emergencyAwaitingConfirm(trainingSession.state.brain1Decision)) {
+            resetSequence()
+            return
+        }
+        val uiStrings = guidedUiStrings()
+        when (
+            val result = PhraseComposerController.processSequence(
+                left = left,
+                right = right,
+                state = uiPhraseComposerState.value,
+                uiStrings = uiStrings
+            )
+        ) {
+            is PhraseComposerSequenceResult.Navigate -> {
+                var newState = result.newState
+                val category = newState.selectedCategory
+                if (newState.mode == PhraseComposerMode.SaveConfirmation &&
+                    newState.pendingAllocatedSequence == null &&
+                    category != null
+                ) {
+                    val allocated = CustomPhraseEngine.allocateSequence(
+                        category,
+                        mappingsState.toList()
+                    )
+                    newState = newState.copy(pendingAllocatedSequence = allocated)
+                }
+                uiPhraseComposerState.value = newState
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            is PhraseComposerSequenceResult.Preview -> {
+                previewCaregiverPhrase(result.phrase)
+                uiPhraseComposerState.value = uiPhraseComposerState.value.copy(
+                    confirmedLeft = left,
+                    confirmedRight = right,
+                    errorMessage = null
+                )
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            is PhraseComposerSequenceResult.Save -> {
+                val saveResult = saveCaregiverPhrase(result.category, result.phrase)
+                uiPhraseComposerState.value = PhraseComposerController.applySaveResult(
+                    uiPhraseComposerState.value,
+                    saveResult,
+                    uiStrings
+                )
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            PhraseComposerSequenceResult.ReturnToCommunication -> returnToCommunicationWorkspace()
+            PhraseComposerSequenceResult.ExitToPreviousPanel -> exitComposeMode(returnToCategoryMenu = true)
+            PhraseComposerSequenceResult.Unmatched -> {
+                if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
+                    returnToCommunicationWorkspace()
+                    uiGuidedNavigationState.value = GuidedNavigationController.openCategoryMenu(
+                        uiGuidedNavigationState.value
+                    )
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+        }
+        resetSequence()
     }
 
     private fun executeGuidedPreferenceAction(entry: GuidedVocabularyEntry) {
@@ -1578,8 +1744,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     ) {
         when (result) {
             is GuidedSequenceResult.Navigate -> {
-                uiGuidedNavigationState.value = result.newState
-                when {
+                val openingCustomComposer = result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
+                    result.newState.categoryIndex == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX
+                if (openingCustomComposer) {
+                    openComposeModeFromCustom()
+                    uiGuidedConfirmedPhrase.value = null
+                    uiGuidedConfirmedLeft.value = null
+                    uiGuidedConfirmedRight.value = null
+                } else {
+                    uiGuidedNavigationState.value = result.newState
+                    when {
                     GuidedModeNavigation.isSelectSequence(left, right) &&
                         result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
                         uiGuidedConfirmedPhrase.value = uiStrings.guidedChooseCategoryAction
@@ -1605,6 +1779,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         uiGuidedConfirmedPhrase.value = null
                         uiGuidedConfirmedLeft.value = null
                         uiGuidedConfirmedRight.value = null
+                    }
                     }
                 }
                 setCommunicationState(LisaCommunicationState.Listening)
@@ -2284,15 +2459,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (guidedOverlayActive()) {
-            handleGuidedOverlaySequence(capturedLeft, capturedRight)
-            return
-        }
-
-        LisaSystemLanguage.resolveGlobalCommand(capturedLeft, capturedRight)?.let { action ->
-            resetSequence()
-            executeGlobalSystemAction(action)
-            return
+        when (ModeScopedGestureAuthority.routingTarget(buildGestureContext(), capturedLeft, capturedRight)) {
+            GestureRoutingTarget.PhraseComposer -> {
+                handlePhraseComposerSequence(capturedLeft, capturedRight)
+                return
+            }
+            GestureRoutingTarget.SettingsPanelBack -> {
+                navigateBackFromPanel()
+                resetSequence()
+                setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
+            GestureRoutingTarget.GuidedOverlay -> {
+                handleGuidedOverlaySequence(capturedLeft, capturedRight)
+                return
+            }
+            GestureRoutingTarget.SystemCommand -> {
+                LisaSystemLanguage.resolveGlobalCommand(capturedLeft, capturedRight)?.let { action ->
+                    resetSequence()
+                    executeGlobalSystemAction(action)
+                    return
+                }
+            }
+            GestureRoutingTarget.Emergency,
+            GestureRoutingTarget.FinishTraining,
+            GestureRoutingTarget.CommunicationPhrasePath -> Unit
         }
 
         if (uiListeningPaused.value) {

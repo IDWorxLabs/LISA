@@ -173,14 +173,15 @@ class Rc7BCaregiverPhraseCreatorTest {
     }
 
     @Test
-    fun phraseEditorUiHasSavePreviewAndSuccessActions() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("phraseEditorPreviewVoice"))
-        assertTrue(source.contains("phraseEditorSave"))
-        assertTrue(source.contains("phraseCreatedSuccess"))
-        assertTrue(source.contains("phraseEditorCreateAnother"))
-        assertTrue(source.contains("phraseEditorReturnToCommunication"))
-        assertFalse(source.contains("phraseEditorPlaceholderBody"))
+    fun phraseComposerUiHasEyeControlledSaveAndSuccessActions() {
+        val composer = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
+        val engine = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerEngine.kt")
+        assertTrue(composer.contains("phraseCreatedSuccess"))
+        assertTrue(engine.contains("phraseEditorCreateAnother"))
+        assertTrue(engine.contains("phraseEditorReturnToCommunication"))
+        assertTrue(engine.contains("PhraseComposerActionId.Save"))
+        assertTrue(engine.contains("PhraseComposerActionId.Preview"))
+        assertFalse(composer.contains("OutlinedTextField"))
     }
 
     private fun readSource(relativePath: String): String {

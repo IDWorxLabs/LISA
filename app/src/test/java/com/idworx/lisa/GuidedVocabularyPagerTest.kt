@@ -447,10 +447,10 @@ class GuidedVocabularyPagerTest {
         assertTrue(main != null)
         val finalizeSequenceBody = main!!.substringAfter("private fun finalizeSequence()")
         val emergencyIndex = finalizeSequenceBody.indexOf("isEmergencySequence(capturedLeft, capturedRight)")
-        val overlayGateIndex = finalizeSequenceBody.indexOf("if (guidedOverlayActive())")
+        val overlayGateIndex = finalizeSequenceBody.indexOf("GestureRoutingTarget.GuidedOverlay")
         assertTrue("expected isEmergencySequence check in finalizeSequence", emergencyIndex >= 0)
-        assertTrue("expected guidedOverlayActive gate in finalizeSequence", overlayGateIndex >= 0)
-        assertTrue("emergency must be checked before overlay visibility gating", emergencyIndex < overlayGateIndex)
+        assertTrue("expected guided overlay routing in finalizeSequence", overlayGateIndex >= 0)
+        assertTrue("emergency must be checked before guided overlay routing", emergencyIndex < overlayGateIndex)
     }
 
     @Test

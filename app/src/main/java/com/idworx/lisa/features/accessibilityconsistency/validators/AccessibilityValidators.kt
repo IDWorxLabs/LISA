@@ -340,7 +340,7 @@ object EmergencyAccessibilityValidator {
         val checks = 4
 
         val ui = AccessibilityFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        if (ui?.contains("EmergencyOverlay") == true) passed++ else issues.add(issue("EMER_001", "Emergency overlay missing"))
+        if (ui?.contains("GlobalEmergencyOverlayLayer") == true) passed++ else issues.add(issue("EMER_001", "Emergency overlay missing"))
 
         val emergency = AccessibilityFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/EmergencyArchitecture.kt")
         if (emergency?.contains("EMERGENCY_LEFT_WINKS") == true) passed++ else issues.add(issue("EMER_002", "Emergency sequence constants missing"))

@@ -144,6 +144,18 @@ fun LisaRootUI(
     onGuidedIncreaseValue: () -> Unit = {},
     onGuidedPhraseEntry: (GuidedVocabularyEntry) -> Unit = {},
     onGuidedCategoryRow: (Int) -> Unit = {},
+    phraseComposerState: PhraseComposerState = PhraseComposerController.initialState(),
+    phraseComposerActive: Boolean = false,
+    composerEyeFeedback: ComposerEyeFeedback = ComposerEyeFeedback(
+        eyeTrackingBanner = EyeTrackingBannerContext(),
+        leftWinkCount = 0,
+        rightWinkCount = 0,
+        sensitivityLevel = DEFAULT_SENSITIVITY_LEVEL,
+        responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS
+    ),
+    onPhraseComposerEntry: (PhraseComposerEntry) -> Unit = {},
+    onPhraseComposerCommand: (PhraseComposerEntry) -> Unit = {},
+    onPhraseComposerEmergency: () -> Unit = {},
     guidedTrainingActive: Boolean = false,
     guidedTrainingState: GuidedTrainingUiState = GuidedTrainingUiState(),
     guidedTrainingSetupStep: Int = 0,
@@ -241,7 +253,9 @@ fun LisaRootUI(
         practiceModeOpen = practiceModeOpen,
         quickControlsOpen = quickControlsOpen,
         guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
-    )
+    ) && !phraseComposerActive
+    val emergencyAwaitingConfirm = emergencyAwaitingConfirm(guidedTrainingState.brain1Decision)
+    val composerInputSuspended = emergencyActive || emergencyAwaitingConfirm
     val activeNavigationLesson = if (guidedWorkspaceTrainingActive) {
         TrainingLessonCatalog.navigationLessonAt(guidedTrainingState.progress.navigationLessonIndex)
     } else {
@@ -278,10 +292,6 @@ fun LisaRootUI(
                 onRequestPermission = onRequestCameraPermission,
                 onOpenSettings = onOpenAppSettings
             )
-        }
-
-        if (emergencyActive) {
-            EmergencyOverlay(uiStrings = uiStrings)
         }
 
         if (practiceModeOpen) {
@@ -360,6 +370,7 @@ fun LisaRootUI(
             LocalDensity provides Density(density.density, density.fontScale * textSizeScale)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
+        if (!phraseComposerActive) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -407,7 +418,9 @@ fun LisaRootUI(
                 DeveloperPanel(info = developerInfo)
             }
         }
+        }
 
+        if (!phraseComposerActive) {
         GuidedVocabularyOverlay(
             uiStrings = uiStrings,
             navigationState = guidedNavigationState,
@@ -417,8 +430,7 @@ fun LisaRootUI(
             confirmedLeft = guidedConfirmedLeft,
             confirmedRight = guidedConfirmedRight,
             visible = showGuidedVocabularyOverlay,
-            emergencyAwaitingConfirm = guidedTrainingState.brain1Decision.kind ==
-                com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.EmergencyMode,
+            emergencyAwaitingConfirm = emergencyAwaitingConfirm,
             onNavigateUp = onGuidedNavigateUp,
             onSelectEnter = onGuidedSelectEnter,
             onBack = onGuidedBack,
@@ -439,7 +451,23 @@ fun LisaRootUI(
                 .weight(1f)
                 .fillMaxWidth()
         )
+        }
 
+        EyeControlledPhraseComposerOverlay(
+            uiStrings = uiStrings,
+            state = phraseComposerState,
+            visible = phraseComposerActive,
+            composerEyeFeedback = composerEyeFeedback,
+            inputSuspended = composerInputSuspended,
+            onEmergency = onPhraseComposerEmergency,
+            onEntrySelected = onPhraseComposerEntry,
+            onCommandSelected = onPhraseComposerCommand,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        )
+
+        if (!phraseComposerActive) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -501,14 +529,7 @@ fun LisaRootUI(
                         onBegin = onOpenPhraseEditor,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.PhraseEditor -> PhraseEditorPanel(
-                        uiStrings = uiStrings,
-                        onPreviewPhrase = onPreviewCaregiverPhrase,
-                        onSavePhrase = onSaveCaregiverPhrase,
-                        onCreateAnother = { },
-                        onReturnToCommunication = onReturnToCommunication,
-                        onBack = onBackToMenu
-                    )
+                    LisaPanel.PhraseEditor -> Unit
                     LisaPanel.Voice -> VoiceHomePanel(
                         uiStrings = uiStrings,
                         onOpenDeviceVoice = { onSelectPanel(LisaPanel.VoiceDevice) },
@@ -591,6 +612,7 @@ fun LisaRootUI(
         }
         }
         }
+        }
 
         // Floating lesson card renders last so it is always drawn above the workspace and the
         // Listening/Watching-your-eyes banner at the top — never behind it. It docks above the
@@ -618,6 +640,13 @@ fun LisaRootUI(
                     .padding(horizontal = 10.dp, vertical = 84.dp)
             )
         }
+
+        GlobalEmergencyOverlayLayer(
+            uiStrings = uiStrings,
+            emergencyActive = emergencyActive,
+            emergencyAwaitingConfirm = emergencyAwaitingConfirm,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -1601,9 +1630,11 @@ private fun VocabularyTrainingPanel(
     LisaPanelShell(title = uiStrings.vocabularyTraining, onBack = onBack, backLabel = uiStrings.back) {
         PanelPurposeLine(uiStrings.vocabularyPurpose)
         Spacer(Modifier.height(12.dp))
-        VocabularyCreatePhraseCard(
-            uiStrings = uiStrings,
-            onCreatePhrase = onOpenCreatePhrase
+        Text(
+            text = uiStrings.vocabularyCustomComposerNote,
+            fontSize = 13.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            lineHeight = 18.sp
         )
         Spacer(Modifier.height(12.dp))
         Text(
@@ -1757,227 +1788,6 @@ private fun PhraseCreationStepCard(
 }
 
 @Composable
-private fun PhraseEditorPanel(
-    uiStrings: LisaUiStrings,
-    onPreviewPhrase: (String) -> Unit,
-    onSavePhrase: (CustomPhraseEngine.CaregiverPhraseCategory, String) -> CustomPhraseEngine.SavePhraseResult,
-    onCreateAnother: () -> Unit,
-    onReturnToCommunication: () -> Unit,
-    onBack: () -> Unit
-) {
-    var selectedCategory by remember { mutableStateOf(CustomPhraseEngine.CaregiverPhraseCategory.Conversation) }
-    var phraseText by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var savedMapping by remember { mutableStateOf<WinkMapping?>(null) }
-    val showSuccess = savedMapping != null
-
-    fun validationMessage(reason: CustomPhraseEngine.PhraseValidationFailure): String = when (reason) {
-        CustomPhraseEngine.PhraseValidationFailure.Empty -> uiStrings.phraseValidationEmpty
-        CustomPhraseEngine.PhraseValidationFailure.TooLong -> uiStrings.phraseValidationTooLong
-        CustomPhraseEngine.PhraseValidationFailure.Duplicate -> uiStrings.phraseValidationDuplicate
-    }
-
-    fun resetForAnotherPhrase() {
-        phraseText = ""
-        errorMessage = null
-        savedMapping = null
-        selectedCategory = CustomPhraseEngine.CaregiverPhraseCategory.Conversation
-        onCreateAnother()
-    }
-
-    LisaPanelShell(title = uiStrings.phraseEditorTitle, onBack = onBack, backLabel = uiStrings.back) {
-        val mapping = savedMapping
-        if (showSuccess && mapping != null) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                PanelPurposeLine(uiStrings.phraseEditorPurpose)
-                Text(
-                    text = uiStrings.phraseCreatedSuccess,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = LisaBlueDark,
-                    lineHeight = 21.sp
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(LisaWhite)
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "\"${mapping.customPhrase.orEmpty()}\"",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LisaBlueDark,
-                        lineHeight = 20.sp
-                    )
-                    Text(
-                        text = uiStrings.phraseCreatedCategoryLine(
-                            uiStrings.caregiverPhraseCategoryLabel(
-                                mapping.caregiverCategory ?: CustomPhraseEngine.CaregiverPhraseCategory.Conversation
-                            )
-                        ),
-                        fontSize = 13.sp,
-                        color = LisaBlueDark.copy(alpha = 0.9f)
-                    )
-                    Text(
-                        text = uiStrings.phraseCreatedSequenceLine(
-                            formatWinkSequenceShort(mapping.left, mapping.right)
-                        ),
-                        fontSize = 13.sp,
-                        color = LisaBlueDark.copy(alpha = 0.9f)
-                    )
-                }
-                Button(
-                    onClick = { resetForAnotherPhrase() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
-                ) {
-                    Text(uiStrings.phraseEditorCreateAnother, fontWeight = FontWeight.SemiBold)
-                }
-                OutlinedButton(
-                    onClick = onReturnToCommunication,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(uiStrings.phraseEditorReturnToCommunication)
-                }
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 360.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                PanelPurposeLine(uiStrings.phraseEditorPurpose)
-                Text(
-                    text = uiStrings.phraseEditorCategoryLabel,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = LisaBlueDark
-                )
-                CustomPhraseEngine.selectableCategories.forEach { category ->
-                    PhraseCategoryOptionRow(
-                        label = uiStrings.caregiverPhraseCategoryLabel(category),
-                        selected = selectedCategory == category,
-                        onClick = {
-                            selectedCategory = category
-                            errorMessage = null
-                        }
-                    )
-                }
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = phraseText,
-                    onValueChange = {
-                        phraseText = it.take(CustomPhraseEngine.MAX_PHRASE_LENGTH)
-                        errorMessage = null
-                    },
-                    label = { Text(uiStrings.phraseEditorPhraseLabel) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(LisaWhite)
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = uiStrings.phraseEditorPreviewLabel,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        color = LisaBlueDark
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    val previewText = CustomPhraseEngine.normalizePhrase(phraseText)
-                    Text(
-                        text = if (previewText.isBlank()) "—" else "\"$previewText\"",
-                        fontSize = 14.sp,
-                        color = LisaBlueDark.copy(alpha = 0.85f),
-                        lineHeight = 20.sp
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { onPreviewPhrase(phraseText) },
-                        enabled = previewText.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(uiStrings.phraseEditorPreviewVoice)
-                    }
-                }
-                errorMessage?.let { message ->
-                    Text(
-                        text = message,
-                        fontSize = 12.sp,
-                        color = LisaEmergencyRed,
-                        lineHeight = 17.sp
-                    )
-                }
-                Button(
-                    onClick = {
-                        when (val result = onSavePhrase(selectedCategory, phraseText)) {
-                            is CustomPhraseEngine.SavePhraseResult.Success -> {
-                                errorMessage = null
-                                savedMapping = result.mapping
-                            }
-                            is CustomPhraseEngine.SavePhraseResult.ValidationFailed -> {
-                                errorMessage = validationMessage(result.reason)
-                            }
-                            CustomPhraseEngine.SavePhraseResult.NoSequenceAvailable -> {
-                                errorMessage = uiStrings.phraseValidationNoSequence
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
-                ) {
-                    Text(uiStrings.phraseEditorSave, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PhraseCategoryOptionRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) LisaBlueLight else LisaWhite)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = LisaBlueDark
-        )
-        if (selected) {
-            Text(text = "✓", fontSize = 16.sp, color = LisaBlueDark)
-        }
-    }
-}
-
-@Composable
 private fun LisaActionButton(
     text: String,
     modifier: Modifier = Modifier,
@@ -2007,42 +1817,6 @@ private fun LisaActionButton(
             )
         ) {
             Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun EmergencyOverlay(uiStrings: LisaUiStrings) {
-    val infiniteTransition = rememberInfiniteTransition(label = "emergency_flash")
-    val flashAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.88f,
-        animationSpec = infiniteRepeatable(animation = tween(600), repeatMode = RepeatMode.Reverse),
-        label = "emergency_alpha"
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LisaEmergencyRed.copy(alpha = flashAlpha)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = uiStrings.emergency,
-                color = LisaWhite,
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = uiStrings.callingForHelp,
-                color = LisaWhite,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }

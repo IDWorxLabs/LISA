@@ -37,34 +37,17 @@ class Rc7AVocabularyCleanupTest {
     }
 
     @Test
-    fun vocabularyPageContainsCreatePhraseEntryPoint() {
+    fun vocabularyPageShowsCustomComposerNote() {
         val panel = extractFunction("private fun VocabularyTrainingPanel")
-        assertTrue(panel.contains("VocabularyCreatePhraseCard"))
-        assertTrue(panel.contains("onOpenCreatePhrase"))
-        val card = extractFunction("private fun VocabularyCreatePhraseCard")
-        assertTrue(card.contains("createPhraseCardTitle"))
-        assertTrue(card.contains("createPhraseCardDescription"))
-        assertTrue(card.contains("createPhraseButton"))
+        assertTrue(panel.contains("vocabularyCustomComposerNote"))
+        assertFalse(panel.contains("VocabularyCreatePhraseCard("))
     }
 
     @Test
-    fun createPhraseIntroductionPageExists() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("private fun CreatePhrasePanel"))
-        assertTrue(source.contains("createPhraseIntroLead"))
-        assertTrue(source.contains("createPhraseHowItWorksTitle"))
-        assertTrue(source.contains("createPhraseBeginButton"))
-        assertTrue(source.contains("LisaPanel.CreatePhrase -> CreatePhrasePanel"))
-        assertFalse(source.contains("createPhrasePlaceholderBody"))
-    }
-
-    @Test
-    fun createPhraseNavigationReturnsToVocabulary() {
+    fun createPhraseIntroductionPageNoLongerPrimaryEntry() {
         val mainActivity = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
-        assertTrue(mainActivity.contains("LisaPanel.CreatePhrase"))
-        assertTrue(
-            mainActivity.contains("openPanel(LisaPanel.CreatePhrase, LisaPanel.VocabularyTraining)")
-        )
+        assertTrue(mainActivity.contains("openComposeModeFromCustom"))
+        assertFalse(mainActivity.contains("openPanel(LisaPanel.CreatePhrase, LisaPanel.VocabularyTraining)"))
     }
 
     @Test

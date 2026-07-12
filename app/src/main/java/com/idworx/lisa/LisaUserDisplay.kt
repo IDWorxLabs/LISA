@@ -202,3 +202,25 @@ fun LisaCommunicationState.toUserDisplay(
 
 fun winkDots(count: Int): String =
     if (count <= 0) "—" else "●".repeat(count.coerceAtMost(8))
+
+/** Live partial-sequence label for compose-mode feedback (display only). */
+fun formatPartialWinkSequence(left: Int, right: Int): String? = when {
+    left <= 0 && right <= 0 -> null
+    left > 0 && right > 0 -> formatWinkSequenceShort(left, right)
+    left > 0 -> "L$left"
+    else -> "R$right"
+}
+
+data class ComposerEyeFeedback(
+    val eyeTrackingBanner: EyeTrackingBannerContext,
+    val leftWinkCount: Int,
+    val rightWinkCount: Int,
+    val sensitivityLevel: Int,
+    val responseTimeSec: Int
+) {
+    fun bannerMessage(strings: LisaUiStrings): String =
+        eyeTrackingBanner.bannerMessage(strings)
+
+    fun partialSequenceLabel(): String? =
+        formatPartialWinkSequence(leftWinkCount, rightWinkCount)
+}

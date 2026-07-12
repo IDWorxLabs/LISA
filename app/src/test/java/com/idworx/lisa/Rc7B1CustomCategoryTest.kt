@@ -82,19 +82,15 @@ class Rc7B1CustomCategoryTest {
         )
     }
 
-    // 3. A phrase saved as Custom appears only on the Custom page.
+    // 3. User-created phrases never appear on the Custom page (RC7D.1).
 
     @Test
-    fun customPhraseAppearsOnlyOnCustomPage() {
-        val pages = pagesWith(customEntry("Please open the curtains.", CustomPhraseEngine.CaregiverPhraseCategory.Custom))
+    fun userCreatedPhrasesNeverAppearOnCustomPage() {
+        val pages = pagesWith(customEntry("Please open the curtains.", CustomPhraseEngine.CaregiverPhraseCategory.Conversation))
         val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
-        assertTrue(customPage.entries.any { it.phrase == "Please open the curtains." })
-        pages.filter { it.category != GuidedVocabularyCategory.Custom }.forEach { page ->
-            assertTrue(
-                "Custom phrase leaked onto ${page.category}",
-                page.entries.none { it.phrase == "Please open the curtains." }
-            )
-        }
+        assertTrue(customPage.entries.isEmpty())
+        val conversation = pages.first { it.category == GuidedVocabularyCategory.Conversation }
+        assertTrue(conversation.entries.any { it.phrase == "Please open the curtains." })
     }
 
     // 4. A phrase saved as Family remains on Family.
@@ -108,18 +104,22 @@ class Rc7B1CustomCategoryTest {
         assertTrue(customPage.entries.none { it.phrase == "Please call my brother." })
     }
 
-    // 5. Existing stored Custom phrases load onto Custom without migration loss.
+    // 5. Legacy Custom-category storage migrates to General Conversation.
 
     @Test
-    fun storedCustomPhrasesLoadOntoCustomPage() {
+    fun legacyCustomCategoryStorageMigratesToConversation() {
         val restored = CustomPhraseEngine.parseCustomMappings("7,2|I need my glasses.|Custom\n")
-        assertEquals(1, restored.size)
-        assertEquals(CustomPhraseEngine.CaregiverPhraseCategory.Custom, restored.first().caregiverCategory)
-        val pages = pagesWith(*CustomPhraseEngine.toCatalogEntries(restored).toTypedArray())
+        val migration = CustomPhraseEngine.migrateCustomCategoryMappings(restored)
+        assertEquals(1, migration.migratedCount)
+        assertEquals(
+            CustomPhraseEngine.CaregiverPhraseCategory.Conversation,
+            migration.mappings.single().caregiverCategory
+        )
+        val pages = pagesWith(*CustomPhraseEngine.toCatalogEntries(migration.mappings).toTypedArray())
         val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
-        assertTrue(customPage.entries.any { it.phrase == "I need my glasses." && it.left == 7 && it.right == 2 })
-        val familyPage = pages.first { it.category == GuidedVocabularyCategory.Family }
-        assertTrue(familyPage.entries.none { it.phrase == "I need my glasses." })
+        assertTrue(customPage.entries.isEmpty())
+        val conversation = pages.first { it.category == GuidedVocabularyCategory.Conversation }
+        assertTrue(conversation.entries.any { it.phrase == "I need my glasses." })
     }
 
     @Test
@@ -180,12 +180,15 @@ class Rc7B1CustomCategoryTest {
     // 9. Custom empty state appears when no custom phrases exist.
 
     @Test
-    fun customPageIsEmptyWithoutCustomPhrases() {
+    fun customPageShowsEmptyStateWhenNoPhrasesExist() {
         val pages = GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english)
         val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
         assertTrue(customPage.entries.isEmpty())
         assertEquals("No custom phrases yet.", english.guidedCustomEmptyTitle)
-        assertEquals("Add phrases from Menu → Vocabulary.", english.guidedCustomEmptyBody)
+        assertEquals(
+            "Open Custom from Categories to create a phrase using your eyes.",
+            english.guidedCustomEmptyBody
+        )
     }
 
     @Test
@@ -200,10 +203,10 @@ class Rc7B1CustomCategoryTest {
     // 10. Empty state disappears immediately after save.
 
     @Test
-    fun customPagePopulatedImmediatelyAfterSave() {
+    fun savedPhraseAppearsOnDestinationCategoryNotCustom() {
         val save = CustomPhraseEngine.saveNewPhrase(
             "Please open the curtains.",
-            CustomPhraseEngine.CaregiverPhraseCategory.Custom,
+            CustomPhraseEngine.CaregiverPhraseCategory.Conversation,
             defaultLanguageMappings()
         )
         assertTrue(save is CustomPhraseEngine.SavePhraseResult.Success)
@@ -211,15 +214,14 @@ class Rc7B1CustomCategoryTest {
         val entries = CustomPhraseEngine.toCatalogEntries(listOf(mapping))
         val pages = pagesWith(*entries.toTypedArray())
         val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
-        assertEquals(1, customPage.entries.size)
-        assertEquals("Please open the curtains.", customPage.entries.first().phrase)
+        assertTrue(customPage.entries.isEmpty())
+        val conversation = pages.first { it.category == GuidedVocabularyCategory.Conversation }
+        assertTrue(conversation.entries.any { it.phrase == "Please open the curtains." })
     }
 
-    // 11. Phrase editor still offers Custom.
-
     @Test
-    fun phraseEditorOffersCustomCategory() {
-        assertTrue(
+    fun phraseEditorDoesNotOfferCustomAsDestination() {
+        assertFalse(
             CustomPhraseEngine.selectableCategories.contains(CustomPhraseEngine.CaregiverPhraseCategory.Custom)
         )
     }
@@ -228,13 +230,14 @@ class Rc7B1CustomCategoryTest {
 
     @Test
     fun successScreenShowsPhraseCategoryAndSequence() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("phraseCreatedSuccess"))
-        assertTrue(source.contains("phraseCreatedCategoryLine"))
-        assertTrue(source.contains("phraseCreatedSequenceLine"))
-        assertTrue(source.contains("formatWinkSequenceShort(mapping.left, mapping.right)"))
-        assertTrue(source.contains("phraseEditorCreateAnother"))
-        assertTrue(source.contains("phraseEditorReturnToCommunication"))
+        val composerUi = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
+        val composerEngine = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerEngine.kt")
+        assertTrue(composerUi.contains("phraseCreatedSuccess"))
+        assertTrue(composerUi.contains("phraseCreatedCategoryLine"))
+        assertTrue(composerUi.contains("phraseCreatedSequenceLine"))
+        assertTrue(composerUi.contains("formatWinkSequenceShort(mapping.left, mapping.right)"))
+        assertTrue(composerEngine.contains("phraseEditorCreateAnother"))
+        assertTrue(composerEngine.contains("phraseEditorReturnToCommunication"))
         assertEquals("Category: Custom", english.phraseCreatedCategoryLine("Custom"))
         assertEquals("Blink sequence: L7 R2", english.phraseCreatedSequenceLine("L7 R2"))
     }

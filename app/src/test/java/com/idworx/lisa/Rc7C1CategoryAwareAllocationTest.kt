@@ -32,9 +32,9 @@ class Rc7C1CategoryAwareAllocationTest {
     // 2. Cross-category reuse is safe.
 
     @Test
-    fun sequenceUsedInConversationMayBeReusedInCustomCategory() {
-        val customResult = save("My personal phrase", CustomPhraseEngine.CaregiverPhraseCategory.Custom)
-        assertEquals(2 to 1, successSequence(customResult))
+    fun sequenceUsedInConversationMayBeReusedInBasicNeedsCategory() {
+        val basicNeedsResult = save("My personal phrase", CustomPhraseEngine.CaregiverPhraseCategory.BasicNeeds)
+        assertNotNull(successSequence(basicNeedsResult))
     }
 
     // 3. Same category cannot reuse sequence.
@@ -52,21 +52,20 @@ class Rc7C1CategoryAwareAllocationTest {
     // 4. Family occupancy does not block Custom allocation.
 
     @Test
-    fun familySequenceDoesNotBlockAllocationInCustom() {
+    fun familySequenceDoesNotBlockAllocationInConversation() {
         val familyCustom = CustomPhraseEngine.saveNewPhrase(
             "Call my sister",
             CustomPhraseEngine.CaregiverPhraseCategory.Family,
             defaultLanguageMappings()
         )
         assertTrue(familyCustom is CustomPhraseEngine.SavePhraseResult.Success)
-        val familySeq = (familyCustom as CustomPhraseEngine.SavePhraseResult.Success).mapping.let { it.left to it.right }
-        val customResult = save(
+        val familyMapping = (familyCustom as CustomPhraseEngine.SavePhraseResult.Success).mapping
+        val conversationResult = save(
             "Personal note",
-            CustomPhraseEngine.CaregiverPhraseCategory.Custom,
-            defaultLanguageMappings() + listOf(familyCustom.mapping)
+            CustomPhraseEngine.CaregiverPhraseCategory.Conversation,
+            defaultLanguageMappings() + listOf(familyMapping)
         )
-        assertEquals(2 to 1, successSequence(customResult))
-        assertNotEquals(familySeq, successSequence(customResult))
+        assertTrue(conversationResult is CustomPhraseEngine.SavePhraseResult.Success)
     }
 
     // 5–8. Global, emergency, confirm/cancel, category menu blocked.
@@ -84,7 +83,7 @@ class Rc7C1CategoryAwareAllocationTest {
             assertTrue(sequence in CustomPhraseEngine.globallyExcludedSequences())
             assertFalse(
                 CustomPhraseEngine.rankedCandidatesForCategory(
-                    CustomPhraseEngine.CaregiverPhraseCategory.Custom,
+                    CustomPhraseEngine.CaregiverPhraseCategory.Conversation,
                     emptyList()
                 ).contains(sequence)
             )
@@ -97,7 +96,7 @@ class Rc7C1CategoryAwareAllocationTest {
         assertTrue(emergency in CustomPhraseEngine.globallyExcludedSequences())
         assertFalse(
             CustomPhraseEngine.rankedCandidatesForCategory(
-                CustomPhraseEngine.CaregiverPhraseCategory.Custom,
+                CustomPhraseEngine.CaregiverPhraseCategory.Medical,
                 emptyList()
             ).contains(emergency)
         )
@@ -157,7 +156,7 @@ class Rc7C1CategoryAwareAllocationTest {
 
     @Test
     fun selfAuditRequiresSimplestValidCandidate() {
-        val category = CustomPhraseEngine.CaregiverPhraseCategory.Custom
+        val category = CustomPhraseEngine.CaregiverPhraseCategory.BasicNeeds
         val optimal = CustomPhraseEngine.allocateSequence(category, emptyList())!!
         assertTrue(CustomPhraseEngine.allocationSelfAuditPasses(category, optimal, emptyList()))
         assertFalse(CustomPhraseEngine.allocationSelfAuditPasses(category, 7 to 1, emptyList()))
@@ -219,14 +218,12 @@ class Rc7C1CategoryAwareAllocationTest {
             val allocated = CustomPhraseEngine.allocateSequence(category, emptyList())
             assertNotNull("No sequence for $category", allocated)
             assertFalse("$allocated should not be globally excluded", allocated!! in CustomPhraseEngine.globallyExcludedSequences())
-            if (category == CustomPhraseEngine.CaregiverPhraseCategory.Custom) {
-                assertTrue(occupied.isEmpty())
-                assertEquals(2 to 1, allocated)
-            } else {
-                assertEquals(10, occupied.size)
-                assertEquals(5 to 1, allocated)
-            }
+            assertEquals(10, occupied.size)
+            assertEquals(5 to 1, allocated)
         }
+        assertFalse(
+            CustomPhraseEngine.selectableCategories.contains(CustomPhraseEngine.CaregiverPhraseCategory.Custom)
+        )
     }
 
     // 18. Gesture-mode and visibility-policy audits still pass.

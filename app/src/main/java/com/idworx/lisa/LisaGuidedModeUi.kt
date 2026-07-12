@@ -219,28 +219,9 @@ fun GuidedVocabularyOverlay(
                             }
                             Spacer(Modifier.height(6.dp))
 
-                            if (pageEntries.isEmpty()) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = uiStrings.guidedCustomEmptyTitle,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 16.sp,
-                                        color = LisaWhite
-                                    )
-                                    Spacer(Modifier.height(6.dp))
-                                    Text(
-                                        text = uiStrings.guidedCustomEmptyBody,
-                                        fontSize = 13.sp,
-                                        color = LisaWhite.copy(alpha = 0.8f)
-                                    )
-                                }
-                            } else {
+                            val isCustomPage = categoryPage.category == GuidedVocabularyCategory.Custom
+                            val showCustomEmptyHint = isCustomPage && pageEntries.isEmpty()
+
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -248,6 +229,20 @@ fun GuidedVocabularyOverlay(
                                     .verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                if (showCustomEmptyHint) {
+                                    Text(
+                                        text = uiStrings.guidedCustomEmptyTitle,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 16.sp,
+                                        color = LisaWhite
+                                    )
+                                    Text(
+                                        text = uiStrings.guidedCustomEmptyBody,
+                                        fontSize = 13.sp,
+                                        color = LisaWhite.copy(alpha = 0.8f)
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                }
                                 val entriesToShow = if (isPreferencesPage) pageEntries else visiblePhraseEntries
                                 entriesToShow.forEachIndexed { entryIndex, entry ->
                                     val highlighted = confirmedLeft == entry.left &&
@@ -263,7 +258,6 @@ fun GuidedVocabularyOverlay(
                                         onClick = { onPhraseEntry(entry) }
                                     )
                                 }
-                            }
                             }
                         }
                     }
@@ -587,7 +581,7 @@ private fun GuidedModeNavigationPanel(
 }
 
 @Composable
-private fun GuidedEmergencyNavButton(
+internal fun GuidedEmergencyNavButton(
     symbol: String,
     title: String,
     gestureHint: String,
@@ -648,7 +642,7 @@ private fun GuidedEmergencyNavButton(
 }
 
 @Composable
-private fun GuidedNavigationActionButton(
+internal fun GuidedNavigationActionButton(
     symbol: String,
     title: String,
     gestureHint: String,

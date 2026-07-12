@@ -124,22 +124,21 @@ class Rc7B2PreserveCategoryShortcutsTest {
         assertEquals(GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX, opened.categoryIndex)
     }
 
-    // 8. A saved Custom phrase appears only on Custom.
+    // 8. User-created phrases never appear on Custom.
 
     @Test
-    fun customPhraseAppearsOnlyOnCustomPage() {
+    fun userCreatedPhrasesNeverAppearOnCustomPage() {
         val entry = CustomPhraseEngine.CaregiverCustomPhraseEntry(
             phrase = "Please open the curtains.",
             left = 7,
             right = 2,
-            category = CustomPhraseEngine.CaregiverPhraseCategory.Custom
+            category = CustomPhraseEngine.CaregiverPhraseCategory.Conversation
         )
         val pages = pagesWith(entry)
         val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
-        assertTrue(customPage.entries.any { it.phrase == "Please open the curtains." })
-        pages.filter { it.category != GuidedVocabularyCategory.Custom }.forEach { page ->
-            assertTrue(page.entries.none { it.phrase == "Please open the curtains." })
-        }
+        assertTrue(customPage.entries.isEmpty())
+        val conversation = pages.first { it.category == GuidedVocabularyCategory.Conversation }
+        assertTrue(conversation.entries.any { it.phrase == "Please open the curtains." })
     }
 
     // 9. A saved Family phrase appears only on Family.
@@ -159,28 +158,32 @@ class Rc7B2PreserveCategoryShortcutsTest {
         assertTrue(customPage.entries.none { it.phrase == "Please call my brother." })
     }
 
-    // 10. Existing stored Custom phrases still load without migration.
+    // 10. Legacy Custom-category storage migrates to Conversation.
 
     @Test
-    fun storedCustomPhrasesLoadWithoutMigration() {
+    fun legacyCustomCategoryStorageMigratesToConversation() {
         val restored = CustomPhraseEngine.parseCustomMappings("7,2|I need my glasses.|Custom\n")
-        assertEquals(1, restored.size)
-        assertEquals(CustomPhraseEngine.CaregiverPhraseCategory.Custom, restored.first().caregiverCategory)
-        val pages = pagesWith(*CustomPhraseEngine.toCatalogEntries(restored).toTypedArray())
+        val migration = CustomPhraseEngine.migrateCustomCategoryMappings(restored)
+        assertEquals(1, migration.migratedCount)
+        val pages = pagesWith(*CustomPhraseEngine.toCatalogEntries(migration.mappings).toTypedArray())
         val customPage = pages[GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX]
-        assertEquals(GuidedVocabularyCategory.Custom, customPage.category)
-        assertTrue(customPage.entries.any { it.phrase == "I need my glasses." })
+        assertTrue(customPage.entries.isEmpty())
+        val conversation = pages.first { it.category == GuidedVocabularyCategory.Conversation }
+        assertTrue(conversation.entries.any { it.phrase == "I need my glasses." })
     }
 
     // 11. Custom empty state still works.
 
     @Test
-    fun customEmptyStateStillWorks() {
-        val customPage = GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english)
-            .first { it.category == GuidedVocabularyCategory.Custom }
+    fun customEmptyStateHintStillAvailable() {
+        val pages = GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english)
+        val customPage = pages.first { it.category == GuidedVocabularyCategory.Custom }
         assertTrue(customPage.entries.isEmpty())
         assertEquals("No custom phrases yet.", english.guidedCustomEmptyTitle)
-        assertEquals("Add phrases from Menu → Vocabulary.", english.guidedCustomEmptyBody)
+        assertEquals(
+            "Open Custom from Categories to create a phrase using your eyes.",
+            english.guidedCustomEmptyBody
+        )
     }
 
     // 12. Built-in category contents and entry counts remain unchanged.
@@ -213,12 +216,12 @@ class Rc7B2PreserveCategoryShortcutsTest {
     // 14. Phrase Editor still offers Custom.
 
     @Test
-    fun phraseEditorStillOffersCustom() {
-        assertTrue(
+    fun phraseEditorDoesNotOfferCustomAsDestination() {
+        assertFalse(
             CustomPhraseEngine.selectableCategories.contains(CustomPhraseEngine.CaregiverPhraseCategory.Custom)
         )
-        assertNotEquals(
-            GuidedVocabularyCategory.Family,
+        assertEquals(
+            GuidedVocabularyCategory.Custom,
             CustomPhraseEngine.CaregiverPhraseCategory.Custom.toGuidedCategory()
         )
     }
@@ -227,10 +230,10 @@ class Rc7B2PreserveCategoryShortcutsTest {
 
     @Test
     fun successScreenStillReportsCustomCorrectly() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("phraseCreatedCategoryLine"))
-        assertTrue(source.contains("caregiverPhraseCategoryLabel"))
-        assertTrue(source.contains("mapping.caregiverCategory"))
+        val composerUi = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
+        assertTrue(composerUi.contains("phraseCreatedCategoryLine"))
+        assertTrue(composerUi.contains("caregiverPhraseCategoryLabel"))
+        assertTrue(composerUi.contains("mapping.caregiverCategory"))
         assertEquals("Category: Custom", english.phraseCreatedCategoryLine("Custom"))
     }
 
@@ -239,7 +242,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(english)
         assertEquals(
             listOf(
-                "Conversation",
+                "General Conversation",
                 "Basic Needs",
                 "Medical",
                 "Family",

@@ -218,7 +218,8 @@ enum class GuidedOverlayAction {
     ShowCurrentResponseTime,
     ShowCurrentSensitivity,
     OpenAdjustResponseTime,
-    OpenAdjustSensitivity
+    OpenAdjustSensitivity,
+    OpenPhraseComposer
 }
 
 data class GuidedNavigationState(
@@ -861,8 +862,7 @@ object GuidedVocabularyCatalog {
                 CatalogEntrySpec.Preference("adjust_sensitivity", GuidedOverlayAction.OpenAdjustSensitivity)
             )
         ),
-        // Custom holds only caregiver-created phrases (merged in from GuidedCatalogContext);
-        // it deliberately ships with no built-in entries.
+        // Custom page: composer launcher only — no stored phrases (RC7D.1).
         CatalogSpec(
             category = GuidedVocabularyCategory.Custom,
             entries = emptyList()
@@ -884,18 +884,22 @@ object GuidedVocabularyCatalog {
                     catalogContext = catalogContext
                 )
             }
-            val customEntries = catalogContext.caregiverCustomPhrases
-                .filter { it.category.toGuidedCategory() == spec.category }
-                .mapIndexed { index, custom ->
-                    GuidedVocabularyEntry(
-                        left = custom.left,
-                        right = custom.right,
-                        phrase = custom.phrase,
-                        englishSubtitle = null,
-                        kind = GuidedEntryKind.SpeakPhrase,
-                        slotIndex = builtInEntries.size + index
-                    )
-                }
+            val customEntries = if (spec.category == GuidedVocabularyCategory.Custom) {
+                emptyList()
+            } else {
+                catalogContext.caregiverCustomPhrases
+                    .filter { it.category.toGuidedCategory() == spec.category }
+                    .mapIndexed { index, custom ->
+                        GuidedVocabularyEntry(
+                            left = custom.left,
+                            right = custom.right,
+                            phrase = custom.phrase,
+                            englishSubtitle = null,
+                            kind = GuidedEntryKind.SpeakPhrase,
+                            slotIndex = builtInEntries.size + index
+                        )
+                    }
+            }
             GuidedCategoryPage(
                 category = spec.category,
                 title = uiStrings.guidedCategoryTitle(spec.category),

@@ -83,10 +83,11 @@ class Brain1EmergencyCancelTest {
     @Test
     fun emergencyBanner_isDrivenByBrain1DecisionKind_soClearingKindHidesItImmediately() {
         val ui = ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        val emergencyUi = ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
         assertTrue(ui != null)
-        assertTrue(
-            ui!!.contains("emergencyAwaitingConfirm = guidedTrainingState.brain1Decision.kind ==") &&
-                ui.contains("Brain1DecisionKind.EmergencyMode")
-        )
+        assertTrue(emergencyUi != null)
+        assertTrue(ui!!.contains("emergencyAwaitingConfirm(guidedTrainingState.brain1Decision)"))
+        assertTrue(ui.contains("GlobalEmergencyOverlayLayer"))
+        assertTrue(emergencyUi!!.contains("fun emergencyAwaitingConfirm"))
     }
 }

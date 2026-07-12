@@ -75,6 +75,7 @@ class GuidedCommunicationRuntimeFixesTest {
     @Test
     fun emergencyBanner_wiredFromBrain1DecisionKind_inAccessibilityUi() {
         val ui = accessibilityUiSource()
-        assertTrue(ui.contains("emergencyAwaitingConfirm = guidedTrainingState.brain1Decision.kind =="))
+        assertTrue(ui.contains("emergencyAwaitingConfirm(guidedTrainingState.brain1Decision)"))
+        assertTrue(ui.contains("GlobalEmergencyOverlayLayer"))
     }
 }

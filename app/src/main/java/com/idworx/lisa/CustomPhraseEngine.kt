@@ -68,13 +68,54 @@ object CustomPhraseEngine {
         val reason: String
     )
 
+    data class CustomCategoryMigrationResult(
+        val mappings: List<WinkMapping>,
+        val migratedCount: Int,
+        val reallocatedCount: Int
+    )
+
+    /** Destination categories for post-compose save — Custom is an entry point, not storage. */
     val selectableCategories: List<CaregiverPhraseCategory> = listOf(
         CaregiverPhraseCategory.Conversation,
         CaregiverPhraseCategory.BasicNeeds,
         CaregiverPhraseCategory.Medical,
-        CaregiverPhraseCategory.Family,
-        CaregiverPhraseCategory.Custom
+        CaregiverPhraseCategory.Family
     )
+
+    /**
+     * One-time migration: move legacy Custom-category phrases to General Conversation.
+     * Preserves phrase text; keeps sequence when safe in Conversation, else reallocates.
+     */
+    fun migrateCustomCategoryMappings(mappings: List<WinkMapping>): CustomCategoryMigrationResult {
+        var migratedCount = 0
+        var reallocatedCount = 0
+        val mutable = mappings.toMutableList()
+        for (index in mutable.indices) {
+            val mapping = mutable[index]
+            if (!mapping.isCustom || mapping.caregiverCategory != CaregiverPhraseCategory.Custom) continue
+            migratedCount++
+            val others = mutable.filterIndexed { otherIndex, _ -> otherIndex != index }
+            val target = CaregiverPhraseCategory.Conversation
+            val currentSequence = mapping.left to mapping.right
+            val validInTarget = rankedCandidatesForCategory(target, others).contains(currentSequence)
+            mutable[index] = if (validInTarget) {
+                mapping.copy(caregiverCategory = target)
+            } else {
+                reallocatedCount++
+                val replacement = allocateSequence(target, others) ?: currentSequence
+                mapping.copy(
+                    caregiverCategory = target,
+                    left = replacement.first,
+                    right = replacement.second
+                )
+            }
+        }
+        return CustomCategoryMigrationResult(
+            mappings = mutable,
+            migratedCount = migratedCount,
+            reallocatedCount = reallocatedCount
+        )
+    }
 
     fun normalizePhrase(raw: String): String = raw.trim()
 

@@ -38,19 +38,19 @@ class Rc7A5PhraseCreationExperienceTest {
     }
 
     @Test
-    fun phraseEditorPageExistsWithProductionControls() {
+    fun phraseComposerPageIsWiredInRootUi() {
         val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("private fun PhraseEditorPanel"))
-        assertTrue(source.contains("LisaPanel.PhraseEditor -> PhraseEditorPanel"))
-        assertTrue(source.contains("phraseEditorSave"))
-        assertTrue(source.contains("onSaveCaregiverPhrase"))
+        assertTrue(source.contains("EyeControlledPhraseComposerOverlay"))
+        assertTrue(source.contains("LisaPanel.PhraseEditor -> Unit"))
+        assertTrue(source.contains("phraseComposerActive"))
     }
 
     @Test
-    fun navigationFlowVocabularyToCreatePhraseToEditor() {
+    fun navigationFlowOpensEyeControlledComposerFromCustom() {
         val mainActivity = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
-        assertTrue(mainActivity.contains("openPanel(LisaPanel.CreatePhrase, LisaPanel.VocabularyTraining)"))
-        assertTrue(mainActivity.contains("openPanel(LisaPanel.PhraseEditor, LisaPanel.CreatePhrase)"))
+        assertTrue(mainActivity.contains("openComposeModeFromCustom"))
+        assertTrue(mainActivity.contains("CUSTOM_CATEGORY_INDEX"))
+        assertTrue(mainActivity.contains("PhraseComposerController.keyboardEntryState()"))
     }
 
     @Test
