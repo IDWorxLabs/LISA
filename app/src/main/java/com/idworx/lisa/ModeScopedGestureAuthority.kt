@@ -14,6 +14,7 @@ enum class LisaInteractionMode {
     PhraseComposerKeyboard,
     PhraseComposerDestinationCategory,
     PhraseComposerSaveConfirmation,
+    PhraseComposerDuplicateWarning,
     PhraseComposerCancelConfirm,
     PhraseComposerSuccess,
     SettingsPanel,
@@ -112,6 +113,7 @@ object ModeScopedGestureAuthority {
             PhraseComposerMode.Keyboard -> LisaInteractionMode.PhraseComposerKeyboard
             PhraseComposerMode.DestinationCategorySelection -> LisaInteractionMode.PhraseComposerDestinationCategory
             PhraseComposerMode.SaveConfirmation -> LisaInteractionMode.PhraseComposerSaveConfirmation
+            PhraseComposerMode.DuplicateWarning -> LisaInteractionMode.PhraseComposerDuplicateWarning
             PhraseComposerMode.CancelConfirm -> LisaInteractionMode.PhraseComposerCancelConfirm
             PhraseComposerMode.Success -> LisaInteractionMode.PhraseComposerSuccess
             null -> LisaInteractionMode.PhraseComposerDestinationCategory
@@ -145,6 +147,7 @@ object ModeScopedGestureAuthority {
             LisaInteractionMode.PhraseComposerKeyboard,
             LisaInteractionMode.PhraseComposerDestinationCategory,
             LisaInteractionMode.PhraseComposerSaveConfirmation,
+            LisaInteractionMode.PhraseComposerDuplicateWarning,
             LisaInteractionMode.PhraseComposerCancelConfirm,
             LisaInteractionMode.PhraseComposerSuccess -> return GestureRoutingTarget.PhraseComposer
 
@@ -208,21 +211,40 @@ object ModeScopedGestureAuthority {
             )
         }
 
-    /** Save-confirmation yes/no bindings. */
+    /** Save-confirmation confirm/back bindings (RC7D.9). */
     fun phraseComposerSaveConfirmationBindings(): List<ModeGestureBinding> =
         listOf(
             ModeGestureBinding(
                 mode = LisaInteractionMode.PhraseComposerSaveConfirmation,
-                left = GuidedPageSequences.leftAt(0),
-                right = GuidedPageSequences.rightAt(0),
+                left = GuidedModeNavigation.SELECT_LEFT,
+                right = GuidedModeNavigation.SELECT_RIGHT,
                 label = "confirm_save",
                 tier = ModeGestureTier.Command
             ),
             ModeGestureBinding(
                 mode = LisaInteractionMode.PhraseComposerSaveConfirmation,
-                left = GuidedPageSequences.leftAt(1),
-                right = GuidedPageSequences.rightAt(1),
-                label = "cancel_save",
+                left = GuidedModeNavigation.BACK_LEFT,
+                right = GuidedModeNavigation.BACK_RIGHT,
+                label = "back",
+                tier = ModeGestureTier.Command
+            )
+        )
+
+    /** Duplicate-warning open-category / continue-editing bindings (RC7D.9). */
+    fun phraseComposerDuplicateWarningBindings(): List<ModeGestureBinding> =
+        listOf(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.PhraseComposerDuplicateWarning,
+                left = GuidedModeNavigation.SELECT_LEFT,
+                right = GuidedModeNavigation.SELECT_RIGHT,
+                label = "open_duplicate_category",
+                tier = ModeGestureTier.Command
+            ),
+            ModeGestureBinding(
+                mode = LisaInteractionMode.PhraseComposerDuplicateWarning,
+                left = GuidedModeNavigation.BACK_LEFT,
+                right = GuidedModeNavigation.BACK_RIGHT,
+                label = "continue_editing",
                 tier = ModeGestureTier.Command
             )
         )
@@ -288,6 +310,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.PhraseComposerKeyboard -> phraseComposerKeyboardCommandBindings()
         LisaInteractionMode.PhraseComposerDestinationCategory -> phraseComposerDestinationBindings()
         LisaInteractionMode.PhraseComposerSaveConfirmation -> phraseComposerSaveConfirmationBindings()
+        LisaInteractionMode.PhraseComposerDuplicateWarning -> phraseComposerDuplicateWarningBindings()
         LisaInteractionMode.PhraseComposerCancelConfirm -> phraseComposerCancelConfirmBindings()
         LisaInteractionMode.PhraseComposerSuccess -> phraseComposerSuccessBindings()
         LisaInteractionMode.SettingsPanel -> settingsPanelBindings()
@@ -303,6 +326,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.PhraseComposerKeyboard,
         LisaInteractionMode.PhraseComposerDestinationCategory,
         LisaInteractionMode.PhraseComposerSaveConfirmation,
+        LisaInteractionMode.PhraseComposerDuplicateWarning,
         LisaInteractionMode.PhraseComposerCancelConfirm,
         LisaInteractionMode.PhraseComposerSuccess,
         LisaInteractionMode.SettingsPanel,

@@ -37,6 +37,9 @@ import com.idworx.lisa.ui.theme.LisaWhite
 
 private val CommandCardBackground = LisaWhite.copy(alpha = 0.94f)
 private val CommandGridBackground = LisaWhite.copy(alpha = 0.88f)
+private val PrimaryCommandBackground = LisaBlue.copy(alpha = 0.22f)
+private val PrimaryCommandBorder = LisaBlue.copy(alpha = 0.55f)
+private val CommandEntryPartialHighlight = LisaBlue.copy(alpha = 0.12f)
 
 /**
  * Large navigation and composer command grid above the bottom-aligned keyboard (RC7D.4).
@@ -74,6 +77,109 @@ fun ComposerCommandGrid(
                 onClick = onEmergency
             )
         }
+    }
+}
+
+/** Large eye-selectable confirmation actions for save and duplicate screens (RC7D.9). */
+@Composable
+fun ComposerConfirmationActionGrid(
+    commandEntries: List<PhraseComposerEntry>,
+    composerEyeFeedback: ComposerEyeFeedback,
+    inputSuspended: Boolean,
+    uiStrings: LisaUiStrings,
+    onCommandSelected: (PhraseComposerEntry) -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier,
+    primaryActionId: PhraseComposerActionId = PhraseComposerActionId.ConfirmSave
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(CommandGridBackground)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        commandEntries.forEach { entry ->
+            val highlightLevel = PhraseComposerEntryHighlight.level(
+                entry = entry,
+                leftWinkCount = composerEyeFeedback.leftWinkCount,
+                rightWinkCount = composerEyeFeedback.rightWinkCount
+            )
+            ComposerConfirmationCommandCard(
+                entry = entry,
+                enabled = entry.enabled && !inputSuspended,
+                primary = entry.actionId == primaryActionId,
+                highlightLevel = highlightLevel,
+                onClick = { if (entry.enabled && !inputSuspended) onCommandSelected(entry) }
+            )
+        }
+        ComposerEmergencyCommandCard(
+            uiStrings = uiStrings,
+            onClick = onEmergency
+        )
+    }
+}
+
+@Composable
+private fun ComposerConfirmationCommandCard(
+    entry: PhraseComposerEntry,
+    enabled: Boolean,
+    primary: Boolean,
+    highlightLevel: PhraseComposerEntryHighlight.Level,
+    onClick: () -> Unit
+) {
+    val contentColor = if (enabled) LisaBlueDark else LisaGray
+    val background = when {
+        highlightLevel == PhraseComposerEntryHighlight.Level.Full ->
+            LisaBlue.copy(alpha = if (primary) 0.32f else 0.22f)
+        highlightLevel == PhraseComposerEntryHighlight.Level.Partial -> CommandEntryPartialHighlight
+        primary -> PrimaryCommandBackground
+        else -> CommandCardBackground
+    }
+    val borderColor = when {
+        highlightLevel != PhraseComposerEntryHighlight.Level.None -> LisaBlue.copy(alpha = 0.45f)
+        primary -> PrimaryCommandBorder
+        else -> LisaBlue.copy(alpha = 0.18f)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = if (primary) 84.dp else 76.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .background(background)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = composerCommandSymbol(entry.actionId),
+            fontWeight = FontWeight.Bold,
+            fontSize = if (primary) 24.sp else 22.sp,
+            color = contentColor
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = entry.label,
+            fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold,
+            fontSize = if (primary) 14.sp else 12.sp,
+            color = contentColor,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = entry.sequenceLabel,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+            color = contentColor,
+            lineHeight = 14.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -212,7 +318,9 @@ internal fun composerCommandSymbol(actionId: PhraseComposerActionId): String = w
     PhraseComposerActionId.Save -> "💾"
     PhraseComposerActionId.Back -> "↩"
     PhraseComposerActionId.ToggleKeyboardLayout -> "⌨"
-    PhraseComposerActionId.ConfirmSave -> "💾"
+    PhraseComposerActionId.ConfirmSave -> "✓"
     PhraseComposerActionId.CancelSave -> "✕"
+    PhraseComposerActionId.OpenDuplicateCategory -> "📂"
+    PhraseComposerActionId.ContinueEditing -> "✎"
     else -> "•"
 }

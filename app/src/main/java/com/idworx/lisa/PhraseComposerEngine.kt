@@ -9,6 +9,7 @@ enum class PhraseComposerMode {
     DestinationCategorySelection,
     Keyboard,
     SaveConfirmation,
+    DuplicateWarning,
     CancelConfirm,
     Success
 }
@@ -30,7 +31,9 @@ enum class PhraseComposerActionId {
     ReturnToCommunication,
     ConfirmCancel,
     KeepComposing,
-    ToggleKeyboardLayout
+    ToggleKeyboardLayout,
+    OpenDuplicateCategory,
+    ContinueEditing
 }
 
 data class PhraseComposerEntry(
@@ -57,7 +60,8 @@ data class PhraseComposerState(
     val confirmedRight: Int? = null,
     val keyboardLayoutMode: EyeKeyboardLayoutMode = EyeKeyboardLayoutMode.Letters,
     val keyboardShiftMode: KeyboardShiftMode = KeyboardShiftMode.Lowercase,
-    val lastShiftTapEpochMs: Long = 0L
+    val lastShiftTapEpochMs: Long = 0L,
+    val duplicateMatch: DuplicatePhraseMatch? = null
 ) {
     fun displayPhrase(): String = phraseText.uppercase()
 
@@ -74,6 +78,7 @@ sealed class PhraseComposerSequenceResult {
     data class Navigate(val newState: PhraseComposerState) : PhraseComposerSequenceResult()
     data class Preview(val phrase: String) : PhraseComposerSequenceResult()
     data class Save(val category: CustomPhraseEngine.CaregiverPhraseCategory, val phrase: String) : PhraseComposerSequenceResult()
+    data class OpenExistingPhrase(val match: DuplicatePhraseMatch) : PhraseComposerSequenceResult()
     object ReturnToCommunication : PhraseComposerSequenceResult()
     object ExitToPreviousPanel : PhraseComposerSequenceResult()
     object Unmatched : PhraseComposerSequenceResult()
@@ -119,7 +124,8 @@ object PhraseComposerController {
     fun visibleEntries(state: PhraseComposerState, uiStrings: LisaUiStrings): List<PhraseComposerEntry> =
         when (state.mode) {
             PhraseComposerMode.DestinationCategorySelection -> categoryEntries(uiStrings)
-            PhraseComposerMode.SaveConfirmation -> saveConfirmationEntries(uiStrings)
+            PhraseComposerMode.SaveConfirmation -> emptyList()
+            PhraseComposerMode.DuplicateWarning -> emptyList()
             PhraseComposerMode.CancelConfirm -> cancelConfirmEntries(uiStrings)
             PhraseComposerMode.Success -> successEntries(uiStrings)
             PhraseComposerMode.Keyboard -> emptyList()
@@ -130,6 +136,7 @@ object PhraseComposerController {
             PhraseComposerMode.Keyboard -> keyboardCommandPanelEntries(state, uiStrings)
             PhraseComposerMode.DestinationCategorySelection -> destinationCommandPanelEntries(uiStrings)
             PhraseComposerMode.SaveConfirmation -> saveConfirmationCommandPanelEntries(uiStrings)
+            PhraseComposerMode.DuplicateWarning -> duplicateWarningCommandPanelEntries(state, uiStrings)
             PhraseComposerMode.CancelConfirm -> cancelConfirmCommandPanelEntries(uiStrings)
             PhraseComposerMode.Success -> successCommandPanelEntries(uiStrings)
         }
@@ -138,6 +145,7 @@ object PhraseComposerController {
         PhraseComposerMode.DestinationCategorySelection -> uiStrings.phraseComposerDestinationStepTitle
         PhraseComposerMode.Keyboard -> uiStrings.phraseComposerKeyboardTitle
         PhraseComposerMode.SaveConfirmation -> uiStrings.phraseComposerSaveConfirmTitle
+        PhraseComposerMode.DuplicateWarning -> uiStrings.phraseDuplicateWarningTitle
         PhraseComposerMode.CancelConfirm -> uiStrings.phraseComposerCancelConfirmTitle
         PhraseComposerMode.Success -> uiStrings.phraseComposerSuccessTitle
     }
@@ -162,7 +170,8 @@ object PhraseComposerController {
         left: Int,
         right: Int,
         state: PhraseComposerState,
-        uiStrings: LisaUiStrings
+        uiStrings: LisaUiStrings,
+        runtimeContext: PhraseComposerRuntimeContext? = null
     ): PhraseComposerSequenceResult {
         if (isEmergencySequence(left, right)) return PhraseComposerSequenceResult.Unmatched
 
@@ -172,11 +181,11 @@ object PhraseComposerController {
 
         commandPanelEntries(state, uiStrings)
             .firstOrNull { it.enabled && it.left == left && it.right == right }
-            ?.let { return dispatchAction(it, state, uiStrings, left, right) }
+            ?.let { return dispatchAction(it, state, uiStrings, left, right, runtimeContext) }
 
         visibleEntries(state, uiStrings)
             .firstOrNull { it.left == left && it.right == right }
-            ?.let { return dispatchAction(it, state, uiStrings, left, right) }
+            ?.let { return dispatchAction(it, state, uiStrings, left, right, runtimeContext) }
 
         return PhraseComposerSequenceResult.Unmatched
     }
@@ -195,13 +204,27 @@ object PhraseComposerController {
             confirmedLeft = null,
             confirmedRight = null
         )
-        is CustomPhraseEngine.SavePhraseResult.ValidationFailed -> state.copy(
-            mode = PhraseComposerMode.Keyboard,
-            errorMessage = validationMessage(result.reason, uiStrings),
-            pendingAllocatedSequence = null,
-            confirmedLeft = null,
-            confirmedRight = null
-        )
+        is CustomPhraseEngine.SavePhraseResult.ValidationFailed -> {
+            val duplicateMatch = result.duplicateMatch
+            if (result.reason == CustomPhraseEngine.PhraseValidationFailure.Duplicate && duplicateMatch != null) {
+                state.copy(
+                    mode = PhraseComposerMode.DuplicateWarning,
+                    duplicateMatch = duplicateMatch,
+                    errorMessage = null,
+                    pendingAllocatedSequence = null,
+                    confirmedLeft = null,
+                    confirmedRight = null
+                )
+            } else {
+                state.copy(
+                    mode = PhraseComposerMode.Keyboard,
+                    errorMessage = validationMessage(result.reason, uiStrings, duplicateMatch),
+                    pendingAllocatedSequence = null,
+                    confirmedLeft = null,
+                    confirmedRight = null
+                )
+            }
+        }
         CustomPhraseEngine.SavePhraseResult.NoSequenceAvailable -> state.copy(
             mode = PhraseComposerMode.Keyboard,
             errorMessage = uiStrings.phraseValidationNoSequence,
@@ -211,12 +234,20 @@ object PhraseComposerController {
         )
     }
 
-    fun validationMessage(reason: CustomPhraseEngine.PhraseValidationFailure, uiStrings: LisaUiStrings): String =
-        when (reason) {
-            CustomPhraseEngine.PhraseValidationFailure.Empty -> uiStrings.phraseValidationEmpty
-            CustomPhraseEngine.PhraseValidationFailure.TooLong -> uiStrings.phraseValidationTooLong
-            CustomPhraseEngine.PhraseValidationFailure.Duplicate -> uiStrings.phraseValidationDuplicate
-        }
+    fun validationMessage(
+        reason: CustomPhraseEngine.PhraseValidationFailure,
+        uiStrings: LisaUiStrings,
+        duplicateMatch: DuplicatePhraseMatch? = null
+    ): String = when (reason) {
+        CustomPhraseEngine.PhraseValidationFailure.Empty -> uiStrings.phraseValidationEmpty
+        CustomPhraseEngine.PhraseValidationFailure.TooLong -> uiStrings.phraseValidationTooLong
+        CustomPhraseEngine.PhraseValidationFailure.Duplicate ->
+            duplicateMatch?.let { uiStrings.phraseDuplicateExistsMessage(it) }
+                ?: uiStrings.phraseValidationDuplicate
+    }
+
+    fun duplicateMessage(match: DuplicatePhraseMatch, uiStrings: LisaUiStrings): String =
+        uiStrings.phraseDuplicateExistsMessage(match)
 
     fun everyVisibleEntryHasSequence(state: PhraseComposerState, uiStrings: LisaUiStrings): Boolean {
         val hasSequence = { entry: PhraseComposerEntry ->
@@ -276,8 +307,17 @@ object PhraseComposerController {
                 mode = PhraseComposerMode.Keyboard,
                 pendingAllocatedSequence = null,
                 errorMessage = null,
-                confirmedLeft = null,
-                confirmedRight = null
+                confirmedLeft = GuidedModeNavigation.BACK_LEFT,
+                confirmedRight = GuidedModeNavigation.BACK_RIGHT
+            )
+        )
+        PhraseComposerMode.DuplicateWarning -> PhraseComposerSequenceResult.Navigate(
+            state.copy(
+                mode = PhraseComposerMode.Keyboard,
+                duplicateMatch = null,
+                errorMessage = null,
+                confirmedLeft = GuidedModeNavigation.BACK_LEFT,
+                confirmedRight = GuidedModeNavigation.BACK_RIGHT
             )
         )
         PhraseComposerMode.CancelConfirm -> PhraseComposerSequenceResult.Navigate(
@@ -296,7 +336,8 @@ object PhraseComposerController {
         state: PhraseComposerState,
         uiStrings: LisaUiStrings,
         left: Int,
-        right: Int
+        right: Int,
+        runtimeContext: PhraseComposerRuntimeContext?
     ): PhraseComposerSequenceResult {
         return when (match.actionId) {
         PhraseComposerActionId.SelectCategory -> {
@@ -378,16 +419,18 @@ object PhraseComposerController {
                     )
                 )
             } else {
-                PhraseComposerSequenceResult.Navigate(
-                    state.copy(
-                        mode = PhraseComposerMode.DestinationCategorySelection,
-                        errorMessage = null,
-                        selectedCategory = null,
-                        pendingAllocatedSequence = null,
-                        confirmedLeft = left,
-                        confirmedRight = right
+                duplicateWarningState(state, normalized, runtimeContext, uiStrings, left, right)
+                    ?: PhraseComposerSequenceResult.Navigate(
+                        state.copy(
+                            mode = PhraseComposerMode.DestinationCategorySelection,
+                            errorMessage = null,
+                            selectedCategory = null,
+                            pendingAllocatedSequence = null,
+                            duplicateMatch = null,
+                            confirmedLeft = left,
+                            confirmedRight = right
+                        )
                     )
-                )
             }
         }
         PhraseComposerActionId.ConfirmSave -> {
@@ -404,7 +447,8 @@ object PhraseComposerController {
                     )
                 )
             } else {
-                PhraseComposerSequenceResult.Save(category, normalized)
+                duplicateWarningState(state, normalized, runtimeContext, uiStrings, left, right)
+                    ?: PhraseComposerSequenceResult.Save(category, normalized)
             }
         }
         PhraseComposerActionId.CancelSave -> PhraseComposerSequenceResult.Navigate(
@@ -428,7 +472,47 @@ object PhraseComposerController {
         )
         PhraseComposerActionId.CreateAnother -> PhraseComposerSequenceResult.Navigate(keyboardEntryState())
         PhraseComposerActionId.ReturnToCommunication -> PhraseComposerSequenceResult.ReturnToCommunication
+        PhraseComposerActionId.OpenDuplicateCategory -> {
+            val match = state.duplicateMatch ?: return PhraseComposerSequenceResult.Unmatched
+            PhraseComposerSequenceResult.OpenExistingPhrase(match)
         }
+        PhraseComposerActionId.ContinueEditing -> PhraseComposerSequenceResult.Navigate(
+            state.copy(
+                mode = PhraseComposerMode.Keyboard,
+                duplicateMatch = null,
+                errorMessage = null,
+                confirmedLeft = left,
+                confirmedRight = right
+            )
+        )
+        }
+    }
+
+    private fun duplicateWarningState(
+        state: PhraseComposerState,
+        normalizedPhrase: String,
+        runtimeContext: PhraseComposerRuntimeContext?,
+        uiStrings: LisaUiStrings,
+        left: Int,
+        right: Int
+    ): PhraseComposerSequenceResult.Navigate? {
+        val context = runtimeContext ?: return null
+        val duplicate = PhraseDuplicateEngine.findDuplicate(
+            rawPhrase = normalizedPhrase,
+            customMappings = context.customMappings,
+            language = context.language,
+            uiStrings = uiStrings
+        ) ?: return null
+        return PhraseComposerSequenceResult.Navigate(
+            state.copy(
+                mode = PhraseComposerMode.DuplicateWarning,
+                duplicateMatch = duplicate,
+                errorMessage = null,
+                pendingAllocatedSequence = null,
+                confirmedLeft = left,
+                confirmedRight = right
+            )
+        )
     }
 
     private fun handleSelectKey(
@@ -586,12 +670,40 @@ object PhraseComposerController {
     private fun saveConfirmationCommandPanelEntries(uiStrings: LisaUiStrings): List<PhraseComposerEntry> =
         listOf(
             PhraseComposerEntry(
+                left = GuidedModeNavigation.SELECT_LEFT,
+                right = GuidedModeNavigation.SELECT_RIGHT,
+                label = uiStrings.phraseComposerConfirmSave,
+                actionId = PhraseComposerActionId.ConfirmSave
+            ),
+            PhraseComposerEntry(
                 left = GuidedModeNavigation.BACK_LEFT,
                 right = GuidedModeNavigation.BACK_RIGHT,
                 label = uiStrings.phraseComposerPanelBack,
                 actionId = PhraseComposerActionId.Back
             )
         )
+
+    private fun duplicateWarningCommandPanelEntries(
+        state: PhraseComposerState,
+        uiStrings: LisaUiStrings
+    ): List<PhraseComposerEntry> {
+        val categoryLabel = state.duplicateMatch?.category?.let { uiStrings.caregiverPhraseCategoryLabel(it) }
+            ?: uiStrings.phraseComposerPanelBack
+        return listOf(
+            PhraseComposerEntry(
+                left = GuidedModeNavigation.SELECT_LEFT,
+                right = GuidedModeNavigation.SELECT_RIGHT,
+                label = uiStrings.phraseDuplicateOpenCategory(categoryLabel),
+                actionId = PhraseComposerActionId.OpenDuplicateCategory
+            ),
+            PhraseComposerEntry(
+                left = GuidedModeNavigation.BACK_LEFT,
+                right = GuidedModeNavigation.BACK_RIGHT,
+                label = uiStrings.phraseDuplicateContinueEditing,
+                actionId = PhraseComposerActionId.ContinueEditing
+            )
+        )
+    }
 
     private fun cancelConfirmCommandPanelEntries(uiStrings: LisaUiStrings): List<PhraseComposerEntry> =
         listOf(
@@ -624,22 +736,6 @@ object PhraseComposerController {
                 category = category
             )
         }
-
-    private fun saveConfirmationEntries(uiStrings: LisaUiStrings): List<PhraseComposerEntry> =
-        listOf(
-            PhraseComposerEntry(
-                left = GuidedPageSequences.leftAt(0),
-                right = GuidedPageSequences.rightAt(0),
-                label = uiStrings.phraseComposerConfirmSave,
-                actionId = PhraseComposerActionId.ConfirmSave
-            ),
-            PhraseComposerEntry(
-                left = GuidedPageSequences.leftAt(1),
-                right = GuidedPageSequences.rightAt(1),
-                label = uiStrings.phraseComposerCancelSave,
-                actionId = PhraseComposerActionId.CancelSave
-            )
-        )
 
     private fun cancelConfirmEntries(uiStrings: LisaUiStrings): List<PhraseComposerEntry> =
         listOf(

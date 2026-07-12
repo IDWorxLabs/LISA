@@ -200,7 +200,7 @@ class Rc7D_8CompleteEyeFeedbackAndCaregiverKeyboardTest {
             selectedCategory = CustomPhraseEngine.CaregiverPhraseCategory.Medical,
             pendingAllocatedSequence = 2 to 1
         )
-        val confirm = PhraseComposerController.visibleEntries(state, english)
+        val confirm = PhraseComposerController.commandPanelEntries(state, english)
             .first { it.actionId == PhraseComposerActionId.ConfirmSave }
         val result = PhraseComposerController.processSequence(
             confirm.left,

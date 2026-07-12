@@ -707,7 +707,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val phraseComposerSaveConfirmBody: String get() = t("Save this phrase?", "Stoor hierdie frase?", "Londoloza leli binzana?")
     val phraseComposerSaveConfirmPhraseLabel: String get() = t("Phrase", "Frase", "Ibinzana")
     val phraseComposerSaveConfirmSequenceLabel: String get() = t("Assigned blink sequence", "Toegewysde knippervolgorde", "Ukulandelana kokunyonya okunikeziwe")
-    val phraseComposerConfirmSave: String get() = t("Save", "Stoor", "Londoloza")
+    val phraseComposerConfirmSave: String get() = t("Confirm Save", "Bevestig Stoor", "Qinisekisa Ukulondoloza")
     val phraseComposerCancelSave: String get() = t("Cancel", "Kanselleer", "Khansela")
     val phraseComposerCategoryLabel: String get() = t("Category", "Kategorie", "Isigaba")
     val phraseComposerCurrentPhraseLabel: String get() = t("Current phrase", "Huidige frase", "Ibinzana lamanje")
@@ -737,6 +737,35 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "This phrase already exists. Try different wording.",
         "Hierdie frase bestaan reeds. Probeer ander bewoording.",
         "Leli binzana selive likhona. Zama amagama ahlukile."
+    )
+    val phraseDuplicateWarningTitle: String get() = t(
+        "Phrase already exists",
+        "Frase bestaan reeds",
+        "Ibinzana selive likhona"
+    )
+    fun phraseDuplicateExistsMessage(match: DuplicatePhraseMatch): String {
+        val categoryLabel = caregiverPhraseCategoryLabel(match.category)
+        val phrase = match.phrase.uppercase()
+        return t(
+            "\"$phrase\" already exists in the $categoryLabel category.",
+            "\"$phrase\" bestaan reeds in die $categoryLabel-kategorie.",
+            "\"$phrase\" selive likhona esigabeni se-$categoryLabel."
+        )
+    }
+    val phraseDuplicateHint: String get() = t(
+        "Use the existing phrase instead of creating another copy.",
+        "Gebruik die bestaande frase in plaas van nog 'n kopie te skep.",
+        "Sebenzisa ibinzana elikhona esikhundleni sokwenza enye ikhophi."
+    )
+    fun phraseDuplicateOpenCategory(categoryLabel: String): String = t(
+        "Open $categoryLabel",
+        "Open $categoryLabel",
+        "Vula i-$categoryLabel"
+    )
+    val phraseDuplicateContinueEditing: String get() = t(
+        "Continue Editing",
+        "Gaan voort met redigering",
+        "Qhubeka nokuhlela"
     )
     val phraseValidationNoSequence: String get() = t(
         "No safe blink sequence is available right now. Remove an unused custom phrase and try again.",

@@ -1472,14 +1472,50 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun saveCaregiverPhrase(
         category: CustomPhraseEngine.CaregiverPhraseCategory,
-        rawPhrase: String
+        rawPhrase: String,
+        allocatedSequence: Pair<Int, Int>? = null
     ): CustomPhraseEngine.SavePhraseResult {
-        val result = CustomPhraseEngine.saveNewPhrase(rawPhrase, category, mappingsState.toList())
+        val uiStrings = guidedUiStrings()
+        val result = if (allocatedSequence != null) {
+            CustomPhraseEngine.saveNewPhraseWithAllocatedSequence(
+                rawPhrase = rawPhrase,
+                category = category,
+                allocatedSequence = allocatedSequence,
+                existingMappings = mappingsState.toList(),
+                language = activeLanguage(),
+                uiStrings = uiStrings
+            )
+        } else {
+            CustomPhraseEngine.saveNewPhrase(
+                rawPhrase = rawPhrase,
+                category = category,
+                existingMappings = mappingsState.toList(),
+                language = activeLanguage(),
+                uiStrings = uiStrings
+            )
+        }
         if (result is CustomPhraseEngine.SavePhraseResult.Success) {
             mappingsState.add(result.mapping)
             saveCustomMappings(this, mappingsState.filter { it.isCustom })
         }
         return result
+    }
+
+    private fun phraseComposerRuntimeContext(): PhraseComposerRuntimeContext =
+        PhraseComposerRuntimeContext(
+            customMappings = mappingsState.toList(),
+            language = activeLanguage()
+        )
+
+    private fun openExistingDuplicatePhrase(match: DuplicatePhraseMatch) {
+        uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
+        uiActivePanel.value = LisaPanel.None
+        uiPanelReturnTarget.value = null
+        composeOpenedFromCategoryMenu = false
+        uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+            uiGuidedNavigationState.value,
+            match.category.toGuidedCategory().ordinal
+        )
     }
 
     private fun previewCaregiverPhrase(rawPhrase: String) {
@@ -1688,7 +1724,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 left = left,
                 right = right,
                 state = uiPhraseComposerState.value,
-                uiStrings = uiStrings
+                uiStrings = uiStrings,
+                runtimeContext = phraseComposerRuntimeContext()
             )
         ) {
             is PhraseComposerSequenceResult.Navigate -> {
@@ -1717,12 +1754,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 setCommunicationState(LisaCommunicationState.Listening)
             }
             is PhraseComposerSequenceResult.Save -> {
-                val saveResult = saveCaregiverPhrase(result.category, result.phrase)
+                val composerState = uiPhraseComposerState.value
+                val saveResult = saveCaregiverPhrase(
+                    category = result.category,
+                    rawPhrase = result.phrase,
+                    allocatedSequence = composerState.pendingAllocatedSequence
+                )
                 uiPhraseComposerState.value = PhraseComposerController.applySaveResult(
-                    uiPhraseComposerState.value,
+                    composerState,
                     saveResult,
                     uiStrings
                 )
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            is PhraseComposerSequenceResult.OpenExistingPhrase -> {
+                openExistingDuplicatePhrase(result.match)
                 setCommunicationState(LisaCommunicationState.Listening)
             }
             PhraseComposerSequenceResult.ReturnToCommunication -> returnToCommunicationWorkspace()

@@ -45,7 +45,10 @@ object CustomPhraseEngine {
 
     sealed class PhraseValidationResult {
         data class Valid(val normalizedPhrase: String) : PhraseValidationResult()
-        data class Invalid(val reason: PhraseValidationFailure) : PhraseValidationResult()
+        data class Invalid(
+            val reason: PhraseValidationFailure,
+            val duplicateMatch: DuplicatePhraseMatch? = null
+        ) : PhraseValidationResult()
     }
 
     enum class PhraseValidationFailure {
@@ -56,7 +59,10 @@ object CustomPhraseEngine {
 
     sealed class SavePhraseResult {
         data class Success(val mapping: WinkMapping) : SavePhraseResult()
-        data class ValidationFailed(val reason: PhraseValidationFailure) : SavePhraseResult()
+        data class ValidationFailed(
+            val reason: PhraseValidationFailure,
+            val duplicateMatch: DuplicatePhraseMatch? = null
+        ) : SavePhraseResult()
         object NoSequenceAvailable : SavePhraseResult()
     }
 
@@ -117,16 +123,30 @@ object CustomPhraseEngine {
         )
     }
 
-    fun normalizePhrase(raw: String): String = raw.trim()
+    fun normalizePhrase(raw: String): String {
+        var text = raw.trim()
+        if (text.length >= 2 &&
+            ((text.first() == '"' && text.last() == '"') || (text.first() == '\'' && text.last() == '\''))
+        ) {
+            text = text.substring(1, text.length - 1).trim()
+        }
+        return text.replace(Regex("\\s+"), " ")
+    }
 
-    fun validatePhrase(raw: String, existingCustom: List<WinkMapping>): PhraseValidationResult {
+    fun validatePhrase(
+        raw: String,
+        existingCustom: List<WinkMapping>,
+        language: PreferredLanguage = PreferredLanguage.English,
+        uiStrings: LisaUiStrings = LisaUiStrings.forLanguage(language)
+    ): PhraseValidationResult {
         val normalized = normalizePhrase(raw)
         if (normalized.isBlank()) return PhraseValidationResult.Invalid(PhraseValidationFailure.Empty)
         if (normalized.length > MAX_PHRASE_LENGTH) {
             return PhraseValidationResult.Invalid(PhraseValidationFailure.TooLong)
         }
-        if (isDuplicatePhrase(normalized, existingCustom)) {
-            return PhraseValidationResult.Invalid(PhraseValidationFailure.Duplicate)
+        val duplicate = PhraseDuplicateEngine.findDuplicate(raw, existingCustom, language, uiStrings)
+        if (duplicate != null) {
+            return PhraseValidationResult.Invalid(PhraseValidationFailure.Duplicate, duplicate)
         }
         return PhraseValidationResult.Valid(normalized)
     }
@@ -134,11 +154,16 @@ object CustomPhraseEngine {
     fun saveNewPhrase(
         rawPhrase: String,
         category: CaregiverPhraseCategory,
-        existingMappings: List<WinkMapping>
+        existingMappings: List<WinkMapping>,
+        language: PreferredLanguage = PreferredLanguage.English,
+        uiStrings: LisaUiStrings = LisaUiStrings.forLanguage(language)
     ): SavePhraseResult {
         val existingCustom = existingMappings.filter { it.isCustom }
-        when (val validation = validatePhrase(rawPhrase, existingCustom)) {
-            is PhraseValidationResult.Invalid -> return SavePhraseResult.ValidationFailed(validation.reason)
+        when (val validation = validatePhrase(rawPhrase, existingCustom, language, uiStrings)) {
+            is PhraseValidationResult.Invalid -> return SavePhraseResult.ValidationFailed(
+                validation.reason,
+                validation.duplicateMatch
+            )
             is PhraseValidationResult.Valid -> {
                 val sequence = allocateSequence(category, existingMappings)
                     ?: return SavePhraseResult.NoSequenceAvailable
@@ -146,6 +171,39 @@ object CustomPhraseEngine {
                     WinkMapping(
                         left = sequence.first,
                         right = sequence.second,
+                        vocabularyId = validation.normalizedPhrase,
+                        isCustom = true,
+                        customPhrase = validation.normalizedPhrase,
+                        caregiverCategory = category
+                    )
+                )
+            }
+        }
+    }
+
+    /** RC7D.9 — persist using the sequence already shown on Save Confirmation. */
+    fun saveNewPhraseWithAllocatedSequence(
+        rawPhrase: String,
+        category: CaregiverPhraseCategory,
+        allocatedSequence: Pair<Int, Int>,
+        existingMappings: List<WinkMapping>,
+        language: PreferredLanguage = PreferredLanguage.English,
+        uiStrings: LisaUiStrings = LisaUiStrings.forLanguage(language)
+    ): SavePhraseResult {
+        val existingCustom = existingMappings.filter { it.isCustom }
+        when (val validation = validatePhrase(rawPhrase, existingCustom, language, uiStrings)) {
+            is PhraseValidationResult.Invalid -> return SavePhraseResult.ValidationFailed(
+                validation.reason,
+                validation.duplicateMatch
+            )
+            is PhraseValidationResult.Valid -> {
+                if (!allocationSelfAuditPasses(category, allocatedSequence, existingMappings)) {
+                    return SavePhraseResult.NoSequenceAvailable
+                }
+                return SavePhraseResult.Success(
+                    WinkMapping(
+                        left = allocatedSequence.first,
+                        right = allocatedSequence.second,
                         vocabularyId = validation.normalizedPhrase,
                         isCustom = true,
                         customPhrase = validation.normalizedPhrase,
@@ -373,14 +431,4 @@ object CustomPhraseEngine {
             { it.first },
             { it.second }
         )
-
-    private fun isDuplicatePhrase(normalized: String, existingCustom: List<WinkMapping>): Boolean {
-        val target = normalized.lowercase()
-        if (existingCustom.any { it.customPhrase.orEmpty().trim().lowercase() == target }) return true
-        return defaultLanguageMappings().any { mapping ->
-            PreferredLanguage.entries.any { language ->
-                mapping.localizedPhrase(language).trim().lowercase() == target
-            }
-        }
-    }
 }

@@ -255,6 +255,14 @@ private fun NonKeyboardComposerLayout(
                         state = state
                     )
                 }
+                PhraseComposerMode.DuplicateWarning -> {
+                    state.duplicateMatch?.let { match ->
+                        DuplicateWarningSummary(
+                            uiStrings = uiStrings,
+                            match = match
+                        )
+                    }
+                }
                 PhraseComposerMode.CancelConfirm -> {
                     Text(
                         text = uiStrings.phraseComposerCancelConfirmBody,
@@ -268,6 +276,11 @@ private fun NonKeyboardComposerLayout(
             }
 
             entries.forEach { entry ->
+                if (state.mode == PhraseComposerMode.SaveConfirmation ||
+                    state.mode == PhraseComposerMode.DuplicateWarning
+                ) {
+                    return@forEach
+                }
                 val highlightLevel = PhraseComposerEntryHighlight.level(
                     entry = entry,
                     leftWinkCount = composerEyeFeedback.leftWinkCount,
@@ -289,26 +302,86 @@ private fun NonKeyboardComposerLayout(
 
         if (commandEntries.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                commandEntries.forEach { entry ->
-                    ComposerCommandCard(
-                        entry = entry,
-                        enabled = entry.enabled && !inputSuspended,
-                        modifier = Modifier.weight(1f),
-                        onClick = { if (entry.enabled && !inputSuspended) onCommandSelected(entry) }
+            when (state.mode) {
+                PhraseComposerMode.SaveConfirmation -> {
+                    ComposerConfirmationActionGrid(
+                        commandEntries = commandEntries,
+                        composerEyeFeedback = composerEyeFeedback,
+                        inputSuspended = inputSuspended,
+                        uiStrings = uiStrings,
+                        onCommandSelected = onCommandSelected,
+                        onEmergency = onEmergency,
+                        primaryActionId = PhraseComposerActionId.ConfirmSave
+                    )
+                }
+                PhraseComposerMode.DuplicateWarning -> {
+                    ComposerConfirmationActionGrid(
+                        commandEntries = commandEntries,
+                        composerEyeFeedback = composerEyeFeedback,
+                        inputSuspended = inputSuspended,
+                        uiStrings = uiStrings,
+                        onCommandSelected = onCommandSelected,
+                        onEmergency = onEmergency,
+                        primaryActionId = PhraseComposerActionId.OpenDuplicateCategory
+                    )
+                }
+                else -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        commandEntries.forEach { entry ->
+                            ComposerCommandCard(
+                                entry = entry,
+                                enabled = entry.enabled && !inputSuspended,
+                                modifier = Modifier.weight(1f),
+                                onClick = { if (entry.enabled && !inputSuspended) onCommandSelected(entry) }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    ComposerEmergencyCommandCard(
+                        uiStrings = uiStrings,
+                        onClick = onEmergency
                     )
                 }
             }
+        } else {
+            Spacer(Modifier.height(8.dp))
+            ComposerEmergencyCommandCard(
+                uiStrings = uiStrings,
+                onClick = onEmergency
+            )
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
-
-        ComposerEmergencyCommandCard(
-            uiStrings = uiStrings,
-            onClick = onEmergency
+@Composable
+private fun DuplicateWarningSummary(
+    uiStrings: LisaUiStrings,
+    match: DuplicatePhraseMatch,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposerEntryBackground)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = PhraseComposerController.duplicateMessage(match, uiStrings),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = LisaBlueDark,
+            lineHeight = 22.sp
+        )
+        Text(
+            text = uiStrings.phraseDuplicateHint,
+            fontSize = 13.sp,
+            color = LisaBlueDark.copy(alpha = 0.8f),
+            lineHeight = 19.sp
         )
     }
 }

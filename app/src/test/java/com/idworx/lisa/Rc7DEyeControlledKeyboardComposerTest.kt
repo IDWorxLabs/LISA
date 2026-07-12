@@ -143,9 +143,9 @@ class Rc7DEyeControlledKeyboardComposerTest {
         val categoryEntry = PhraseComposerController.visibleEntries(state, english).first()
         state = (PhraseComposerController.processSequence(categoryEntry.left, categoryEntry.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
-        val cancel = PhraseComposerController.visibleEntries(state, english)
-            .first { it.actionId == PhraseComposerActionId.CancelSave }
-        state = (PhraseComposerController.processSequence(cancel.left, cancel.right, state, english)
+        val back = PhraseComposerController.commandPanelEntries(state, english)
+            .first { it.actionId == PhraseComposerActionId.Back }
+        state = (PhraseComposerController.processSequence(back.left, back.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
         assertEquals(PhraseComposerMode.Keyboard, state.mode)
         assertEquals("water", state.phraseText)
@@ -157,7 +157,7 @@ class Rc7DEyeControlledKeyboardComposerTest {
         val categoryEntry = PhraseComposerController.visibleEntries(state, english)[2]
         state = (PhraseComposerController.processSequence(categoryEntry.left, categoryEntry.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
-        val confirm = PhraseComposerController.visibleEntries(state, english)
+        val confirm = PhraseComposerController.commandPanelEntries(state, english)
             .first { it.actionId == PhraseComposerActionId.ConfirmSave }
         val result = PhraseComposerController.processSequence(confirm.left, confirm.right, state, english)
         assertTrue(result is PhraseComposerSequenceResult.Save)

@@ -114,7 +114,7 @@ class Rc7C2EyeControlledPhraseComposerTest {
         val entry = PhraseComposerController.visibleEntries(state, english).first()
         state = (PhraseComposerController.processSequence(entry.left, entry.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
-        val confirm = PhraseComposerController.visibleEntries(state, english)
+        val confirm = PhraseComposerController.commandPanelEntries(state, english)
             .first { it.actionId == PhraseComposerActionId.ConfirmSave }
         val result = PhraseComposerController.processSequence(confirm.left, confirm.right, state, english)
         assertTrue(result is PhraseComposerSequenceResult.Save)

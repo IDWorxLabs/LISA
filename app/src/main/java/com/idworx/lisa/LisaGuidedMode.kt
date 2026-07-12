@@ -919,6 +919,38 @@ object GuidedVocabularyCatalog {
     fun categoryMenuTitles(uiStrings: LisaUiStrings): List<String> =
         GuidedVocabularyCategory.ordered.map { uiStrings.guidedCategoryTitle(it) }
 
+    data class CatalogPhraseEntry(
+        val phrase: String,
+        val category: CustomPhraseEngine.CaregiverPhraseCategory
+    )
+
+    fun catalogPhraseEntries(
+        language: PreferredLanguage,
+        uiStrings: LisaUiStrings
+    ): List<CatalogPhraseEntry> = catalog.flatMap { spec ->
+        val caregiverCategory = spec.category.toCaregiverCategory() ?: return@flatMap emptyList()
+        spec.entries.mapNotNull { entrySpec ->
+            when (entrySpec) {
+                is CatalogEntrySpec.Phrase -> CatalogPhraseEntry(
+                    phrase = uiStrings.guidedPhrase(entrySpec.phraseKey),
+                    category = caregiverCategory
+                )
+                else -> null
+            }
+        }
+    }
+
+    fun categoryForCoreVocabularyId(vocabularyId: String): GuidedVocabularyCategory? =
+        catalog.firstOrNull { spec ->
+            spec.entries.any { entry ->
+                when (entry) {
+                    is CatalogEntrySpec.CoreVocabulary -> entry.vocabularyId == vocabularyId
+                    is CatalogEntrySpec.Phrase -> entry.phraseKey == vocabularyId
+                    else -> false
+                }
+            }
+        }?.category
+
     fun currentPageEntries(
         pageIndex: Int,
         language: PreferredLanguage,

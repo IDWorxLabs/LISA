@@ -61,6 +61,7 @@ class Rc7C3_2ModeScopedGestureAuthorityTest {
             LisaInteractionMode.PhraseComposerKeyboard,
             LisaInteractionMode.PhraseComposerDestinationCategory,
             LisaInteractionMode.PhraseComposerSaveConfirmation,
+            LisaInteractionMode.PhraseComposerDuplicateWarning,
             LisaInteractionMode.PhraseComposerCancelConfirm,
             LisaInteractionMode.PhraseComposerSuccess
         )
