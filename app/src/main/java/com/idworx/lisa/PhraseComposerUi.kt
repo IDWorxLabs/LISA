@@ -52,6 +52,7 @@ fun EyeControlledPhraseComposerOverlay(
     onEmergency: () -> Unit,
     onEntrySelected: (PhraseComposerEntry) -> Unit,
     onCommandSelected: (PhraseComposerEntry) -> Unit,
+    onKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     if (!visible) return
@@ -84,14 +85,20 @@ fun EyeControlledPhraseComposerOverlay(
                     onResponseTimeDecrease = onResponseTimeDecrease,
                     onResponseTimeIncrease = onResponseTimeIncrease,
                     onEmergency = onEmergency,
-                    onCommandSelected = onCommandSelected
+                    onCommandSelected = onCommandSelected,
+                    onKeyTouched = onKeyTouched
                 )
                 else -> NonKeyboardComposerLayout(
                     uiStrings = uiStrings,
                     state = state,
                     entries = entries,
                     commandEntries = commandEntries,
+                    composerEyeFeedback = composerEyeFeedback,
                     inputSuspended = inputSuspended,
+                    onSensitivityDecrease = onSensitivityDecrease,
+                    onSensitivityIncrease = onSensitivityIncrease,
+                    onResponseTimeDecrease = onResponseTimeDecrease,
+                    onResponseTimeIncrease = onResponseTimeIncrease,
                     onEmergency = onEmergency,
                     onEntrySelected = onEntrySelected,
                     onCommandSelected = onCommandSelected
@@ -113,7 +120,8 @@ private fun KeyboardComposerLayout(
     onResponseTimeDecrease: () -> Unit,
     onResponseTimeIncrease: () -> Unit,
     onEmergency: () -> Unit,
-    onCommandSelected: (PhraseComposerEntry) -> Unit
+    onCommandSelected: (PhraseComposerEntry) -> Unit,
+    onKeyTouched: (row: Int, col: Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         ComposerEyeStatusBar(
@@ -154,10 +162,15 @@ private fun KeyboardComposerLayout(
             uiStrings = uiStrings,
             layoutMode = state.keyboardLayoutMode,
             cursorRow = state.cursorRow,
-            cursorCol = state.cursorCol
+            cursorCol = state.cursorCol,
+            shiftMode = state.keyboardShiftMode,
+            inputSuspended = inputSuspended,
+            onKeyTouched = onKeyTouched
         )
     }
 }
+
+private val ComposerEntryPartialHighlight = LisaBlue.copy(alpha = 0.12f)
 
 @Composable
 private fun NonKeyboardComposerLayout(
@@ -165,12 +178,28 @@ private fun NonKeyboardComposerLayout(
     state: PhraseComposerState,
     entries: List<PhraseComposerEntry>,
     commandEntries: List<PhraseComposerEntry>,
+    composerEyeFeedback: ComposerEyeFeedback,
     inputSuspended: Boolean,
+    onSensitivityDecrease: () -> Unit,
+    onSensitivityIncrease: () -> Unit,
+    onResponseTimeDecrease: () -> Unit,
+    onResponseTimeIncrease: () -> Unit,
     onEmergency: () -> Unit,
     onEntrySelected: (PhraseComposerEntry) -> Unit,
     onCommandSelected: (PhraseComposerEntry) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
+        ComposerEyeStatusBar(
+            uiStrings = uiStrings,
+            eyeFeedback = composerEyeFeedback,
+            onSensitivityDecrease = onSensitivityDecrease,
+            onSensitivityIncrease = onSensitivityIncrease,
+            onResponseTimeDecrease = onResponseTimeDecrease,
+            onResponseTimeIncrease = onResponseTimeIncrease
+        )
+
+        Spacer(Modifier.height(6.dp))
+
         PhraseComposerHeader(
             uiStrings = uiStrings,
             state = state,
@@ -239,11 +268,20 @@ private fun NonKeyboardComposerLayout(
             }
 
             entries.forEach { entry ->
-                val highlighted = state.confirmedLeft == entry.left &&
+                val highlightLevel = PhraseComposerEntryHighlight.level(
+                    entry = entry,
+                    leftWinkCount = composerEyeFeedback.leftWinkCount,
+                    rightWinkCount = composerEyeFeedback.rightWinkCount
+                )
+                val confirmedMatch = state.confirmedLeft == entry.left &&
                     state.confirmedRight == entry.right
                 PhraseComposerEntryRow(
                     entry = entry,
-                    highlighted = highlighted,
+                    highlightLevel = if (confirmedMatch) {
+                        PhraseComposerEntryHighlight.Level.Full
+                    } else {
+                        highlightLevel
+                    },
                     onClick = { onEntrySelected(entry) }
                 )
             }
@@ -419,15 +457,25 @@ private fun SuccessSummary(
 @Composable
 private fun PhraseComposerEntryRow(
     entry: PhraseComposerEntry,
-    highlighted: Boolean,
+    highlightLevel: PhraseComposerEntryHighlight.Level,
     onClick: () -> Unit
 ) {
+    val background = when (highlightLevel) {
+        PhraseComposerEntryHighlight.Level.Full -> ComposerEntryHighlight
+        PhraseComposerEntryHighlight.Level.Partial -> ComposerEntryPartialHighlight
+        PhraseComposerEntryHighlight.Level.None -> ComposerEntryBackground
+    }
+    val sequenceBackground = when (highlightLevel) {
+        PhraseComposerEntryHighlight.Level.Full -> LisaBlue.copy(alpha = 0.25f)
+        PhraseComposerEntryHighlight.Level.Partial -> LisaBlue.copy(alpha = 0.14f)
+        PhraseComposerEntryHighlight.Level.None -> LisaSoftGray
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .background(if (highlighted) ComposerEntryHighlight else ComposerEntryBackground)
+            .background(background)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -436,7 +484,7 @@ private fun PhraseComposerEntryRow(
             modifier = Modifier
                 .widthIn(min = 58.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (highlighted) LisaBlue.copy(alpha = 0.25f) else LisaSoftGray)
+                .background(sequenceBackground)
                 .padding(horizontal = 8.dp, vertical = 7.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -449,7 +497,11 @@ private fun PhraseComposerEntryRow(
         }
         Text(
             text = entry.label,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = if (highlightLevel == PhraseComposerEntryHighlight.Level.Full) {
+                FontWeight.Bold
+            } else {
+                FontWeight.SemiBold
+            },
             fontSize = 17.sp,
             color = LisaBlueDark,
             lineHeight = 22.sp,

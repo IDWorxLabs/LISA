@@ -17,7 +17,7 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
         assertEquals(3, KeyboardLayout.NUMBER_ROW_COUNT)
         assertEquals("12345", KeyboardLayout.numberRows[0].joinToString(""))
         assertEquals("67890", KeyboardLayout.numberRows[1].joinToString(""))
-        assertEquals(".,?!-", KeyboardLayout.numberRows[2].joinToString(""))
+        assertEquals(".,?!'-:;", KeyboardLayout.numberRows[2].joinToString(""))
         assertFalse(KeyboardLayout.numberRows[0].size == 3)
     }
 
@@ -35,12 +35,15 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
         assertTrue(punct.contains('?'))
         assertTrue(punct.contains('!'))
         assertTrue(punct.contains('-'))
+        assertTrue(punct.contains('\''))
+        assertTrue(punct.contains(':'))
+        assertTrue(punct.contains(';'))
     }
 
     @Test
     fun spaceRemainsBottomRow() {
-        assertEquals(3, KeyboardLayout.spaceRowIndex(numbers))
-        assertEquals(' ', KeyboardLayout.keyAt(numbers, 3, 0))
+        assertEquals(4, KeyboardLayout.spaceRowIndex(numbers))
+        assertEquals(' ', KeyboardLayout.keyAt(numbers, 4, 0))
     }
 
     @Test
@@ -145,7 +148,7 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
 
     @Test
     fun compactNumericRowCountFitsPortrait() {
-        assertEquals(4, ComposerKeyboardLayoutMetrics.rowCount(numbers))
+        assertEquals(5, ComposerKeyboardLayoutMetrics.rowCount(numbers))
         assertTrue(ComposerKeyboardLayoutMetrics.bottomAnchoredKeyHeightDp(numbers) >= 28)
     }
 

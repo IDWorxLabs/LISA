@@ -228,8 +228,8 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     @Test
     fun keyboardLayoutsAreCompactAndComplete() {
         assertTrue(KeyboardLayout.allKeysReachable())
-        assertEquals(4, KeyboardLayout.totalRowCount(letters))
-        assertEquals(4, KeyboardLayout.totalRowCount(numbers))
+        assertEquals(6, KeyboardLayout.totalRowCount(letters))
+        assertEquals(5, KeyboardLayout.totalRowCount(numbers))
     }
 
     private fun readSource(relativePath: String): String {

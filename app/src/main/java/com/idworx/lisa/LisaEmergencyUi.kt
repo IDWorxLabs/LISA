@@ -1,11 +1,8 @@
 package com.idworx.lisa
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,10 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -64,32 +62,31 @@ fun GlobalEmergencyOverlayLayer(
     }
 }
 
-/** Full-screen flashing alarm after emergency is confirmed. */
+/** Full-screen opaque alarm after emergency is confirmed — no underlying UI visible (RC7D.7). */
 @Composable
 fun EmergencyAlarmOverlay(
     uiStrings: LisaUiStrings,
     onStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "emergency_flash")
-    val flashAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.88f,
-        animationSpec = infiniteRepeatable(animation = tween(600), repeatMode = RepeatMode.Reverse),
-        label = "emergency_alpha"
-    )
-
+    val backgroundInteraction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LisaEmergencyRed.copy(alpha = flashAlpha)),
+            .background(LisaEmergencyRed)
+            .clickable(
+                enabled = true,
+                indication = null,
+                interactionSource = backgroundInteraction,
+                onClick = { /* consume background taps */ }
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 20.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(LisaEmergencyRed.copy(alpha = 0.95f))
+                .background(Color(0xFFB71C1C))
                 .padding(horizontal = 18.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

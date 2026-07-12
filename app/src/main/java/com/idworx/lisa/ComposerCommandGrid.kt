@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -121,6 +123,7 @@ fun ComposerCommandCard(
                 indication = null,
                 onClick = onClick
             )
+            .semantics { contentDescription = entry.label }
             .background(if (enabled) CommandCardBackground else LisaSoftGray.copy(alpha = 0.65f))
             .padding(horizontal = 6.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -167,6 +170,7 @@ fun ComposerEmergencyCommandCard(
             .defaultMinSize(minHeight = 64.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = uiStrings.emergency }
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
             .border(1.5.dp, LisaEmergencyRed.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),

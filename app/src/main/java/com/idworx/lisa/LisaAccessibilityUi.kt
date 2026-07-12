@@ -155,6 +155,7 @@ fun LisaRootUI(
     ),
     onPhraseComposerEntry: (PhraseComposerEntry) -> Unit = {},
     onPhraseComposerCommand: (PhraseComposerEntry) -> Unit = {},
+    onPhraseComposerKeyTouched: (Int, Int) -> Unit = { _, _ -> },
     onPhraseComposerEmergency: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit = {},
     guidedTrainingActive: Boolean = false,
@@ -284,6 +285,7 @@ fun LisaRootUI(
         null
     }
     Box(modifier = Modifier.fillMaxSize()) {
+        if (!emergencyActive) {
         if (cameraPermissionGranted) {
             cameraView()
         } else {
@@ -467,6 +469,7 @@ fun LisaRootUI(
             onEmergency = onPhraseComposerEmergency,
             onEntrySelected = onPhraseComposerEntry,
             onCommandSelected = onPhraseComposerCommand,
+            onKeyTouched = onPhraseComposerKeyTouched,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -644,6 +647,7 @@ fun LisaRootUI(
                     .align(cardAlignment)
                     .padding(horizontal = 10.dp, vertical = 84.dp)
             )
+        }
         }
 
         GlobalEmergencyOverlayLayer(

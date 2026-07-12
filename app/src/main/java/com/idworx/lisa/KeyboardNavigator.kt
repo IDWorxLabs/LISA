@@ -5,6 +5,8 @@ package com.idworx.lisa
  */
 object KeyboardNavigator {
 
+    const val SHIFT_DOUBLE_TAP_MS: Long = 400L
+
     fun move(
         cursor: KeyboardCursor,
         direction: PhraseComposerActionId,
@@ -24,13 +26,14 @@ object KeyboardNavigator {
     fun appendSelectedKey(
         currentPhrase: String,
         key: Char,
-        layoutMode: EyeKeyboardLayoutMode
+        layoutMode: EyeKeyboardLayoutMode,
+        shiftMode: KeyboardShiftMode = KeyboardShiftMode.Lowercase
     ): String? {
         if (key == ' ') return appendSpace(currentPhrase)
         if (currentPhrase.length >= CustomPhraseEngine.MAX_PHRASE_LENGTH) return null
         return when {
             key.isLetter() && layoutMode == EyeKeyboardLayoutMode.Letters ->
-                currentPhrase + key.lowercaseChar()
+                currentPhrase + letterChar(key, shiftMode)
             key.isDigit() -> currentPhrase + key
             key in PUNCTUATION_KEYS -> {
                 if (currentPhrase.isEmpty()) null else currentPhrase + key
@@ -49,7 +52,38 @@ object KeyboardNavigator {
     fun backspace(currentPhrase: String): String =
         if (currentPhrase.isEmpty()) "" else currentPhrase.dropLast(1)
 
-    private val PUNCTUATION_KEYS = setOf('.', ',', '?', '!', '-')
+    fun afterLetterInserted(shiftMode: KeyboardShiftMode): KeyboardShiftMode =
+        if (shiftMode == KeyboardShiftMode.OneShotUppercase) {
+            KeyboardShiftMode.Lowercase
+        } else {
+            shiftMode
+        }
+
+    fun nextShiftMode(
+        current: KeyboardShiftMode,
+        lastTapEpochMs: Long,
+        nowEpochMs: Long
+    ): KeyboardShiftMode = when (current) {
+        KeyboardShiftMode.CapsLock -> KeyboardShiftMode.Lowercase
+        KeyboardShiftMode.OneShotUppercase ->
+            if (nowEpochMs - lastTapEpochMs in 1 until SHIFT_DOUBLE_TAP_MS) {
+                KeyboardShiftMode.CapsLock
+            } else {
+                KeyboardShiftMode.OneShotUppercase
+            }
+        KeyboardShiftMode.Lowercase -> KeyboardShiftMode.OneShotUppercase
+    }
+
+    fun shiftKeyActive(shiftMode: KeyboardShiftMode): Boolean =
+        shiftMode != KeyboardShiftMode.Lowercase
+
+    private fun letterChar(key: Char, shiftMode: KeyboardShiftMode): Char = when (shiftMode) {
+        KeyboardShiftMode.Lowercase -> key.lowercaseChar()
+        KeyboardShiftMode.OneShotUppercase,
+        KeyboardShiftMode.CapsLock -> key.uppercaseChar()
+    }
+
+    private val PUNCTUATION_KEYS = setOf('.', ',', '?', '!', '-', '\'', ':', ';')
 
     private fun moveUp(row: Int, col: Int, layoutMode: EyeKeyboardLayoutMode): KeyboardCursor {
         if (row <= 0) return KeyboardCursor(row, col)

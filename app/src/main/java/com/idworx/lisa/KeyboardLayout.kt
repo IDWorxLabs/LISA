@@ -1,12 +1,27 @@
 package com.idworx.lisa
 
+/** A key on the eye-controlled composer keyboard — character or caregiver action (RC7D.8). */
+sealed class KeyboardSlot {
+    data class Character(val char: Char) : KeyboardSlot()
+    data object Space : KeyboardSlot()
+    data object Backspace : KeyboardSlot()
+    data object Shift : KeyboardSlot()
+}
+
+/** Letter case mode for Shift / Caps Lock (RC7D.8). */
+enum class KeyboardShiftMode {
+    Lowercase,
+    OneShotUppercase,
+    CapsLock
+}
+
 /**
  * Letter and numeric keyboard layouts for the RC7D eye-controlled phrase composer.
  */
 object KeyboardLayout {
 
     const val LETTER_ROW_COUNT: Int = 3
-    /** Horizontal numeric rows before SPACE (RC7D.5). */
+    /** Digit + punctuation rows before utility row (RC7D.5 / RC7D.8). */
     const val NUMBER_ROW_COUNT: Int = 3
 
     val letterRows: List<List<Char>> = listOf(
@@ -15,78 +30,84 @@ object KeyboardLayout {
         "ZXCVBNM".toList()
     )
 
-    /** Full-width horizontal numeric layout: 12345 / 67890 / .,?!- / SPACE */
+    /** Punctuation row below QWERTY in letters mode. */
+    val letterPunctuationRow: List<Char> = ",.'?!-:;".toList()
+
+    /** Full-width horizontal numeric layout: 12345 / 67890 / punctuation / utility / SPACE */
     val numberRows: List<List<Char>> = listOf(
         "12345".toList(),
         "67890".toList(),
-        ".,?!-".toList()
+        ".,?!'-:;".toList()
     )
 
-    /** @deprecated Use [numberRows]. */
-    @Deprecated("Use numberRows", ReplaceWith("numberRows"))
-    val numberDigitRows: List<List<Char>> get() = numberRows.take(2)
-
-    /** @deprecated Merged into [numberRows] row 2. */
-    @Deprecated("Use numberRows[2]")
-    val numberBottomRow: List<Char> get() = numberRows[2].take(3)
-
-    /** @deprecated Merged into [numberRows] row 2. */
-    @Deprecated("Use numberRows[2]")
-    val punctuationRow: List<Char> get() = numberRows[2].drop(2)
-
-    /** @deprecated Use [NUMBER_ROW_COUNT]. */
-    @Deprecated("Use NUMBER_ROW_COUNT", ReplaceWith("NUMBER_ROW_COUNT"))
-    const val NUMBER_DIGIT_ROW_COUNT: Int = 2
-
-    /** @deprecated Punctuation is [numberRows][2]. */
-    @Deprecated("Use 2")
-    const val NUMBER_PUNCTUATION_ROW_INDEX: Int = 2
-
-    /** @deprecated Digit zero is on [numberRows][1]. */
-    @Deprecated("Use numberRows")
-    const val NUMBER_BOTTOM_ROW_INDEX: Int = 1
-
-    fun spaceRowIndex(mode: EyeKeyboardLayoutMode): Int = when (mode) {
+    fun punctuationRowIndex(mode: EyeKeyboardLayoutMode): Int = when (mode) {
         EyeKeyboardLayoutMode.Letters -> LETTER_ROW_COUNT
+        EyeKeyboardLayoutMode.Numbers -> 2
+    }
+
+    fun utilityRowIndex(mode: EyeKeyboardLayoutMode): Int = when (mode) {
+        EyeKeyboardLayoutMode.Letters -> LETTER_ROW_COUNT + 1
         EyeKeyboardLayoutMode.Numbers -> NUMBER_ROW_COUNT
     }
 
+    fun spaceRowIndex(mode: EyeKeyboardLayoutMode): Int = utilityRowIndex(mode) + 1
+
     fun totalRowCount(mode: EyeKeyboardLayoutMode): Int = spaceRowIndex(mode) + 1
+
+    fun isUtilityRow(mode: EyeKeyboardLayoutMode, row: Int): Boolean = row == utilityRowIndex(mode)
+
+    fun isSpaceRow(mode: EyeKeyboardLayoutMode, row: Int): Boolean = row == spaceRowIndex(mode)
 
     fun rowLength(mode: EyeKeyboardLayoutMode, row: Int): Int = when (mode) {
         EyeKeyboardLayoutMode.Letters -> when (row) {
             in 0 until LETTER_ROW_COUNT -> letterRows[row].size
+            punctuationRowIndex(EyeKeyboardLayoutMode.Letters) -> letterPunctuationRow.size
+            utilityRowIndex(EyeKeyboardLayoutMode.Letters) -> 2
             spaceRowIndex(EyeKeyboardLayoutMode.Letters) -> 1
             else -> 0
         }
         EyeKeyboardLayoutMode.Numbers -> when (row) {
             in 0 until NUMBER_ROW_COUNT -> numberRows[row].size
+            utilityRowIndex(EyeKeyboardLayoutMode.Numbers) -> 1
             spaceRowIndex(EyeKeyboardLayoutMode.Numbers) -> 1
             else -> 0
         }
     }
 
-    fun keyAt(mode: EyeKeyboardLayoutMode, row: Int, col: Int): Char? = when (mode) {
+    fun slotAt(mode: EyeKeyboardLayoutMode, row: Int, col: Int): KeyboardSlot? = when (mode) {
         EyeKeyboardLayoutMode.Letters -> when (row) {
-            in 0 until LETTER_ROW_COUNT -> letterRows[row].getOrNull(col)
-            spaceRowIndex(EyeKeyboardLayoutMode.Letters) -> if (col == 0) ' ' else null
+            in 0 until LETTER_ROW_COUNT -> letterRows[row].getOrNull(col)?.let { KeyboardSlot.Character(it) }
+            punctuationRowIndex(EyeKeyboardLayoutMode.Letters) ->
+                letterPunctuationRow.getOrNull(col)?.let { KeyboardSlot.Character(it) }
+            utilityRowIndex(EyeKeyboardLayoutMode.Letters) -> when (col) {
+                0 -> KeyboardSlot.Shift
+                1 -> KeyboardSlot.Backspace
+                else -> null
+            }
+            spaceRowIndex(EyeKeyboardLayoutMode.Letters) -> if (col == 0) KeyboardSlot.Space else null
             else -> null
         }
         EyeKeyboardLayoutMode.Numbers -> when (row) {
-            in 0 until NUMBER_ROW_COUNT -> numberRows[row].getOrNull(col)
-            spaceRowIndex(EyeKeyboardLayoutMode.Numbers) -> if (col == 0) ' ' else null
+            in 0 until NUMBER_ROW_COUNT -> numberRows[row].getOrNull(col)?.let { KeyboardSlot.Character(it) }
+            utilityRowIndex(EyeKeyboardLayoutMode.Numbers) -> if (col == 0) KeyboardSlot.Backspace else null
+            spaceRowIndex(EyeKeyboardLayoutMode.Numbers) -> if (col == 0) KeyboardSlot.Space else null
             else -> null
         }
     }
 
-    fun isSpaceRow(mode: EyeKeyboardLayoutMode, row: Int): Boolean = row == spaceRowIndex(mode)
+    /** Character at position, or space character on the space row — for legacy callers. */
+    fun keyAt(mode: EyeKeyboardLayoutMode, row: Int, col: Int): Char? = when (val slot = slotAt(mode, row, col)) {
+        is KeyboardSlot.Character -> slot.char
+        KeyboardSlot.Space -> ' '
+        else -> null
+    }
 
     fun initialCursor(mode: EyeKeyboardLayoutMode): KeyboardCursor = KeyboardCursor(row = 0, col = 0)
 
     fun allKeysReachable(mode: EyeKeyboardLayoutMode): Boolean {
         for (row in 0 until totalRowCount(mode)) {
             for (col in 0 until rowLength(mode, row)) {
-                if (keyAt(mode, row, col) == null) return false
+                if (slotAt(mode, row, col) == null) return false
             }
         }
         return true
@@ -94,6 +115,10 @@ object KeyboardLayout {
 
     fun allKeysReachable(): Boolean =
         EyeKeyboardLayoutMode.entries.all { allKeysReachable(it) }
+
+    /** @deprecated Use [numberRows]. */
+    @Deprecated("Use numberRows", ReplaceWith("numberRows"))
+    val numberDigitRows: List<List<Char>> get() = numberRows.take(2)
 
     /** @deprecated Use [totalRowCount] with [EyeKeyboardLayoutMode.Letters]. */
     @Deprecated("Use layout-aware APIs", ReplaceWith("totalRowCount(EyeKeyboardLayoutMode.Letters)"))

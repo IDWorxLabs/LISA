@@ -3,6 +3,7 @@ package com.idworx.lisa
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,11 +18,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +48,9 @@ fun BottomAlignedEyeKeyboard(
     layoutMode: EyeKeyboardLayoutMode,
     cursorRow: Int,
     cursorCol: Int,
+    shiftMode: KeyboardShiftMode = KeyboardShiftMode.Lowercase,
+    inputSuspended: Boolean = false,
+    onKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -58,7 +65,10 @@ fun BottomAlignedEyeKeyboard(
             layoutMode = layoutMode,
             cursorRow = cursorRow,
             cursorCol = cursorCol,
-            bottomAnchored = true
+            shiftMode = shiftMode,
+            bottomAnchored = true,
+            inputSuspended = inputSuspended,
+            onKeyTouched = onKeyTouched
         )
     }
 }
@@ -96,8 +106,11 @@ private fun EyeControlledKeyboardGrid(
     layoutMode: EyeKeyboardLayoutMode,
     cursorRow: Int,
     cursorCol: Int,
+    shiftMode: KeyboardShiftMode = KeyboardShiftMode.Lowercase,
     bottomAnchored: Boolean,
-    availableHeightDp: Int = 0
+    availableHeightDp: Int = 0,
+    inputSuspended: Boolean = false,
+    onKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> }
 ) {
     val keyHeightDp = if (bottomAnchored) {
         ComposerKeyboardLayoutMetrics.bottomAnchoredKeyHeightDp(layoutMode)
@@ -122,9 +135,35 @@ private fun EyeControlledKeyboardGrid(
                             cursorCol = cursorCol,
                             keyHeight = keyHeight,
                             keyFontSp = keyFontSp,
-                            bottomAnchored = bottomAnchored
+                            bottomAnchored = bottomAnchored,
+                            inputSuspended = inputSuspended,
+                            onKeyTouched = onKeyTouched
                         )
                     }
+                    KeyboardKeyRow(
+                        keys = KeyboardLayout.letterPunctuationRow.map { it.toString() },
+                        row = KeyboardLayout.punctuationRowIndex(EyeKeyboardLayoutMode.Letters),
+                        cursorRow = cursorRow,
+                        cursorCol = cursorCol,
+                        keyHeight = keyHeight,
+                        keyFontSp = keyFontSp,
+                        bottomAnchored = bottomAnchored,
+                        spreadHorizontally = true,
+                        inputSuspended = inputSuspended,
+                        onKeyTouched = onKeyTouched
+                    )
+                    KeyboardUtilityRow(
+                        uiStrings = uiStrings,
+                        layoutMode = EyeKeyboardLayoutMode.Letters,
+                        cursorRow = cursorRow,
+                        cursorCol = cursorCol,
+                        shiftMode = shiftMode,
+                        keyHeight = keyHeight,
+                        keyFontSp = keyFontSp,
+                        bottomAnchored = bottomAnchored,
+                        inputSuspended = inputSuspended,
+                        onKeyTouched = onKeyTouched
+                    )
                 }
                 EyeKeyboardLayoutMode.Numbers -> {
                     for (row in 0 until KeyboardLayout.NUMBER_ROW_COUNT) {
@@ -136,9 +175,23 @@ private fun EyeControlledKeyboardGrid(
                             keyHeight = keyHeight,
                             keyFontSp = keyFontSp,
                             bottomAnchored = bottomAnchored,
-                            spreadHorizontally = true
+                            spreadHorizontally = true,
+                            inputSuspended = inputSuspended,
+                            onKeyTouched = onKeyTouched
                         )
                     }
+                    KeyboardUtilityRow(
+                        uiStrings = uiStrings,
+                        layoutMode = EyeKeyboardLayoutMode.Numbers,
+                        cursorRow = cursorRow,
+                        cursorCol = cursorCol,
+                        shiftMode = shiftMode,
+                        keyHeight = keyHeight,
+                        keyFontSp = keyFontSp,
+                        bottomAnchored = bottomAnchored,
+                        inputSuspended = inputSuspended,
+                        onKeyTouched = onKeyTouched
+                    )
                 }
             }
             KeyboardSpaceRow(
@@ -148,8 +201,73 @@ private fun EyeControlledKeyboardGrid(
                 label = uiStrings.phraseComposerKeyboardSpaceLabel,
                 keyHeight = keyHeight,
                 keyFontSp = keyFontSp,
-                bottomAnchored = bottomAnchored
+                bottomAnchored = bottomAnchored,
+                inputSuspended = inputSuspended,
+                onKeyTouched = onKeyTouched
             )
+    }
+}
+
+@Composable
+private fun KeyboardUtilityRow(
+    uiStrings: LisaUiStrings,
+    layoutMode: EyeKeyboardLayoutMode,
+    cursorRow: Int,
+    cursorCol: Int,
+    shiftMode: KeyboardShiftMode,
+    keyHeight: androidx.compose.ui.unit.Dp,
+    keyFontSp: Int,
+    bottomAnchored: Boolean,
+    inputSuspended: Boolean,
+    onKeyTouched: (row: Int, col: Int) -> Unit
+) {
+    val utilityRow = KeyboardLayout.utilityRowIndex(layoutMode)
+    val shiftActive = KeyboardNavigator.shiftKeyActive(shiftMode)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (layoutMode == EyeKeyboardLayoutMode.Letters) {
+            KeyboardKey(
+                label = uiStrings.phraseComposerKeyboardShiftLabel,
+                highlighted = cursorRow == utilityRow && cursorCol == 0,
+                shiftActive = shiftActive,
+                wide = false,
+                keyHeight = keyHeight,
+                keyFontSp = keyFontSp,
+                bottomAnchored = bottomAnchored,
+                enabled = !inputSuspended,
+                onClick = { onKeyTouched(utilityRow, 0) },
+                modifier = Modifier.weight(1f),
+                enforceMinWidth = false
+            )
+            KeyboardKey(
+                label = uiStrings.phraseComposerKeyboardBackspaceLabel,
+                highlighted = cursorRow == utilityRow && cursorCol == 1,
+                wide = false,
+                keyHeight = keyHeight,
+                keyFontSp = (keyFontSp - 2).coerceAtLeast(ComposerKeyboardLayoutMetrics.MIN_KEY_FONT_SP),
+                bottomAnchored = bottomAnchored,
+                enabled = !inputSuspended,
+                onClick = { onKeyTouched(utilityRow, 1) },
+                modifier = Modifier.weight(1.4f),
+                enforceMinWidth = false
+            )
+        } else {
+            KeyboardKey(
+                label = uiStrings.phraseComposerKeyboardBackspaceLabel,
+                highlighted = cursorRow == utilityRow && cursorCol == 0,
+                wide = true,
+                keyHeight = keyHeight,
+                keyFontSp = (keyFontSp - 2).coerceAtLeast(ComposerKeyboardLayoutMetrics.MIN_KEY_FONT_SP),
+                bottomAnchored = bottomAnchored,
+                enabled = !inputSuspended,
+                onClick = { onKeyTouched(utilityRow, 0) },
+                modifier = Modifier.fillMaxWidth(),
+                enforceMinWidth = false
+            )
+        }
     }
 }
 
@@ -162,7 +280,9 @@ private fun KeyboardKeyRow(
     keyHeight: androidx.compose.ui.unit.Dp,
     keyFontSp: Int,
     bottomAnchored: Boolean,
-    spreadHorizontally: Boolean = false
+    spreadHorizontally: Boolean = false,
+    inputSuspended: Boolean = false,
+    onKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> }
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -181,6 +301,8 @@ private fun KeyboardKeyRow(
                 keyHeight = keyHeight,
                 keyFontSp = keyFontSp,
                 bottomAnchored = bottomAnchored,
+                enabled = !inputSuspended,
+                onClick = { onKeyTouched(row, col) },
                 modifier = if (spreadHorizontally) Modifier.weight(1f) else Modifier,
                 enforceMinWidth = !spreadHorizontally
             )
@@ -196,7 +318,9 @@ private fun KeyboardSpaceRow(
     label: String,
     keyHeight: androidx.compose.ui.unit.Dp,
     keyFontSp: Int,
-    bottomAnchored: Boolean = false
+    bottomAnchored: Boolean = false,
+    inputSuspended: Boolean = false,
+    onKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> }
 ) {
     val spaceRow = KeyboardLayout.spaceRowIndex(layoutMode)
     Row(
@@ -210,6 +334,9 @@ private fun KeyboardSpaceRow(
             keyHeight = keyHeight,
             keyFontSp = keyFontSp,
             bottomAnchored = bottomAnchored,
+            enabled = !inputSuspended,
+            isSpace = true,
+            onClick = { onKeyTouched(spaceRow, 0) },
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -223,10 +350,21 @@ private fun KeyboardKey(
     keyHeight: androidx.compose.ui.unit.Dp,
     keyFontSp: Int,
     bottomAnchored: Boolean = false,
+    enabled: Boolean = true,
+    isSpace: Boolean = false,
+    shiftActive: Boolean = false,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     enforceMinWidth: Boolean = true
 ) {
     val shape = RoundedCornerShape(10.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val contentDescription = keyboardKeyContentDescription(label, isSpace)
+    val fill = when {
+        highlighted -> KeyHighlightFill
+        shiftActive -> LisaBlue.copy(alpha = 0.35f)
+        else -> KeyBackground
+    }
     Box(
         modifier = modifier
             .padding(horizontal = if (wide) 0.dp else 3.dp)
@@ -239,10 +377,22 @@ private fun KeyboardKey(
                 }
             )
             .clip(shape)
-            .background(if (highlighted) KeyHighlightFill else KeyBackground)
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .semantics { this.contentDescription = contentDescription }
+            .background(fill)
             .then(
-                if (highlighted) {
-                    Modifier.border(width = 2.5.dp, color = KeyHighlightBorder, shape = shape)
+                if (highlighted || shiftActive) {
+                    Modifier.border(
+                        width = if (highlighted) 2.5.dp else 1.5.dp,
+                        color = KeyHighlightBorder,
+                        shape = shape
+                    )
                 } else {
                     Modifier
                 }
@@ -258,6 +408,22 @@ private fun KeyboardKey(
             textAlign = TextAlign.Center
         )
     }
+}
+
+/** Accessibility label for a keyboard key — readable names for punctuation and SPACE. */
+internal fun keyboardKeyContentDescription(label: String, isSpace: Boolean = false): String = when {
+    isSpace -> "Space"
+    label.equals("Shift", ignoreCase = true) -> "Shift"
+    label.equals("Backspace", ignoreCase = true) -> "Backspace"
+    label == "." -> "Period"
+    label == "," -> "Comma"
+    label == "?" -> "Question mark"
+    label == "!" -> "Exclamation mark"
+    label == "-" -> "Hyphen"
+    label == "'" -> "Apostrophe"
+    label == ":" -> "Colon"
+    label == ";" -> "Semicolon"
+    else -> label
 }
 
 @Composable

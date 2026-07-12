@@ -55,7 +55,9 @@ data class PhraseComposerState(
     val pendingAllocatedSequence: Pair<Int, Int>? = null,
     val confirmedLeft: Int? = null,
     val confirmedRight: Int? = null,
-    val keyboardLayoutMode: EyeKeyboardLayoutMode = EyeKeyboardLayoutMode.Letters
+    val keyboardLayoutMode: EyeKeyboardLayoutMode = EyeKeyboardLayoutMode.Letters,
+    val keyboardShiftMode: KeyboardShiftMode = KeyboardShiftMode.Lowercase,
+    val lastShiftTapEpochMs: Long = 0L
 ) {
     fun displayPhrase(): String = phraseText.uppercase()
 
@@ -77,6 +79,22 @@ sealed class PhraseComposerSequenceResult {
     object Unmatched : PhraseComposerSequenceResult()
 }
 
+/** Live blink highlight level for composer list entries (RC7D.8). */
+object PhraseComposerEntryHighlight {
+    enum class Level { None, Partial, Full }
+
+    fun level(entry: PhraseComposerEntry, leftWinkCount: Int, rightWinkCount: Int): Level {
+        if (leftWinkCount == entry.left && rightWinkCount == entry.right) return Level.Full
+        if (leftWinkCount > entry.left ||
+            (leftWinkCount == entry.left && rightWinkCount > entry.right)
+        ) {
+            return Level.None
+        }
+        if (leftWinkCount == 0 && rightWinkCount == 0) return Level.None
+        return Level.Partial
+    }
+}
+
 object PhraseComposerController {
 
     /** RC7D.1 — Custom opens directly into keyboard compose mode. */
@@ -91,7 +109,9 @@ object PhraseComposerController {
         pendingAllocatedSequence = null,
         confirmedLeft = null,
         confirmedRight = null,
-        keyboardLayoutMode = EyeKeyboardLayoutMode.Letters
+        keyboardLayoutMode = EyeKeyboardLayoutMode.Letters,
+        keyboardShiftMode = KeyboardShiftMode.Lowercase,
+        lastShiftTapEpochMs = 0L
     )
 
     fun initialState(): PhraseComposerState = keyboardEntryState()
@@ -120,6 +140,22 @@ object PhraseComposerController {
         PhraseComposerMode.SaveConfirmation -> uiStrings.phraseComposerSaveConfirmTitle
         PhraseComposerMode.CancelConfirm -> uiStrings.phraseComposerCancelConfirmTitle
         PhraseComposerMode.Success -> uiStrings.phraseComposerSuccessTitle
+    }
+
+    /** RC7D.7 / RC7D.8 — caregiver touch: move cursor then apply canonical keyboard slot. */
+    fun processTouchKey(
+        row: Int,
+        col: Int,
+        state: PhraseComposerState,
+        uiStrings: LisaUiStrings
+    ): PhraseComposerSequenceResult {
+        if (state.mode != PhraseComposerMode.Keyboard) return PhraseComposerSequenceResult.Unmatched
+        return applyKeyboardSlotAt(
+            state = state,
+            row = row,
+            col = col,
+            uiStrings = uiStrings
+        )
     }
 
     fun processSequence(
@@ -301,6 +337,8 @@ object PhraseComposerController {
                     keyboardLayoutMode = newMode,
                     cursorRow = cursor.row,
                     cursorCol = cursor.col,
+                    keyboardShiftMode = KeyboardShiftMode.Lowercase,
+                    lastShiftTapEpochMs = 0L,
                     errorMessage = null,
                     confirmedLeft = left,
                     confirmedRight = right
@@ -398,29 +436,113 @@ object PhraseComposerController {
         left: Int,
         right: Int,
         uiStrings: LisaUiStrings
+    ): PhraseComposerSequenceResult = applyKeyboardSlotAt(
+        state = state,
+        row = state.cursorRow,
+        col = state.cursorCol,
+        uiStrings = uiStrings,
+        confirmedLeft = left,
+        confirmedRight = right
+    )
+
+    private fun applyKeyboardSlotAt(
+        state: PhraseComposerState,
+        row: Int,
+        col: Int,
+        uiStrings: LisaUiStrings,
+        confirmedLeft: Int? = null,
+        confirmedRight: Int? = null
     ): PhraseComposerSequenceResult {
-        val key = state.keyboardCursor().currentKey(state.keyboardLayoutMode)
-            ?: return PhraseComposerSequenceResult.Unmatched
-        val updated = KeyboardNavigator.appendSelectedKey(state.phraseText, key, state.keyboardLayoutMode)
-            ?: return PhraseComposerSequenceResult.Navigate(
+        val mode = state.keyboardLayoutMode
+        val slot = KeyboardLayout.slotAt(mode, row, col) ?: return PhraseComposerSequenceResult.Unmatched
+        val withCursor = state.withCursor(KeyboardCursor(row, col))
+        return applyKeyboardSlot(
+            state = withCursor,
+            slot = slot,
+            uiStrings = uiStrings,
+            confirmedLeft = confirmedLeft,
+            confirmedRight = confirmedRight
+        )
+    }
+
+    private fun applyKeyboardSlot(
+        state: PhraseComposerState,
+        slot: KeyboardSlot,
+        uiStrings: LisaUiStrings,
+        confirmedLeft: Int?,
+        confirmedRight: Int?
+    ): PhraseComposerSequenceResult {
+        val left = confirmedLeft ?: state.confirmedLeft
+        val right = confirmedRight ?: state.confirmedRight
+        val now = System.currentTimeMillis()
+        return when (slot) {
+            is KeyboardSlot.Character -> {
+                val updated = KeyboardNavigator.appendSelectedKey(
+                    currentPhrase = state.phraseText,
+                    key = slot.char,
+                    layoutMode = state.keyboardLayoutMode,
+                    shiftMode = state.keyboardShiftMode
+                ) ?: return PhraseComposerSequenceResult.Navigate(
+                    state.copy(
+                        errorMessage = if (state.phraseText.length >= CustomPhraseEngine.MAX_PHRASE_LENGTH) {
+                            uiStrings.phraseValidationTooLong
+                        } else {
+                            null
+                        },
+                        confirmedLeft = left,
+                        confirmedRight = right
+                    )
+                )
+                PhraseComposerSequenceResult.Navigate(
+                    state.copy(
+                        phraseText = updated,
+                        keyboardShiftMode = KeyboardNavigator.afterLetterInserted(state.keyboardShiftMode),
+                        errorMessage = null,
+                        confirmedLeft = left,
+                        confirmedRight = right
+                    )
+                )
+            }
+            KeyboardSlot.Space -> {
+                val updated = KeyboardNavigator.appendSpace(state.phraseText)
+                    ?: return PhraseComposerSequenceResult.Navigate(
+                        state.copy(
+                            errorMessage = null,
+                            confirmedLeft = left,
+                            confirmedRight = right
+                        )
+                    )
+                PhraseComposerSequenceResult.Navigate(
+                    state.copy(
+                        phraseText = updated,
+                        errorMessage = null,
+                        confirmedLeft = left,
+                        confirmedRight = right
+                    )
+                )
+            }
+            KeyboardSlot.Backspace -> PhraseComposerSequenceResult.Navigate(
                 state.copy(
-                    errorMessage = if (key == ' ') {
-                        null
-                    } else {
-                        uiStrings.phraseValidationTooLong
-                    },
+                    phraseText = KeyboardNavigator.backspace(state.phraseText),
+                    errorMessage = null,
                     confirmedLeft = left,
                     confirmedRight = right
                 )
             )
-        return PhraseComposerSequenceResult.Navigate(
-            state.copy(
-                phraseText = updated,
-                errorMessage = null,
-                confirmedLeft = left,
-                confirmedRight = right
+            KeyboardSlot.Shift -> PhraseComposerSequenceResult.Navigate(
+                state.copy(
+                    keyboardShiftMode = KeyboardNavigator.nextShiftMode(
+                        current = state.keyboardShiftMode,
+                        lastTapEpochMs = state.lastShiftTapEpochMs,
+                        nowEpochMs = now
+                    ),
+                    lastShiftTapEpochMs = now,
+                    errorMessage = null,
+                    confirmedLeft = left,
+                    confirmedRight = right
+                )
             )
-        )
+        }
     }
 
     private fun keyboardCommandPanelEntries(

@@ -430,6 +430,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onPhraseComposerCommand = { entry ->
                             applyPhraseComposerTouchNavigation(entry.left, entry.right)
                         },
+                        onPhraseComposerKeyTouched = { row, col ->
+                            applyPhraseComposerTouchKey(row, col)
+                        },
                         onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
                         onCancelOrStopEmergency = { cancelOrStopEmergency() },
                         guidedTrainingActive = trainingSession.shouldShowTraining(),
@@ -1651,6 +1654,27 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun applyPhraseComposerTouchNavigation(left: Int, right: Int) {
         handlePhraseComposerSequence(left, right)
+    }
+
+    private fun applyPhraseComposerTouchKey(row: Int, col: Int) {
+        if (emergencyActive || emergencyAwaitingConfirm(trainingSession.state.brain1Decision)) {
+            return
+        }
+        val uiStrings = guidedUiStrings()
+        when (
+            val result = PhraseComposerController.processTouchKey(
+                row = row,
+                col = col,
+                state = uiPhraseComposerState.value,
+                uiStrings = uiStrings
+            )
+        ) {
+            is PhraseComposerSequenceResult.Navigate -> {
+                uiPhraseComposerState.value = result.newState
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            else -> Unit
+        }
     }
 
     private fun handlePhraseComposerSequence(left: Int, right: Int) {

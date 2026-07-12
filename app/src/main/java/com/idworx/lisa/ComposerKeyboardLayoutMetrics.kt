@@ -27,9 +27,9 @@ object ComposerKeyboardLayoutMetrics {
         return scaled.coerceIn(MIN_KEY_FONT_SP, MAX_KEY_FONT_SP)
     }
 
-    /** Fixed comfortable key height when the keyboard is bottom-anchored (RC7D.4). */
+    /** Fixed comfortable key height when the keyboard is bottom-anchored (RC7D.4 / RC7D.8). */
     fun bottomAnchoredKeyHeightDp(mode: EyeKeyboardLayoutMode): Int = when (mode) {
-        EyeKeyboardLayoutMode.Letters -> 44
-        EyeKeyboardLayoutMode.Numbers -> 42
+        EyeKeyboardLayoutMode.Letters -> 36
+        EyeKeyboardLayoutMode.Numbers -> 36
     }.coerceIn(MIN_KEY_HEIGHT_DP, MAX_KEY_HEIGHT_DP)
 }

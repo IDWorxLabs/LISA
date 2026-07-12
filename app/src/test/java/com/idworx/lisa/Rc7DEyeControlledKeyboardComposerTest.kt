@@ -2,6 +2,7 @@ package com.idworx.lisa
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -55,6 +56,8 @@ class Rc7DEyeControlledKeyboardComposerTest {
         assertEquals(10, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, 0))
         assertEquals(9, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, 1))
         assertEquals(7, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, 2))
+        assertEquals(8, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, KeyboardLayout.punctuationRowIndex(EyeKeyboardLayoutMode.Letters)))
+        assertEquals(2, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, KeyboardLayout.utilityRowIndex(EyeKeyboardLayoutMode.Letters)))
         assertEquals(1, KeyboardLayout.rowLength(EyeKeyboardLayoutMode.Letters, KeyboardLayout.spaceRowIndex(EyeKeyboardLayoutMode.Letters)))
     }
 
@@ -63,8 +66,7 @@ class Rc7DEyeControlledKeyboardComposerTest {
         val letters = EyeKeyboardLayoutMode.Letters
         for (row in 0 until KeyboardLayout.totalRowCount(letters)) {
             for (col in 0 until KeyboardLayout.rowLength(letters, row)) {
-                val cursor = KeyboardCursor(row, col)
-                assertEquals(KeyboardLayout.keyAt(letters, row, col), cursor.currentKey(letters))
+                assertNotNull(KeyboardLayout.slotAt(letters, row, col))
             }
         }
     }

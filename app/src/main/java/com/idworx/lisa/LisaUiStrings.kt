@@ -689,6 +689,8 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val phraseComposerKeyboardTitle: String get() = t("Eye-Controlled Keyboard", "Oogbeheerde sleutelbord", "Ikhibhodi elawulwa yiso")
     val phraseComposerKeyboardSpaceLabel: String get() = t("SPACE", "SPASIE", "ISIKHALA")
+    val phraseComposerKeyboardShiftLabel: String get() = t("Shift", "Shift", "Shift")
+    val phraseComposerKeyboardBackspaceLabel: String get() = t("Backspace", "Backspace", "Susa")
     val phraseComposerPanelMoveUp: String get() = t("Move Up", "Beweeg op", "Hambisa phezulu")
     val phraseComposerPanelMoveDown: String get() = t("Move Down", "Beweeg af", "Hambisa phansi")
     val phraseComposerPanelMoveLeft: String get() = t("Move Left", "Beweeg links", "Hambisa kwesokunxele")
