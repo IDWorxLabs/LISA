@@ -88,9 +88,18 @@ class Rc7D_17PhraseManagementFixedNavigationControlsTest {
 
     @Test
     fun guidedOverlayHiddenWhilePhraseManagementActive() {
+        assertFalse(
+            PhraseManagementController.showGuidedVocabularyOverlayAlongsideManagement(
+                phraseComposerActive = false,
+                phraseManagementActive = true
+            )
+        )
+        assertTrue(
+            PhraseManagementController.showSharedBlinkStatusHeader(phraseComposerActive = false)
+        )
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(ui.contains("!phraseComposerActive && !phraseManagementActive"))
-        assertTrue(ui.contains("occupiesMainContentSlot(activePanel)"))
+        assertTrue(ui.contains("showSharedBlinkStatusHeader"))
+        assertTrue(ui.contains("showGuidedVocabularyOverlayAlongsideManagement"))
     }
 
     @Test

@@ -264,6 +264,8 @@ fun LisaRootUI(
     // Hosting it under Menu/Reset (after GuidedVocabularyOverlay weight(1f)) clipped the
     // fixed Scroll/Back/Emergency controls off the physical-device screen.
     val phraseManagementActive = PhraseManagementController.occupiesMainContentSlot(activePanel)
+    val showSharedBlinkStatusHeader =
+        PhraseManagementController.showSharedBlinkStatusHeader(phraseComposerActive)
     val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
         onboardingCompleted = onboardingCompleted,
         cameraPermissionGranted = cameraPermissionGranted,
@@ -271,7 +273,10 @@ fun LisaRootUI(
         practiceModeOpen = practiceModeOpen,
         quickControlsOpen = quickControlsOpen,
         guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
-    ) && !phraseComposerActive && !phraseManagementActive
+    ) && PhraseManagementController.showGuidedVocabularyOverlayAlongsideManagement(
+        phraseComposerActive = phraseComposerActive,
+        phraseManagementActive = phraseManagementActive
+    )
     val emergencyAwaitingConfirm = emergencyAwaitingConfirm(guidedTrainingState.brain1Decision)
     val composerInputSuspended = emergencyActive || emergencyAwaitingConfirm
     val activeNavigationLesson = if (guidedWorkspaceTrainingActive) {
@@ -389,11 +394,13 @@ fun LisaRootUI(
             LocalDensity provides Density(density.density, density.fontScale * textSizeScale)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-        if (!phraseComposerActive && !phraseManagementActive) {
+        // RC7D.18 — keep the canonical blink-status header while Phrase Management / Details
+        // occupy the central slot. Only the eye-keyboard composer hides this shell chrome.
+        if (showSharedBlinkStatusHeader) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 10.dp, vertical = if (phraseManagementActive) 4.dp else 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (userDisplay.showIntentPreview && userDisplay.phrase != null) {
@@ -423,7 +430,14 @@ fun LisaRootUI(
                 onIncreaseGuidedResponseTime = onTrainingIncreaseResponseTime
             )
 
-            if (!developerMode && (userDisplay.leftWinkDots > 0 || userDisplay.rightWinkDots > 0)) {
+            // During Phrase Management / Details, always show Left/Right counters so blink
+            // progress stays visible even at zero (RC7D.18). Workspace idle behaviour unchanged.
+            if (!developerMode && (
+                    phraseManagementActive ||
+                        userDisplay.leftWinkDots > 0 ||
+                        userDisplay.rightWinkDots > 0
+                    )
+            ) {
                 Spacer(Modifier.height(4.dp))
                 SequenceProgressDots(
                     uiStrings = uiStrings,
@@ -439,7 +453,11 @@ fun LisaRootUI(
         }
         }
 
-        if (!phraseComposerActive && !phraseManagementActive) {
+        if (PhraseManagementController.showGuidedVocabularyOverlayAlongsideManagement(
+                phraseComposerActive = phraseComposerActive,
+                phraseManagementActive = phraseManagementActive
+            )
+        ) {
         GuidedVocabularyOverlay(
             uiStrings = uiStrings,
             navigationState = guidedNavigationState,

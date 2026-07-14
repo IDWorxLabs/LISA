@@ -33,6 +33,20 @@ object PhraseManagementController {
         return remaining >= phraseCardDp // at least one readable card; paging covers the rest
     }
 
+    /**
+     * RC7D.18 — shared blink-status chrome (WATCHING YOUR EYES / sensitivity / response time)
+     * belongs to the outer shell. Phrase Management replaces only the central content slot.
+     * The eye-keyboard composer still owns its own fullscreen feedback and hides this header.
+     */
+    fun showSharedBlinkStatusHeader(phraseComposerActive: Boolean): Boolean =
+        !phraseComposerActive
+
+    /** Guided category overlay yields the main slot while Phrase Management is open. */
+    fun showGuidedVocabularyOverlayAlongsideManagement(
+        phraseComposerActive: Boolean,
+        phraseManagementActive: Boolean
+    ): Boolean = !phraseComposerActive && !phraseManagementActive
+
     fun pageCount(phraseCount: Int): Int =
         GuidedNavigationController.phrasePageCount(phraseCount, PAGE_SIZE)
 
