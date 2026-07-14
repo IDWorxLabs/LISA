@@ -138,13 +138,17 @@ class Rc7DEyeControlledKeyboardComposerTest {
     }
 
     @Test
-    fun cancelSaveReturnsToKeyboardWithPhraseIntact() {
+    fun cancelSaveReturnsToChooseCategoryThenKeyboardWithPhraseIntact() {
         var state = processCommand(keyboardState("water"), PhraseComposerActionId.Save)
         val categoryEntry = PhraseComposerController.visibleEntries(state, english).first()
         state = (PhraseComposerController.processSequence(categoryEntry.left, categoryEntry.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
         val back = PhraseComposerController.commandPanelEntries(state, english)
             .first { it.actionId == PhraseComposerActionId.Back }
+        state = (PhraseComposerController.processSequence(back.left, back.right, state, english)
+            as PhraseComposerSequenceResult.Navigate).newState
+        assertEquals(PhraseComposerMode.DestinationCategorySelection, state.mode)
+        assertEquals("water", state.phraseText)
         state = (PhraseComposerController.processSequence(back.left, back.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
         assertEquals(PhraseComposerMode.Keyboard, state.mode)
@@ -249,7 +253,7 @@ class Rc7DEyeControlledKeyboardComposerTest {
         )
         val entries = PhraseComposerController.visibleEntries(success, english)
         assertTrue(entries.any { it.actionId == PhraseComposerActionId.CreateAnother })
-        assertTrue(entries.any { it.actionId == PhraseComposerActionId.ReturnToCommunication })
+        assertTrue(entries.any { it.actionId == PhraseComposerActionId.ViewInCategory })
     }
 
     @Test

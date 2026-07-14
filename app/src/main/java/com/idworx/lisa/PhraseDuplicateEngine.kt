@@ -119,6 +119,7 @@ internal fun GuidedVocabularyCategory.toCaregiverCategory(): CustomPhraseEngine.
     GuidedVocabularyCategory.Medical -> CustomPhraseEngine.CaregiverPhraseCategory.Medical
     GuidedVocabularyCategory.Family -> CustomPhraseEngine.CaregiverPhraseCategory.Family
     GuidedVocabularyCategory.Custom,
+    GuidedVocabularyCategory.PhraseManagement,
     GuidedVocabularyCategory.BasicSystemControls,
     GuidedVocabularyCategory.Preferences -> null
 }

@@ -123,11 +123,22 @@ class Rc7C2EyeControlledPhraseComposerTest {
     @Test
     fun successScreenHasFollowUpActions() {
         val entries = PhraseComposerController.visibleEntries(
-            PhraseComposerState(mode = PhraseComposerMode.Success),
+            PhraseComposerState(
+                mode = PhraseComposerMode.Success,
+                selectedCategory = CustomPhraseEngine.CaregiverPhraseCategory.Medical,
+                savedMapping = WinkMapping(
+                    left = 5,
+                    right = 1,
+                    vocabularyId = "saved",
+                    isCustom = true,
+                    customPhrase = "saved",
+                    caregiverCategory = CustomPhraseEngine.CaregiverPhraseCategory.Medical
+                )
+            ),
             english
         )
         assertTrue(entries.any { it.actionId == PhraseComposerActionId.CreateAnother })
-        assertTrue(entries.any { it.actionId == PhraseComposerActionId.ReturnToCommunication })
+        assertTrue(entries.any { it.actionId == PhraseComposerActionId.ViewInCategory })
     }
 
     @Test

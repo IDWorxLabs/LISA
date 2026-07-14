@@ -17,6 +17,7 @@ enum class LisaInteractionMode {
     PhraseComposerDuplicateWarning,
     PhraseComposerCancelConfirm,
     PhraseComposerSuccess,
+    PhraseManagement,
     SettingsPanel,
     Confirmation,
     EmergencyModal,
@@ -28,6 +29,7 @@ enum class GestureRoutingTarget {
     Emergency,
     FinishTraining,
     PhraseComposer,
+    PhraseManagement,
     SettingsPanelBack,
     GuidedOverlay,
     SystemCommand,
@@ -115,9 +117,11 @@ object ModeScopedGestureAuthority {
             PhraseComposerMode.SaveConfirmation -> LisaInteractionMode.PhraseComposerSaveConfirmation
             PhraseComposerMode.DuplicateWarning -> LisaInteractionMode.PhraseComposerDuplicateWarning
             PhraseComposerMode.CancelConfirm -> LisaInteractionMode.PhraseComposerCancelConfirm
+            PhraseComposerMode.ConfirmDelete -> LisaInteractionMode.PhraseComposerSaveConfirmation
             PhraseComposerMode.Success -> LisaInteractionMode.PhraseComposerSuccess
             null -> LisaInteractionMode.PhraseComposerDestinationCategory
         }
+        context.activePanel == LisaPanel.VocabularyTraining -> LisaInteractionMode.PhraseManagement
         context.activePanel != LisaPanel.None -> LisaInteractionMode.SettingsPanel
         context.confirmationActive -> LisaInteractionMode.Confirmation
         context.guidedOverlayActive -> when {
@@ -150,6 +154,8 @@ object ModeScopedGestureAuthority {
             LisaInteractionMode.PhraseComposerDuplicateWarning,
             LisaInteractionMode.PhraseComposerCancelConfirm,
             LisaInteractionMode.PhraseComposerSuccess -> return GestureRoutingTarget.PhraseComposer
+
+            LisaInteractionMode.PhraseManagement -> return GestureRoutingTarget.PhraseManagement
 
             LisaInteractionMode.SettingsPanel -> {
                 if (GuidedModeNavigation.isBackSequence(left, right)) {
@@ -300,6 +306,49 @@ object ModeScopedGestureAuthority {
             )
         )
 
+    /** RC7D.15 — Phrase Management owns Back + optional Scroll + visible phrase slots. */
+    fun phraseManagementBindings(): List<ModeGestureBinding> = buildList {
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.PhraseManagement,
+                left = GuidedModeNavigation.BACK_LEFT,
+                right = GuidedModeNavigation.BACK_RIGHT,
+                label = "back",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.PhraseManagement,
+                left = GuidedModeNavigation.PREVIOUS_LEFT,
+                right = GuidedModeNavigation.PREVIOUS_RIGHT,
+                label = "scroll_up",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.PhraseManagement,
+                left = GuidedModeNavigation.NEXT_LEFT,
+                right = GuidedModeNavigation.NEXT_RIGHT,
+                label = "scroll_down",
+                tier = ModeGestureTier.Command
+            )
+        )
+        for (index in 0 until PhraseManagementController.PAGE_SIZE) {
+            val (left, right) = GuidedPageSequences.slotAt(index)
+            add(
+                ModeGestureBinding(
+                    mode = LisaInteractionMode.PhraseManagement,
+                    left = left,
+                    right = right,
+                    label = "phrase_slot_$index",
+                    tier = ModeGestureTier.Content
+                )
+            )
+        }
+    }
+
     /** Settings panels inherit global Back only — no mode-local phrase slots. */
     fun settingsPanelBindings(): List<ModeGestureBinding> = emptyList()
 
@@ -313,6 +362,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.PhraseComposerDuplicateWarning -> phraseComposerDuplicateWarningBindings()
         LisaInteractionMode.PhraseComposerCancelConfirm -> phraseComposerCancelConfirmBindings()
         LisaInteractionMode.PhraseComposerSuccess -> phraseComposerSuccessBindings()
+        LisaInteractionMode.PhraseManagement -> phraseManagementBindings()
         LisaInteractionMode.SettingsPanel -> settingsPanelBindings()
         LisaInteractionMode.Confirmation -> emptyList()
         LisaInteractionMode.EmergencyModal -> emptyList()
@@ -329,6 +379,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.PhraseComposerDuplicateWarning,
         LisaInteractionMode.PhraseComposerCancelConfirm,
         LisaInteractionMode.PhraseComposerSuccess,
+        LisaInteractionMode.PhraseManagement,
         LisaInteractionMode.SettingsPanel,
         LisaInteractionMode.Confirmation
     )

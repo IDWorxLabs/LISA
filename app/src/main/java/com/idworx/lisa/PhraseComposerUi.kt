@@ -133,7 +133,7 @@ private fun KeyboardComposerLayout(
             onResponseTimeIncrease = onResponseTimeIncrease
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         ComposerPhraseField(
             uiStrings = uiStrings,
@@ -141,11 +141,11 @@ private fun KeyboardComposerLayout(
         )
 
         state.errorMessage?.let { message ->
-            Spacer(Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             ComposerErrorBanner(message = message)
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         ComposerCommandGrid(
             uiStrings = uiStrings,
@@ -156,7 +156,7 @@ private fun KeyboardComposerLayout(
             modifier = Modifier.weight(1f)
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         BottomAlignedEyeKeyboard(
             uiStrings = uiStrings,
@@ -198,7 +198,7 @@ private fun NonKeyboardComposerLayout(
             onResponseTimeIncrease = onResponseTimeIncrease
         )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         PhraseComposerHeader(
             uiStrings = uiStrings,
@@ -208,11 +208,11 @@ private fun NonKeyboardComposerLayout(
         )
 
         state.errorMessage?.let { message ->
-            Spacer(Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             ComposerErrorBanner(message = message)
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = PhraseComposerController.screenTitle(state, uiStrings),
@@ -222,7 +222,7 @@ private fun NonKeyboardComposerLayout(
         )
 
         if (state.mode == PhraseComposerMode.DestinationCategorySelection) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = uiStrings.phraseComposerDestinationStepBody,
                 fontSize = 13.sp,
@@ -231,7 +231,7 @@ private fun NonKeyboardComposerLayout(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Column(
             modifier = Modifier
@@ -245,7 +245,8 @@ private fun NonKeyboardComposerLayout(
                     state.savedMapping?.let { mapping ->
                         SuccessSummary(
                             uiStrings = uiStrings,
-                            mapping = mapping
+                            mapping = mapping,
+                            wasEdit = state.wasEdit
                         )
                     }
                 }
@@ -253,6 +254,21 @@ private fun NonKeyboardComposerLayout(
                     SaveConfirmationSummary(
                         uiStrings = uiStrings,
                         state = state
+                    )
+                }
+                PhraseComposerMode.ConfirmDelete -> {
+                    Text(
+                        text = uiStrings.phraseManagementDeleteConfirmBody,
+                        fontSize = 14.sp,
+                        color = LisaWhite.copy(alpha = 0.9f),
+                        lineHeight = 20.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "\"" + state.displayPhrase() + "\"",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = LisaWhite
                     )
                 }
                 PhraseComposerMode.DuplicateWarning -> {
@@ -270,15 +286,13 @@ private fun NonKeyboardComposerLayout(
                         color = LisaWhite.copy(alpha = 0.9f),
                         lineHeight = 20.sp
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
                 else -> Unit
             }
 
             entries.forEach { entry ->
-                if (state.mode == PhraseComposerMode.SaveConfirmation ||
-                    state.mode == PhraseComposerMode.DuplicateWarning
-                ) {
+                if (state.mode == PhraseComposerMode.SaveConfirmation) {
                     return@forEach
                 }
                 val highlightLevel = PhraseComposerEntryHighlight.level(
@@ -301,7 +315,7 @@ private fun NonKeyboardComposerLayout(
         }
 
         if (commandEntries.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             when (state.mode) {
                 PhraseComposerMode.SaveConfirmation -> {
                     ComposerConfirmationActionGrid(
@@ -314,7 +328,7 @@ private fun NonKeyboardComposerLayout(
                         primaryActionId = PhraseComposerActionId.ConfirmSave
                     )
                 }
-                PhraseComposerMode.DuplicateWarning -> {
+                PhraseComposerMode.ConfirmDelete -> {
                     ComposerConfirmationActionGrid(
                         commandEntries = commandEntries,
                         composerEyeFeedback = composerEyeFeedback,
@@ -322,7 +336,7 @@ private fun NonKeyboardComposerLayout(
                         uiStrings = uiStrings,
                         onCommandSelected = onCommandSelected,
                         onEmergency = onEmergency,
-                        primaryActionId = PhraseComposerActionId.OpenDuplicateCategory
+                        primaryActionId = PhraseComposerActionId.ConfirmDelete
                     )
                 }
                 else -> {
@@ -339,7 +353,7 @@ private fun NonKeyboardComposerLayout(
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     ComposerEmergencyCommandCard(
                         uiStrings = uiStrings,
                         onClick = onEmergency
@@ -347,7 +361,7 @@ private fun NonKeyboardComposerLayout(
                 }
             }
         } else {
-            Spacer(Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             ComposerEmergencyCommandCard(
                 uiStrings = uiStrings,
                 onClick = onEmergency
@@ -404,7 +418,7 @@ private fun ComposerPhraseField(
             fontWeight = FontWeight.Medium,
             color = LisaBlueDark.copy(alpha = 0.7f)
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = if (state.displayPhrase().isBlank()) "—" else state.displayPhrase(),
             fontWeight = FontWeight.Bold,
@@ -463,7 +477,7 @@ private fun PhraseComposerHeader(
                 fontSize = 16.sp,
                 color = LisaWhite
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
         if (!compact) {
             Text(
@@ -486,7 +500,8 @@ private fun PhraseComposerHeader(
 @Composable
 private fun SuccessSummary(
     uiStrings: LisaUiStrings,
-    mapping: WinkMapping
+    mapping: WinkMapping,
+    wasEdit: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -497,7 +512,7 @@ private fun SuccessSummary(
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
-            text = uiStrings.phraseCreatedSuccess,
+            text = if (wasEdit) uiStrings.phraseUpdatedSuccess else uiStrings.phraseComposerSuccessTitle,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             color = LisaBlueDark

@@ -20,7 +20,7 @@ class Rc5Version1SimplificationTest {
     @Test
     fun coreMenuLabelsRemainForVersion1() {
         assertEquals("Communication Profile", english.menuLabel(LisaPanel.MyCommunication))
-        assertEquals("Vocabulary", english.menuLabel(LisaPanel.VocabularyTraining))
+        assertEquals("Phrase Management", english.menuLabel(LisaPanel.VocabularyTraining))
         assertEquals("Voice", english.menuLabel(LisaPanel.Voice))
         assertEquals("Settings", english.menuLabel(LisaPanel.Settings))
         assertEquals("Privacy Policy", english.menuLabel(LisaPanel.PrivacyPolicy))

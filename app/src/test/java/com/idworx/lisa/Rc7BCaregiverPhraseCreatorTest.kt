@@ -176,9 +176,9 @@ class Rc7BCaregiverPhraseCreatorTest {
     fun phraseComposerUiHasEyeControlledSaveAndSuccessActions() {
         val composer = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
         val engine = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerEngine.kt")
-        assertTrue(composer.contains("phraseCreatedSuccess"))
+        assertTrue(composer.contains("phraseComposerSuccessTitle"))
         assertTrue(engine.contains("phraseEditorCreateAnother"))
-        assertTrue(engine.contains("phraseEditorReturnToCommunication"))
+        assertTrue(engine.contains("phraseComposerViewInCategory"))
         assertTrue(engine.contains("PhraseComposerActionId.Save"))
         assertTrue(engine.contains("PhraseComposerActionId.Preview"))
         assertFalse(composer.contains("OutlinedTextField"))

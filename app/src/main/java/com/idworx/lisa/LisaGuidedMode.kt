@@ -189,14 +189,45 @@ enum class GuidedVocabularyCategory {
     Family,
     BasicSystemControls,
     Preferences,
-    Custom;
+    Custom,
+    /** Management destination — not a communication phrase category. */
+    PhraseManagement;
 
     companion object {
         val ordered: List<GuidedVocabularyCategory> = entries.toList()
-        const val PAGE_COUNT: Int = 7
+        const val PAGE_COUNT: Int = 8
         const val STANDARD_ENTRIES_PER_PAGE: Int = 10
         const val PREFERENCES_CATEGORY_INDEX: Int = 5
         const val CUSTOM_CATEGORY_INDEX: Int = 6
+        const val PHRASE_MANAGEMENT_INDEX: Int = 7
+    }
+}
+
+/**
+ * Categories-area destinations: assignable communication categories vs management entry points.
+ * Phrase Management must never be treated as a phrase storage/assignment category.
+ */
+sealed class CategoryAreaDestination {
+    data class CommunicationCategory(val category: GuidedVocabularyCategory) : CategoryAreaDestination()
+    data object CreateCustomPhrase : CategoryAreaDestination()
+    data object PhraseManagement : CategoryAreaDestination()
+
+    companion object {
+        fun forCategoryIndex(index: Int): CategoryAreaDestination =
+            when (GuidedVocabularyCategory.ordered.getOrNull(index)) {
+                GuidedVocabularyCategory.PhraseManagement -> PhraseManagement
+                GuidedVocabularyCategory.Custom -> CreateCustomPhrase
+                null -> CommunicationCategory(GuidedVocabularyCategory.Conversation)
+                else -> CommunicationCategory(GuidedVocabularyCategory.ordered[index])
+            }
+
+        fun isAssignableCommunicationCategory(category: GuidedVocabularyCategory): Boolean =
+            category.toCaregiverCategory() != null &&
+                category != GuidedVocabularyCategory.Custom &&
+                category != GuidedVocabularyCategory.PhraseManagement
+
+        fun isManagementDestination(category: GuidedVocabularyCategory): Boolean =
+            category == GuidedVocabularyCategory.PhraseManagement
     }
 }
 
@@ -525,11 +556,19 @@ object GuidedNavigationController {
     }
 
     fun openCategoryDirectly(state: GuidedNavigationState, categoryIndex: Int): GuidedNavigationState =
+        openCategoryAtPage(state, categoryIndex, phrasePageIndex = 0)
+
+    /** RC7D.10 — open destination category on the page that contains [phrasePageIndex]. */
+    fun openCategoryAtPage(
+        state: GuidedNavigationState,
+        categoryIndex: Int,
+        phrasePageIndex: Int
+    ): GuidedNavigationState =
         state.normalized().copy(
             screenMode = GuidedOverlayScreenMode.Vocabulary,
             categoryIndex = categoryIndex.coerceIn(0, GuidedVocabularyCategory.PAGE_COUNT - 1),
             categoryMenuSelection = categoryIndex.coerceIn(0, GuidedVocabularyCategory.PAGE_COUNT - 1),
-            phrasePageIndex = 0,
+            phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
             preferencesAdjustMode = GuidedPreferencesAdjustMode.None,
             adjustmentScrollStep = 0
         )
@@ -866,6 +905,11 @@ object GuidedVocabularyCatalog {
         CatalogSpec(
             category = GuidedVocabularyCategory.Custom,
             entries = emptyList()
+        ),
+        // Phrase Management: management destination — no spoken phrases (RC7D.14).
+        CatalogSpec(
+            category = GuidedVocabularyCategory.PhraseManagement,
+            entries = emptyList()
         )
     )
 
@@ -884,7 +928,10 @@ object GuidedVocabularyCatalog {
                     catalogContext = catalogContext
                 )
             }
-            val customEntries = if (spec.category == GuidedVocabularyCategory.Custom) {
+            val customEntries = if (
+                spec.category == GuidedVocabularyCategory.Custom ||
+                spec.category == GuidedVocabularyCategory.PhraseManagement
+            ) {
                 emptyList()
             } else {
                 catalogContext.caregiverCustomPhrases
@@ -1248,11 +1295,12 @@ object GuidedVocabularyCatalogValidation {
             page.entries.map { it.left to it.right }.distinct().size == page.entries.size
         }
 
-    /** Pages carrying the standard slot layout — Custom (user phrases only) and Preferences use their own sequences. */
+    /** Pages carrying the standard slot layout — Custom / Phrase Management / Preferences use their own sequences. */
     private fun standardSlotPages(): List<GuidedCategoryPage> =
         allPages.filter {
             it.category != GuidedVocabularyCategory.Preferences &&
-                it.category != GuidedVocabularyCategory.Custom
+                it.category != GuidedVocabularyCategory.Custom &&
+                it.category != GuidedVocabularyCategory.PhraseManagement
         }
 
     fun sequencesRepeatAcrossPages(): Boolean {
@@ -1328,10 +1376,20 @@ object GuidedVocabularyCatalogValidation {
         GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation()
 
     fun categoryShortcutLabelsMatchExpectedSlots(): Boolean {
-        val expected = listOf("L2 R1", "L1 R2", "L3 R1", "L1 R3", "L3 R2", "L2 R3", "L3 R3")
-        return (0 until GuidedVocabularyCategory.PAGE_COUNT).all { index ->
-            GuidedCategoryShortcuts.sequenceLabelForCategory(index) == expected[index]
-        }
+        val expected = listOf(
+            "L2 R1",
+            "L1 R2",
+            "L3 R1",
+            "L1 R3",
+            "L3 R2",
+            "L2 R3",
+            "L3 R3",
+            "L4 R1"
+        )
+        return GuidedVocabularyCategory.PAGE_COUNT == expected.size &&
+            (0 until GuidedVocabularyCategory.PAGE_COUNT).all { index ->
+                GuidedCategoryShortcuts.sequenceLabelForCategory(index) == expected[index]
+            }
     }
 
     fun sameSlotDifferentPhrasesAcrossPages(): Boolean {

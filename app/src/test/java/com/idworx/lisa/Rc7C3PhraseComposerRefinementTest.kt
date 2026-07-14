@@ -73,7 +73,7 @@ class Rc7C3PhraseComposerRefinementTest {
     }
 
     @Test
-    fun universalBackFromSaveConfirmationReturnsToKeyboard() {
+    fun universalBackFromSaveConfirmationReturnsToChooseCategory() {
         var state = process(keyboardState("Hi"), PhraseComposerActionId.Save)
         val categoryEntry = PhraseComposerController.visibleEntries(state, english).first()
         state = (PhraseComposerController.processSequence(
@@ -88,7 +88,7 @@ class Rc7C3PhraseComposerRefinementTest {
             state,
             english
         ) as PhraseComposerSequenceResult.Navigate
-        assertEquals(PhraseComposerMode.Keyboard, back.newState.mode)
+        assertEquals(PhraseComposerMode.DestinationCategorySelection, back.newState.mode)
         assertEquals("Hi", back.newState.phraseText)
     }
 

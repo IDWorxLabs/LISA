@@ -330,7 +330,7 @@ class Rc7D_7CaregiverTouchTypingAndCleanEmergencyStateTest {
     fun commandCardsHaveAccessibilityDescriptions() {
         val grid = readSource("app/src/main/java/com/idworx/lisa/ComposerCommandGrid.kt")
         assertTrue(grid.contains("contentDescription = entry.label"))
-        assertTrue(grid.contains("contentDescription = uiStrings.emergency"))
+        assertTrue(grid.contains("contentDescription = \"\${title} \${sequenceLabel}\""))
     }
 
     @Test

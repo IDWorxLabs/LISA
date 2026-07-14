@@ -99,7 +99,12 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
 
     @Test
     fun backFromSaveConfirmationReturnsWithoutSaving() {
-        val state = saveConfirmationState(phrase = "Keep editing me", sequence = 3 to 2)
+        val state = saveConfirmationState(phrase = "Keep editing me", sequence = 3 to 2).copy(
+            navigationHistory = listOf(
+                PhraseComposerMode.Keyboard,
+                PhraseComposerMode.DestinationCategorySelection
+            )
+        )
         val back = commandAction(state, PhraseComposerActionId.Back)
         val result = PhraseComposerController.processSequence(
             back.left,
@@ -107,7 +112,7 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
             state,
             english
         ) as PhraseComposerSequenceResult.Navigate
-        assertEquals(PhraseComposerMode.Keyboard, result.newState.mode)
+        assertEquals(PhraseComposerMode.DestinationCategorySelection, result.newState.mode)
         assertEquals("Keep editing me", result.newState.phraseText)
         assertEquals(CustomPhraseEngine.CaregiverPhraseCategory.Medical, result.newState.selectedCategory)
         assertNull(result.newState.pendingAllocatedSequence)
@@ -135,13 +140,31 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
     }
 
     @Test
-    fun duplicateBuiltInPhraseIsBlockedOnSave() {
-        val result = PhraseComposerController.processSequence(
+    fun duplicateBuiltInPhraseIsBlockedOnConfirmSave() {
+        val runtime = runtimeContext()
+        val chooseCategory = PhraseComposerController.processSequence(
             commandAction(keyboardState("Hello"), PhraseComposerActionId.Save).left,
             commandAction(keyboardState("Hello"), PhraseComposerActionId.Save).right,
             keyboardState("Hello"),
             english,
-            runtimeContext()
+            runtime
+        ) as PhraseComposerSequenceResult.Navigate
+        assertEquals(PhraseComposerMode.DestinationCategorySelection, chooseCategory.newState.mode)
+        val conversation = PhraseComposerController.visibleEntries(chooseCategory.newState, english)
+            .first { it.category == CustomPhraseEngine.CaregiverPhraseCategory.Conversation }
+        val confirm = (PhraseComposerController.processSequence(
+            conversation.left,
+            conversation.right,
+            chooseCategory.newState,
+            english,
+            runtime
+        ) as PhraseComposerSequenceResult.Navigate).newState
+        val result = PhraseComposerController.processSequence(
+            commandAction(confirm, PhraseComposerActionId.ConfirmSave).left,
+            commandAction(confirm, PhraseComposerActionId.ConfirmSave).right,
+            confirm,
+            english,
+            runtime
         ) as PhraseComposerSequenceResult.Navigate
         assertEquals(PhraseComposerMode.DuplicateWarning, result.newState.mode)
         assertNotNull(result.newState.duplicateMatch)
@@ -149,7 +172,7 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
     }
 
     @Test
-    fun duplicateCustomPhraseIsBlockedOnSave() {
+    fun duplicateCustomPhraseIsBlockedOnConfirmSave() {
         val custom = listOf(
             WinkMapping(
                 left = 5,
@@ -160,12 +183,29 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
                 caregiverCategory = CustomPhraseEngine.CaregiverPhraseCategory.Family
             )
         )
-        val result = PhraseComposerController.processSequence(
+        val runtime = runtimeContext(custom)
+        val chooseCategory = PhraseComposerController.processSequence(
             commandAction(keyboardState("MY UNIQUE CAREGIVER PHRASE"), PhraseComposerActionId.Save).left,
             commandAction(keyboardState("MY UNIQUE CAREGIVER PHRASE"), PhraseComposerActionId.Save).right,
             keyboardState("MY UNIQUE CAREGIVER PHRASE"),
             english,
-            runtimeContext(custom)
+            runtime
+        ) as PhraseComposerSequenceResult.Navigate
+        val family = PhraseComposerController.visibleEntries(chooseCategory.newState, english)
+            .first { it.category == CustomPhraseEngine.CaregiverPhraseCategory.Family }
+        val confirm = (PhraseComposerController.processSequence(
+            family.left,
+            family.right,
+            chooseCategory.newState,
+            english,
+            runtime
+        ) as PhraseComposerSequenceResult.Navigate).newState
+        val result = PhraseComposerController.processSequence(
+            commandAction(confirm, PhraseComposerActionId.ConfirmSave).left,
+            commandAction(confirm, PhraseComposerActionId.ConfirmSave).right,
+            confirm,
+            english,
+            runtime
         ) as PhraseComposerSequenceResult.Navigate
         assertEquals(PhraseComposerMode.DuplicateWarning, result.newState.mode)
         assertEquals(PhraseDuplicateSource.Custom, result.newState.duplicateMatch?.source)
@@ -229,9 +269,10 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
             phraseText = "Hello",
             duplicateMatch = PhraseDuplicateEngine.findDuplicate("Hello", emptyList(), PreferredLanguage.English, english)
         )
-        val continueEditing = commandAction(state, PhraseComposerActionId.ContinueEditing)
-        assertEquals(2, continueEditing.left)
-        assertEquals(2, continueEditing.right)
+        val continueEditing = PhraseComposerController.visibleEntries(state, english)
+            .first { it.actionId == PhraseComposerActionId.ContinueEditing }
+        assertEquals(GuidedPageSequences.leftAt(1), continueEditing.left)
+        assertEquals(GuidedPageSequences.rightAt(1), continueEditing.right)
         val result = PhraseComposerController.processSequence(
             continueEditing.left,
             continueEditing.right,
@@ -243,19 +284,20 @@ class Rc7D_9CompleteSaveConfirmationAndDuplicateDetectionTest {
     }
 
     @Test
-    fun duplicateWarningSupportsOpenCategoryByEye() {
+    fun duplicateWarningSupportsViewExistingPhraseByEye() {
         val match = PhraseDuplicateEngine.findDuplicate("Hello", emptyList(), PreferredLanguage.English, english)!!
         val state = PhraseComposerState(
             mode = PhraseComposerMode.DuplicateWarning,
             phraseText = "Hello",
             duplicateMatch = match
         )
-        val openCategory = commandAction(state, PhraseComposerActionId.OpenDuplicateCategory)
-        assertEquals(1, openCategory.left)
-        assertEquals(1, openCategory.right)
+        val viewExisting = PhraseComposerController.visibleEntries(state, english)
+            .first { it.actionId == PhraseComposerActionId.OpenDuplicateCategory }
+        assertEquals(GuidedPageSequences.leftAt(2), viewExisting.left)
+        assertEquals(GuidedPageSequences.rightAt(2), viewExisting.right)
         val result = PhraseComposerController.processSequence(
-            openCategory.left,
-            openCategory.right,
+            viewExisting.left,
+            viewExisting.right,
             state,
             english
         )

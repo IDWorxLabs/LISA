@@ -79,7 +79,7 @@ class Rc7D_1DirectCustomComposerEntryTest {
     fun customCategoryIndexOpensComposeModeInMainActivity() {
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
         assertTrue(main.contains("openComposeModeFromCustom"))
-        assertTrue(main.contains("GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX"))
+        assertTrue(main.contains("CategoryAreaDestination.CreateCustomPhrase"))
         assertTrue(main.contains("PhraseComposerController.keyboardEntryState()"))
         assertTrue(main.contains("LisaPanel.PhraseEditor"))
     }
@@ -110,8 +110,25 @@ class Rc7D_1DirectCustomComposerEntryTest {
 
     @Test
     fun vocabularyPanelShowsCustomComposerNoteNotCreateCard() {
-        val panel = extractFunction("private fun VocabularyTrainingPanel")
-        assertTrue(panel.contains("vocabularyCustomComposerNote"))
+        val panel = readSource("app/src/main/java/com/idworx/lisa/PhraseManagementUi.kt")
+            .let { source ->
+                val signature = "private fun VocabularyPhraseListPanel"
+                val start = source.indexOf(signature)
+                assertTrue("Expected $signature", start >= 0)
+                val openBrace = source.indexOf('{', start)
+                var depth = 0
+                for (index in openBrace until source.length) {
+                    when (source[index]) {
+                        '{' -> depth++
+                        '}' -> {
+                            depth--
+                            if (depth == 0) return@let source.substring(start, index + 1)
+                        }
+                    }
+                }
+                error("Unterminated function: $signature")
+            }
+        assertTrue(panel.contains("vocabularyCustomPhrasesSection"))
         assertFalse(panel.contains("VocabularyCreatePhraseCard"))
     }
 
@@ -255,7 +272,7 @@ class Rc7D_1DirectCustomComposerEntryTest {
             .first { it.actionId == PhraseComposerActionId.Back }
         state = (PhraseComposerController.processSequence(back.left, back.right, state, english)
             as PhraseComposerSequenceResult.Navigate).newState
-        assertEquals(PhraseComposerMode.Keyboard, state.mode)
+        assertEquals(PhraseComposerMode.DestinationCategorySelection, state.mode)
         assertEquals("water", state.phraseText)
     }
 
@@ -264,8 +281,10 @@ class Rc7D_1DirectCustomComposerEntryTest {
     @Test
     fun returnToCommunicationOpensDestinationCategory() {
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
-        assertTrue(main.contains("exitComposeMode(openDestinationCategory = savedCategory)"))
-        assertTrue(main.contains("openCategoryDirectly"))
+        assertTrue(main.contains("ViewSavedCategory"))
+        assertTrue(main.contains("openDestinationCategory = result.category"))
+        assertTrue(main.contains("openCategoryAtPage"))
+        assertTrue(main.contains("savedPhrasePageIndex"))
     }
 
     // 21–22. Back / discard behaviour.

@@ -213,6 +213,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         GuidedVocabularyCategory.Custom -> t("Custom", "Pasgemaak", "Ngokwezifiso")
         GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
         GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
+        GuidedVocabularyCategory.PhraseManagement -> t("Phrase Management", "Frasebestuur", "Ukuphathwa Kwebinzana")
     }
 
     val guidedCustomEmptyTitle: String get() = t(
@@ -570,7 +571,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     // Menu items
     val myCommunication: String get() = t("Communication Profile", "Kommunikasieprofiel", "Iphrofayela Yokuxhumana")
     val communicationSetup: String get() = t("Communication Timing", "Kommunikasie-tydsberekening", "Isikhathi Sokuxhumana")
-    val vocabularyTraining: String get() = t("Vocabulary", "Woordeskat", "Ulimi")
+    val vocabularyTraining: String get() = t("Phrase Management", "Frasebestuur", "Ukuphathwa Kwebinzana")
     val settings: String get() = t("Settings", "Instellings", "Izilungiselelo")
     val voice: String get() = t("Voice", "Stem", "Izwi")
     val testingChecklist: String get() = t("Device Checklist", "Toestel-kontrolelys", "Uhlu Lwedivayisi")
@@ -591,9 +592,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Phatha okuthandayo kwakho kokuxhumana."
     )
     val vocabularyPurpose: String get() = t(
-        "Manage your communication phrases.",
-        "Bestuur jou kommunikasiefrases.",
-        "Phatha amabinzana akho okuxhumana."
+        "Manage your personalised phrases.",
+        "Bestuur jou persoonlike frases.",
+        "Phatha amabinzana akho asikisisele."
     )
     val createPhraseCardTitle: String get() = t("Create a Phrase", "Skep 'n frase", "Dala ibinzana")
     val createPhraseCardDescription: String get() = t(
@@ -671,21 +672,33 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val phraseEditorSave: String get() = t("Save", "Stoor", "Londoloza")
     val phraseEditorCreateAnother: String get() = t("Create another phrase", "Skep nog 'n frase", "Dala elinye ibinzana")
     val phraseEditorReturnToCommunication: String get() = t("Return to Communication", "Keer terug na Kommunikasie", "Buyela ekuxhumaneni")
-    val phraseCreatedSuccess: String get() = t("Phrase created successfully.", "Frase suksesvol geskep.", "Ibinzana lidalwe ngempumelelo.")
+    val phraseCreatedSuccess: String get() = phraseComposerSuccessTitle
+    val phraseUpdatedSuccess: String get() = t("Phrase updated", "Frase opgedateer", "Ibinzana libuyekeziwe")
+    val phraseDeletedSuccess: String get() = t("Phrase deleted", "Frase verwyder", "Ibinzana lisusiwe")
+    val phraseAlreadySaved: String get() = t(
+        "This phrase is already saved",
+        "Hierdie frase is reeds gestoor",
+        "Leli binzana selive lilondoloziwe"
+    )
     fun phraseCreatedCategoryLine(categoryLabel: String): String =
         t("Category: $categoryLabel", "Kategorie: $categoryLabel", "Isigaba: $categoryLabel")
     fun phraseCreatedSequenceLine(sequenceLabel: String): String =
         t("Blink sequence: $sequenceLabel", "Knipreeks: $sequenceLabel", "Uchungechunge lokucwayiza: $sequenceLabel")
     val phraseComposerTitle: String get() = t("Create Phrase", "Skep frase", "Dala ibinzana")
     val phraseComposerDestinationStepTitle: String get() = t(
-        "Where should this phrase appear?",
-        "Waar moet hierdie frase verskyn?",
-        "Leli binzana kufanele livuke kuphi?"
+        "Choose a category",
+        "Kies 'n kategorie",
+        "Khetha isigaba"
     )
     val phraseComposerDestinationStepBody: String get() = t(
-        "Choose the Communication category for this phrase.",
-        "Kies die Kommunikasie-kategorie vir hierdie frase.",
-        "Khetha isigaba sokuxhumana saleli binzana."
+        "Choose where this phrase should appear. Selecting a category does not open it.",
+        "Kies waar hierdie frase moet verskyn. Kies 'n kategorie open dit nie.",
+        "Khetha lapho leli binzana kufanele livele khona. Ukukhetha isigaba akuvuli sona."
+    )
+    val phraseComposerChooseCategoryAction: String get() = t(
+        "Choose Category",
+        "Kies Kategorie",
+        "Khetha Isigaba"
     )
     val phraseComposerKeyboardTitle: String get() = t("Eye-Controlled Keyboard", "Oogbeheerde sleutelbord", "Ikhibhodi elawulwa yiso")
     val phraseComposerKeyboardSpaceLabel: String get() = t("SPACE", "SPASIE", "ISIKHALA")
@@ -704,6 +717,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val phraseComposerPanelShowLetters: String get() = t("ABC", "ABC", "ABC")
     val phraseComposerPartialSequenceLabel: String get() = t("Sequence", "Volgorde", "Uchungechunge")
     val phraseComposerSaveConfirmTitle: String get() = t("Save this phrase?", "Stoor hierdie frase?", "Londoloza leli binzana?")
+    val phraseComposerEditConfirmTitle: String get() = t("Save these changes?", "Stoor hierdie veranderinge?", "Londoloza lezi zinguquko?")
     val phraseComposerSaveConfirmBody: String get() = t("Save this phrase?", "Stoor hierdie frase?", "Londoloza leli binzana?")
     val phraseComposerSaveConfirmPhraseLabel: String get() = t("Phrase", "Frase", "Ibinzana")
     val phraseComposerSaveConfirmSequenceLabel: String get() = t("Assigned blink sequence", "Toegewysde knippervolgorde", "Ukulandelana kokunyonya okunikeziwe")
@@ -711,7 +725,10 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val phraseComposerCancelSave: String get() = t("Cancel", "Kanselleer", "Khansela")
     val phraseComposerCategoryLabel: String get() = t("Category", "Kategorie", "Isigaba")
     val phraseComposerCurrentPhraseLabel: String get() = t("Current phrase", "Huidige frase", "Ibinzana lamanje")
-    val phraseComposerSuccessTitle: String get() = t("Phrase saved", "Frase gestoor", "Ibinzana lilondoloziwe")
+    /** Canonical create-success heading — shown only after verified persistence. */
+    val phraseComposerSuccessTitle: String get() = t("Saved", "Gestoor", "Kulondoloziwe")
+    val phraseComposerUpdateSuccessTitle: String get() = t("Phrase updated", "Frase opgedateer", "Ibinzana libuyekeziwe")
+    val phraseComposerDeleteSuccessTitle: String get() = t("Phrase deleted", "Frase verwyder", "Ibinzana lisusiwe")
     val phraseComposerCancelConfirmTitle: String get() = t("Discard this phrase?", "Gooi hierdie frase weg?", "Lahla leli binzana?")
     val phraseComposerCancelConfirmBody: String get() = t(
         "Discard this phrase?",
@@ -758,19 +775,109 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Sebenzisa ibinzana elikhona esikhundleni sokwenza enye ikhophi."
     )
     fun phraseDuplicateOpenCategory(categoryLabel: String): String = t(
-        "Open $categoryLabel",
-        "Open $categoryLabel",
-        "Vula i-$categoryLabel"
+        "View Existing Phrase",
+        "Bekyk bestaande frase",
+        "Buka ibinzana elikhona"
+    )
+    fun phraseDuplicateViewExistingPhrase(categoryLabel: String): String =
+        phraseDuplicateOpenCategory(categoryLabel)
+    val phraseDuplicateChooseAnotherCategory: String get() = t(
+        "Choose Another Category",
+        "Kies 'n ander kategorie",
+        "Khetha esinye isigaba"
     )
     val phraseDuplicateContinueEditing: String get() = t(
         "Continue Editing",
         "Gaan voort met redigering",
         "Qhubeka nokuhlela"
     )
+    fun phraseComposerViewInCategory(categoryLabel: String): String = t(
+        "View in $categoryLabel",
+        "Bekyk in $categoryLabel",
+        "Buka ku-$categoryLabel"
+    )
     val phraseValidationNoSequence: String get() = t(
         "No safe blink sequence is available right now. Remove an unused custom phrase and try again.",
         "Geen veilige knip-reeks is tans beskikbaar nie. Verwyder 'n ongebruikte pasgemaakte frase en probeer weer.",
         "Awukho uchungechunge lwe-wink oluphephile olutholakalayo manje. Susa ibinzana elingasetshenziswanga bese uzama futhi."
+    )
+    val phraseSaveFailed: String get() = t(
+        "Could not save this phrase. Your text is still here — please try again.",
+        "Kon nie hierdie frase stoor nie. Jou teks is steeds hier — probeer asseblief weer.",
+        "Ayikwazanga ukulondoloza leli binzana. Umbhalo wakho usengaphansi — sicela uzame futhi."
+    )
+    val phraseStorageVerificationFailed: String get() = t(
+        "LISA could not confirm that this phrase was saved. Please try again.",
+        "LISA kon nie bevestig dat hierdie frase gestoor is nie. Probeer asseblief weer.",
+        "I-LISA ayikwazanga ukuqinisekisa ukuthi leli binzana lilondoloziwe. Sicela uzame futhi."
+    )
+    val phraseRuntimeCatalogFailed: String get() = t(
+        "The phrase was saved but could not be shown in Communication yet. Please try again.",
+        "Die frase is gestoor maar kon nog nie in Kommunikasie gewys word nie. Probeer asseblief weer.",
+        "Ibinzana lilondoloziwe kodwa alikwazanga ukuboniswa ekuxhumaneni okwamanje. Sicela uzame futhi."
+    )
+    val phraseUpdateFailed: String get() = t(
+        "Could not update this phrase. Please try again.",
+        "Kon nie hierdie frase opdateer nie. Probeer asseblief weer.",
+        "Ayikwazanga ukubuyekeza leli binzana. Sicela uzame futhi."
+    )
+    val phraseMoveFailed: String get() = t(
+        "Could not move this phrase. Please try again.",
+        "Kon nie hierdie frase skuif nie. Probeer asseblief weer.",
+        "Ayikwazanga ukuhambisa leli binzana. Sicela uzame futhi."
+    )
+    val phraseDeleteFailed: String get() = t(
+        "Could not delete this phrase. Please try again.",
+        "Kon nie hierdie frase verwyder nie. Probeer asseblief weer.",
+        "Ayikwazanga ukususa leli binzana. Sicela uzame futhi."
+    )
+    val vocabularyCustomPhrasesSection: String get() = t("CUSTOM PHRASES", "PASGEMAAKTE FRASES", "AMABINZANA ANGEZWE")
+    val vocabularyEmptyState: String get() = t(
+        "No saved phrases yet",
+        "Nog geen gestoorde frases nie",
+        "Awekho amabinzana alondoloziwe okwamanje"
+    )
+    val vocabularyEmptyHint: String get() = t(
+        "Phrases you create and save will appear here.",
+        "Frases wat jy skep en stoor sal hier verskyn.",
+        "Amabinzana owadalayo futhi uwagcina azovela lapha."
+    )
+    val phraseManagementDetailsTitle: String get() = t("Phrase Details", "Frasebesonderhede", "Imininingwane Yebinzana")
+    val phraseManagementEditPhrase: String get() = t("Edit Phrase", "Wysig frase", "Hlela ibinzana")
+    val phraseManagementMoveCategory: String get() = t("Move Category", "Skuif kategorie", "Hambisa isigaba")
+    val phraseManagementDeletePhrase: String get() = t("Delete Phrase", "Verwyder frase", "Susa ibinzana")
+    val phraseManagementEditTitle: String get() = t("Edit Phrase", "Wysig frase", "Hlela ibinzana")
+    val phraseManagementMoveTitle: String get() = t("Move Category", "Skuif kategorie", "Hambisa isigaba")
+    val phraseManagementSaveEdit: String get() = t("Save Changes", "Stoor veranderinge", "Londoloza izinguquko")
+    val phraseManagementConfirmMove: String get() = t("Move Phrase", "Skuif frase", "Hambisa ibinzana")
+    val phraseManagementNotFound: String get() = t(
+        "This phrase could not be found.",
+        "Hierdie frase kon nie gevind word nie.",
+        "Leli binzana alitholakalanga."
+    )
+    val phraseManagementDeleteConfirmTitle: String get() = t("Delete this phrase?", "Verwyder hierdie frase?", "Susa leli binzana?")
+    val phraseManagementDeleteConfirmBody: String get() = t(
+        "This cannot be undone.",
+        "Dit kan nie ongedaan gemaak word nie.",
+        "Lokhu akukwazi ukuhlehliswa."
+    )
+    val phraseManagementDeleteConfirmAction: String get() = t("Delete Phrase", "Verwyder frase", "Susa ibinzana")
+    val phraseManagementCancel: String get() = t("Cancel", "Kanselleer", "Khansela")
+    val phraseManagementSequenceLabel: String get() = t("Blink sequence", "Knip-reeks", "Uchungechunge lwe-wink")
+    fun phraseManagementSpeakSequence(sequenceLabel: String): String = t(
+        "Speak $sequenceLabel",
+        "Praat $sequenceLabel",
+        "Khuluma $sequenceLabel"
+    )
+    fun phraseManagementOpenDetailsSequence(sequenceLabel: String): String = t(
+        "Open details $sequenceLabel",
+        "Open besonderhede $sequenceLabel",
+        "Vula imininingwane $sequenceLabel"
+    )
+    fun phraseManagementMovedSequence(sequenceLabel: String): String = t(
+        "Assigned sequence: $sequenceLabel",
+        "Toegewysde reeks: $sequenceLabel",
+        "Uchungechunge olunikeziwe: $sequenceLabel"
     )
     fun caregiverPhraseCategoryLabel(category: CustomPhraseEngine.CaregiverPhraseCategory): String = when (category) {
         CustomPhraseEngine.CaregiverPhraseCategory.Conversation -> t("General Conversation", "Algemene Gesprek", "Ingxoxo Jikelele")

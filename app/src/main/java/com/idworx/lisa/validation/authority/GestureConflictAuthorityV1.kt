@@ -529,7 +529,7 @@ object GestureConflictAuthorityV1 {
             val passed = GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots()
             return check(
                 id = "CAT_003",
-                description = "Category shortcuts match expected assignments (L2 R1 through L3 R3)",
+                description = "Category shortcuts match expected assignments (L2 R1 through L4 R1)",
                 passed = passed,
                 remediation = "Align category shortcuts with constitutional category shortcut table."
             )

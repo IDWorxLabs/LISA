@@ -200,7 +200,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
+    private val uiCustomMappingsRevision = mutableStateOf(0)
+    private val uiPhraseManagementState = mutableStateOf(PhraseManagementUiState())
     private var composeOpenedFromCategoryMenu = false
+    /** True when Phrase Management was opened from the Categories menu (Back returns there). */
+    private var phraseManagementOpenedFromCategories = false
+    /** When set, guided Back from the viewed category restores this Success (or similar) composer state. */
+    private var composerReturnAfterCategoryView: PhraseComposerState? = null
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -225,7 +231,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 // load mappings (defaults + saved)
         mappingsState.clear()
         mappingsState.addAll(defaultLanguageMappings())
-        mappingsState.addAll(loadCustomMappings(this))
+        mappingsState.addAll(CustomPhraseRepository.loadCustomMappings(applicationContext))
         applyCustomCategoryMigrationIfNeeded()
 
         profileStore = LisaProfileStore(this)
@@ -282,6 +288,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             LISATheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
                     val uiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
+                    val customMappingsRevision = uiCustomMappingsRevision.value
+                    val customPhrases = remember(customMappingsRevision) { customPhrasesForManagement() }
+                    val phraseManagementState = uiPhraseManagementState.value
+                    val guidedNavState = uiGuidedNavigationState.value
+                    val guidedCategoryPage = remember(customMappingsRevision, guidedNavState) {
+                        guidedCurrentCategoryPage()
+                    }
                     val appVersionInfo = remember { LisaAppVersionInfo.from(this@MainActivity) }
                     val userDisplay = uiCommunicationState.value.toUserDisplay(
                         strings = uiStrings,
@@ -326,11 +339,68 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onMenuClick = { toggleMenuPanel() },
                         onSelectPanel = { panel -> openPanel(panel) },
                         onClosePanel = { closeAllPanels() },
-                        onBackToMenu = { navigateBackFromPanel() },
+                        onBackToMenu = { backFromActivePanel() },
+                        customPhrases = customPhrases,
+                        phraseManagementState = phraseManagementState,
+                        onSelectCustomPhrase = { identity -> openPhraseManagementDetails(identity) },
+                        onPhraseManagementBackToList = {
+                            uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+                                screen = PhraseManagementScreen.List,
+                                selectedIdentity = null,
+                                errorMessage = null,
+                                successMessage = null
+                            )
+                        },
+                        onPhraseManagementOpenEdit = {
+                            val identity = uiPhraseManagementState.value.selectedIdentity
+                            val mapping = customPhrases.firstOrNull {
+                                identity != null && CustomPhraseIdentity.from(it) == identity
+                            }
+                            if (mapping != null) {
+                                openComposerForEdit(mapping)
+                            }
+                        },
+                        onPhraseManagementOpenMove = {
+                            uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+                                screen = PhraseManagementScreen.Move,
+                                moveTargetCategory = null,
+                                errorMessage = null,
+                                successMessage = null
+                            )
+                        },
+                        onPhraseManagementOpenDelete = {
+                            val identity = uiPhraseManagementState.value.selectedIdentity
+                            val mapping = customPhrases.firstOrNull {
+                                identity != null && CustomPhraseIdentity.from(it) == identity
+                            }
+                            if (mapping != null) {
+                                openComposerForDelete(mapping)
+                            }
+                        },
+                        onPhraseManagementEditTextChange = { text ->
+                            uiPhraseManagementState.value = uiPhraseManagementState.value.copy(editText = text)
+                        },
+                        onPhraseManagementSaveEdit = { savePhraseManagementEdit() },
+                        onPhraseManagementSelectMoveCategory = { category ->
+                            uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+                                moveTargetCategory = category
+                            )
+                        },
+                        onPhraseManagementConfirmMove = { confirmPhraseManagementMove() },
+                        onPhraseManagementConfirmDelete = { confirmPhraseManagementDelete() },
+                        onPhraseManagementCancelSubScreen = {
+                            uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+                                screen = PhraseManagementScreen.Details,
+                                editText = "",
+                                moveTargetCategory = null,
+                                errorMessage = null
+                            )
+                        },
+                        onPhraseManagementScrollUp = { scrollPhraseManagementList(up = true) },
+                        onPhraseManagementScrollDown = { scrollPhraseManagementList(up = false) },
                         onOpenCreatePhrase = { },
                         onOpenPhraseEditor = { openComposeModeFromCustom() },
                         onPreviewCaregiverPhrase = { phrase -> previewCaregiverPhrase(phrase) },
-                        onSaveCaregiverPhrase = { category, phrase -> saveCaregiverPhrase(category, phrase) },
                         onReturnToCommunication = { returnToCommunicationWorkspace() },
                         onOpenDeviceCheck = { openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings) },
                         onOpenDeveloperTools = { openPanel(LisaPanel.DeveloperTools, LisaPanel.Settings) },
@@ -395,8 +465,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onQuickControlsTogglePause = { toggleListeningPaused() },
                         onQuickControlsOpenPractice = { openPracticeMode() },
                         onPracticeClose = { closePracticeMode() },
-                        guidedNavigationState = uiGuidedNavigationState.value,
-                        guidedCategoryPage = guidedCurrentCategoryPage(),
+                        guidedNavigationState = guidedNavState,
+                        guidedCategoryPage = guidedCategoryPage,
                         guidedCategoryMenuTitles = GuidedVocabularyCatalog.categoryMenuTitles(guidedUiStrings()),
                         guidedConfirmedPhrase = uiGuidedConfirmedPhrase.value,
                         guidedConfirmedLeft = uiGuidedConfirmedLeft.value,
@@ -846,7 +916,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun openComposeModeFromCustom() {
         composeOpenedFromCategoryMenu = uiGuidedNavigationState.value.screenMode ==
             GuidedOverlayScreenMode.CategoryMenu
-        uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
+        val preferredCategory =
+            if (uiGuidedNavigationState.value.screenMode == GuidedOverlayScreenMode.Vocabulary) {
+                val guided = GuidedVocabularyCatalog.categoryAt(
+                    pageIndex = uiGuidedNavigationState.value.categoryIndex,
+                    language = activeLanguage(),
+                    uiStrings = guidedUiStrings(),
+                    catalogContext = guidedCatalogContext()
+                )?.category
+                CustomPhraseEngine.selectableCategories.firstOrNull {
+                    it.toGuidedCategory() == guided
+                }
+            } else {
+                null
+            }
+        uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState().let { base ->
+            if (preferredCategory == null) base else base.copy(selectedCategory = preferredCategory)
+        }
         uiActivePanel.value = LisaPanel.PhraseEditor
         if (uiGuidedNavigationState.value.screenMode == GuidedOverlayScreenMode.CategoryMenu) {
             uiGuidedNavigationState.value = GuidedNavigationController.closeCategoryMenu(
@@ -855,35 +941,86 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun openComposerForEdit(mapping: WinkMapping) {
+        composeOpenedFromCategoryMenu = false
+        uiPhraseComposerState.value = PhraseComposerController.editEntryState(mapping)
+        uiActivePanel.value = LisaPanel.PhraseEditor
+        uiPanelReturnTarget.value = LisaPanel.VocabularyTraining
+    }
+
+    private fun openComposerForDelete(mapping: WinkMapping) {
+        composeOpenedFromCategoryMenu = false
+        uiPhraseComposerState.value = PhraseComposerController.deleteConfirmState(mapping)
+        uiActivePanel.value = LisaPanel.PhraseEditor
+        uiPanelReturnTarget.value = LisaPanel.VocabularyTraining
+    }
+
     private fun exitComposeMode(
         openDestinationCategory: CustomPhraseEngine.CaregiverPhraseCategory? = null,
-        returnToCategoryMenu: Boolean = false
+        returnToCategoryMenu: Boolean = false,
+        destinationPhrasePageIndex: Int = 0,
+        returnToPhraseManagement: Boolean = false
     ) {
+        val returnTarget = uiPanelReturnTarget.value
         uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
-        uiActivePanel.value = LisaPanel.None
-        uiPanelReturnTarget.value = null
         when {
             openDestinationCategory != null -> {
-                uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+                uiActivePanel.value = LisaPanel.None
+                uiPanelReturnTarget.value = null
+                uiGuidedNavigationState.value = GuidedNavigationController.openCategoryAtPage(
                     uiGuidedNavigationState.value,
-                    openDestinationCategory.toGuidedCategory().ordinal
+                    openDestinationCategory.toGuidedCategory().ordinal,
+                    destinationPhrasePageIndex
                 )
             }
+            returnToPhraseManagement || returnTarget == LisaPanel.VocabularyTraining -> {
+                uiActivePanel.value = LisaPanel.VocabularyTraining
+                uiPanelReturnTarget.value = null
+                if (uiPhraseManagementState.value.selectedIdentity == null) {
+                    uiPhraseManagementState.value = PhraseManagementUiState()
+                } else {
+                    uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+                        screen = PhraseManagementScreen.Details,
+                        editText = "",
+                        errorMessage = null
+                    )
+                }
+            }
             returnToCategoryMenu || composeOpenedFromCategoryMenu -> {
+                uiActivePanel.value = LisaPanel.None
+                uiPanelReturnTarget.value = null
                 uiGuidedNavigationState.value = GuidedNavigationController.openCategoryMenu(
                     uiGuidedNavigationState.value
                 )
             }
+            else -> {
+                uiActivePanel.value = LisaPanel.None
+                uiPanelReturnTarget.value = null
+            }
         }
         composeOpenedFromCategoryMenu = false
     }
+
+    private fun refreshRuntimeCustomMappings() {
+        val builtIn = mappingsState.filter { !it.isCustom }
+        val storedCustom = CustomPhraseRepository.loadCustomMappings(applicationContext)
+        mappingsState.clear()
+        mappingsState.addAll(builtIn)
+        mappingsState.addAll(storedCustom)
+        uiCustomMappingsRevision.value++
+    }
+
+    private fun customPhrasesForManagement(): List<WinkMapping> =
+        CustomPhraseRepository.listCustomPhrases(mappingsState.toList())
+            .sortedWith(compareBy({ it.caregiverCategory?.ordinal ?: 0 }, { it.customPhrase.orEmpty() }))
 
     private fun applyCustomCategoryMigrationIfNeeded() {
         val migration = CustomPhraseEngine.migrateCustomCategoryMappings(mappingsState.toList())
         if (migration.migratedCount == 0) return
         mappingsState.clear()
         mappingsState.addAll(migration.mappings)
-        saveCustomMappings(this, migration.mappings.filter { it.isCustom })
+        CustomPhraseRepository.writeCustomMappings(migration.mappings.filter { it.isCustom }, applicationContext)
+        uiCustomMappingsRevision.value++
     }
 
     private fun openPanel(panel: LisaPanel, returnTo: LisaPanel? = null) {
@@ -895,6 +1032,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             LisaPanel.Menu -> verifyTrainingNavigation(NavigationAction.OpenMenu)
             LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
             LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
+            LisaPanel.VocabularyTraining -> resetPhraseManagementState()
             else -> Unit
         }
         if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
@@ -1474,31 +1612,282 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         category: CustomPhraseEngine.CaregiverPhraseCategory,
         rawPhrase: String,
         allocatedSequence: Pair<Int, Int>? = null
-    ): CustomPhraseEngine.SavePhraseResult {
+    ): PhraseSaveTransactionResult {
         val uiStrings = guidedUiStrings()
-        val result = if (allocatedSequence != null) {
-            CustomPhraseEngine.saveNewPhraseWithAllocatedSequence(
-                rawPhrase = rawPhrase,
-                category = category,
-                allocatedSequence = allocatedSequence,
-                existingMappings = mappingsState.toList(),
-                language = activeLanguage(),
-                uiStrings = uiStrings
-            )
-        } else {
-            CustomPhraseEngine.saveNewPhrase(
-                rawPhrase = rawPhrase,
-                category = category,
-                existingMappings = mappingsState.toList(),
-                language = activeLanguage(),
-                uiStrings = uiStrings
-            )
+        if (allocatedSequence == null) {
+            return PhraseSaveTransactionResult.Failed(PhraseSaveFailureReason.NoSequenceAvailable)
         }
-        if (result is CustomPhraseEngine.SavePhraseResult.Success) {
-            mappingsState.add(result.mapping)
-            saveCustomMappings(this, mappingsState.filter { it.isCustom })
+        val result = CustomPhraseRepository.createPhrase(
+            rawPhrase = rawPhrase,
+            category = category,
+            allocatedSequence = allocatedSequence,
+            existingMappings = mappingsState.toList(),
+            language = activeLanguage(),
+            uiStrings = uiStrings,
+            visibleEntryCap = guidedVisibleEntryCap(),
+            context = applicationContext
+        )
+        if (result is PhraseSaveTransactionResult.Success) {
+            refreshRuntimeCustomMappings()
         }
         return result
+    }
+
+    private fun updateCaregiverPhrase(
+        identity: CustomPhraseIdentity,
+        category: CustomPhraseEngine.CaregiverPhraseCategory,
+        rawPhrase: String
+    ): PhraseManagementResult {
+        val textResult = CustomPhraseRepository.updatePhraseText(
+            identity = identity,
+            rawPhrase = rawPhrase,
+            existingMappings = mappingsState.toList(),
+            language = activeLanguage(),
+            uiStrings = guidedUiStrings(),
+            visibleEntryCap = guidedVisibleEntryCap(),
+            context = applicationContext
+        )
+        if (textResult !is PhraseManagementResult.Success) return textResult
+        refreshRuntimeCustomMappings()
+        val updatedIdentity = CustomPhraseIdentity.from(textResult.mapping)
+        if (textResult.mapping.caregiverCategory == category) {
+            return textResult
+        }
+        val moveResult = CustomPhraseRepository.movePhrase(
+            identity = updatedIdentity,
+            targetCategory = category,
+            existingMappings = mappingsState.toList(),
+            language = activeLanguage(),
+            uiStrings = guidedUiStrings(),
+            visibleEntryCap = guidedVisibleEntryCap(),
+            context = applicationContext
+        )
+        if (moveResult is PhraseManagementResult.Success) {
+            refreshRuntimeCustomMappings()
+        }
+        return moveResult
+    }
+
+    private fun resetPhraseManagementState() {
+        uiPhraseManagementState.value = PhraseManagementUiState()
+    }
+
+    private fun openPhraseManagementDetails(identity: CustomPhraseIdentity) {
+        uiPhraseManagementState.value = uiPhraseManagementState.value.copy(
+            screen = PhraseManagementScreen.Details,
+            selectedIdentity = identity,
+            errorMessage = null,
+            successMessage = null
+        )
+    }
+
+    private fun scrollPhraseManagementList(up: Boolean) {
+        val phrases = customPhrasesForManagement()
+        val state = uiPhraseManagementState.value
+        if (state.screen != PhraseManagementScreen.List) return
+        uiPhraseManagementState.value = if (up) {
+            if (!PhraseManagementController.canScrollUp(state.listPageIndex)) return
+            PhraseManagementController.scrollUp(state)
+        } else {
+            if (!PhraseManagementController.canScrollDown(state.listPageIndex, phrases.size)) return
+            PhraseManagementController.scrollDown(state, phrases.size)
+        }
+        setCommunicationState(LisaCommunicationState.Listening)
+    }
+
+    private fun handlePhraseManagementSequence(left: Int, right: Int) {
+        val state = uiPhraseManagementState.value
+        val phrases = customPhrasesForManagement()
+        when (state.screen) {
+            PhraseManagementScreen.List -> {
+                if (GuidedModeNavigation.isBackSequence(left, right)) {
+                    backFromActivePanel()
+                    resetSequence()
+                    setCommunicationState(LisaCommunicationState.Listening)
+                    return
+                }
+                if (GuidedModeNavigation.isPreviousSequence(left, right)) {
+                    scrollPhraseManagementList(up = true)
+                    resetSequence()
+                    return
+                }
+                if (GuidedModeNavigation.isNextSequence(left, right)) {
+                    scrollPhraseManagementList(up = false)
+                    resetSequence()
+                    return
+                }
+                PhraseManagementController.visiblePhraseSelectionSlots(phrases, state.listPageIndex)
+                    .firstOrNull { (_, sequence) -> sequence.first == left && sequence.second == right }
+                    ?.let { (mapping, _) ->
+                        openPhraseManagementDetails(CustomPhraseIdentity.from(mapping))
+                        resetSequence()
+                        setCommunicationState(LisaCommunicationState.Listening)
+                        return
+                    }
+            }
+            PhraseManagementScreen.Details -> {
+                if (GuidedModeNavigation.isBackSequence(left, right)) {
+                    uiPhraseManagementState.value = state.copy(
+                        screen = PhraseManagementScreen.List,
+                        selectedIdentity = null,
+                        errorMessage = null,
+                        successMessage = null
+                    )
+                    resetSequence()
+                    setCommunicationState(LisaCommunicationState.Listening)
+                    return
+                }
+                val detailsAction = PhraseManagementController.detailsActionEntries(guidedUiStrings())
+                    .firstOrNull { it.left == left && it.right == right }
+                when (detailsAction?.action) {
+                    PhraseManagementController.PhraseDetailsAction.Edit -> {
+                        val identity = state.selectedIdentity
+                        val mapping = phrases.firstOrNull {
+                            identity != null && CustomPhraseIdentity.from(it) == identity
+                        }
+                        if (mapping != null) openComposerForEdit(mapping)
+                        resetSequence()
+                        setCommunicationState(LisaCommunicationState.Listening)
+                        return
+                    }
+                    PhraseManagementController.PhraseDetailsAction.Move -> {
+                        uiPhraseManagementState.value = state.copy(
+                            screen = PhraseManagementScreen.Move,
+                            moveTargetCategory = null,
+                            errorMessage = null,
+                            successMessage = null
+                        )
+                        resetSequence()
+                        setCommunicationState(LisaCommunicationState.Listening)
+                        return
+                    }
+                    PhraseManagementController.PhraseDetailsAction.Delete -> {
+                        val identity = state.selectedIdentity
+                        val mapping = phrases.firstOrNull {
+                            identity != null && CustomPhraseIdentity.from(it) == identity
+                        }
+                        if (mapping != null) openComposerForDelete(mapping)
+                        resetSequence()
+                        setCommunicationState(LisaCommunicationState.Listening)
+                        return
+                    }
+                    null -> Unit
+                }
+            }
+            PhraseManagementScreen.DeleteConfirm,
+            PhraseManagementScreen.Edit,
+            PhraseManagementScreen.Move -> {
+                if (GuidedModeNavigation.isBackSequence(left, right)) {
+                    uiPhraseManagementState.value = state.copy(
+                        screen = PhraseManagementScreen.Details,
+                        errorMessage = null,
+                        successMessage = null
+                    )
+                    resetSequence()
+                    setCommunicationState(LisaCommunicationState.Listening)
+                    return
+                }
+            }
+        }
+        resetSequence()
+        setCommunicationState(LisaCommunicationState.Listening)
+    }
+
+    private fun savePhraseManagementEdit() {
+        val state = uiPhraseManagementState.value
+        val identity = state.selectedIdentity ?: return
+        when (
+            val result = CustomPhraseRepository.updatePhraseText(
+                identity = identity,
+                rawPhrase = state.editText,
+                existingMappings = mappingsState.toList(),
+                language = activeLanguage(),
+                uiStrings = guidedUiStrings(),
+                visibleEntryCap = guidedVisibleEntryCap(),
+                context = applicationContext
+            )
+        ) {
+            is PhraseManagementResult.Success -> {
+                refreshRuntimeCustomMappings()
+                uiPhraseManagementState.value = state.copy(
+                    screen = PhraseManagementScreen.Details,
+                    selectedIdentity = CustomPhraseIdentity.from(result.mapping),
+                    editText = "",
+                    errorMessage = null,
+                    successMessage = guidedUiStrings().phraseUpdatedSuccess
+                )
+            }
+            is PhraseManagementResult.Failed -> {
+                val message = when (result.reason) {
+                    PhraseSaveFailureReason.Duplicate ->
+                        result.duplicateMatch?.let { guidedUiStrings().phraseDuplicateExistsMessage(it) }
+                            ?: guidedUiStrings().phraseValidationDuplicate
+                    PhraseSaveFailureReason.Empty -> guidedUiStrings().phraseValidationEmpty
+                    PhraseSaveFailureReason.TooLong -> guidedUiStrings().phraseValidationTooLong
+                    else -> guidedUiStrings().phraseUpdateFailed
+                }
+                uiPhraseManagementState.value = state.copy(errorMessage = message)
+            }
+        }
+    }
+
+    private fun confirmPhraseManagementMove() {
+        val state = uiPhraseManagementState.value
+        val identity = state.selectedIdentity ?: return
+        val target = state.moveTargetCategory ?: return
+        when (
+            val result = CustomPhraseRepository.movePhrase(
+                identity = identity,
+                targetCategory = target,
+                existingMappings = mappingsState.toList(),
+                language = activeLanguage(),
+                uiStrings = guidedUiStrings(),
+                visibleEntryCap = guidedVisibleEntryCap(),
+                context = applicationContext
+            )
+        ) {
+            is PhraseManagementResult.Success -> {
+                refreshRuntimeCustomMappings()
+                val sequenceLabel = formatWinkSequenceShort(result.mapping.left, result.mapping.right)
+                uiPhraseManagementState.value = state.copy(
+                    screen = PhraseManagementScreen.Details,
+                    selectedIdentity = CustomPhraseIdentity.from(result.mapping),
+                    moveTargetCategory = null,
+                    errorMessage = null,
+                    successMessage = guidedUiStrings().phraseManagementMovedSequence(sequenceLabel)
+                )
+            }
+            is PhraseManagementResult.Failed -> {
+                uiPhraseManagementState.value = state.copy(
+                    errorMessage = guidedUiStrings().phraseMoveFailed
+                )
+            }
+        }
+    }
+
+    private fun confirmPhraseManagementDelete() {
+        val state = uiPhraseManagementState.value
+        val identity = state.selectedIdentity ?: return
+        when (CustomPhraseRepository.deletePhrase(identity, mappingsState.toList(), applicationContext)) {
+            is PhraseManagementResult.Success -> {
+                refreshRuntimeCustomMappings()
+                val remaining = customPhrasesForManagement().size
+                uiPhraseManagementState.value = PhraseManagementController.afterPhraseListChanged(
+                    state = state.copy(
+                        screen = PhraseManagementScreen.List,
+                        selectedIdentity = null,
+                        errorMessage = null,
+                        successMessage = guidedUiStrings().phraseDeletedSuccess
+                    ),
+                    remainingCount = remaining
+                )
+            }
+            is PhraseManagementResult.Failed -> {
+                uiPhraseManagementState.value = state.copy(
+                    errorMessage = guidedUiStrings().phraseDeleteFailed
+                )
+            }
+        }
     }
 
     private fun phraseComposerRuntimeContext(): PhraseComposerRuntimeContext =
@@ -1508,14 +1897,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
 
     private fun openExistingDuplicatePhrase(match: DuplicatePhraseMatch) {
+        composerReturnAfterCategoryView = uiPhraseComposerState.value.copy(
+            // Keep duplicate screen restorable if caregiver presses Back from the category.
+            mode = PhraseComposerMode.DuplicateWarning,
+            duplicateMatch = match
+        )
         uiPhraseComposerState.value = PhraseComposerController.keyboardEntryState()
         uiActivePanel.value = LisaPanel.None
         uiPanelReturnTarget.value = null
         composeOpenedFromCategoryMenu = false
-        uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+        uiGuidedNavigationState.value = GuidedNavigationController.openCategoryAtPage(
             uiGuidedNavigationState.value,
-            match.category.toGuidedCategory().ordinal
+            match.category.toGuidedCategory().ordinal,
+            phrasePageIndex = 0
         )
+    }
+
+    private fun returnToComposerFromCategoryViewIfNeeded(left: Int, right: Int): Boolean {
+        if (!GuidedModeNavigation.isBackSequence(left, right)) return false
+        val pending = composerReturnAfterCategoryView ?: return false
+        composerReturnAfterCategoryView = null
+        uiPhraseComposerState.value = pending
+        uiActivePanel.value = LisaPanel.PhraseEditor
+        uiPanelReturnTarget.value = null
+        setCommunicationState(LisaCommunicationState.Listening)
+        return true
     }
 
     private fun previewCaregiverPhrase(rawPhrase: String) {
@@ -1524,8 +1930,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun returnToCommunicationWorkspace() {
-        val savedCategory = uiPhraseComposerState.value.savedMapping?.caregiverCategory
-        exitComposeMode(openDestinationCategory = savedCategory)
+        // Prefer explicit View-in-category when a saved mapping is present; otherwise exit cleanly.
+        val composerState = uiPhraseComposerState.value
+        val category = composerState.savedMapping?.caregiverCategory
+        if (category != null && composerState.mode == PhraseComposerMode.Success) {
+            composerReturnAfterCategoryView = composerState
+            exitComposeMode(
+                openDestinationCategory = category,
+                destinationPhrasePageIndex = composerState.savedPhrasePageIndex
+            )
+        } else {
+            exitComposeMode(returnToCategoryMenu = composeOpenedFromCategoryMenu)
+        }
     }
 
     private fun guidedVisibleEntryCap(): Int =
@@ -1596,10 +2012,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openGuidedCategoryFromTouch(categoryIndex: Int) {
-        if (categoryIndex == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX) {
-            openComposeModeFromCustom()
-            verifyTrainingNavigation(NavigationAction.SelectCategory)
-            return
+        when (CategoryAreaDestination.forCategoryIndex(categoryIndex)) {
+            CategoryAreaDestination.CreateCustomPhrase -> {
+                openComposeModeFromCustom()
+                verifyTrainingNavigation(NavigationAction.SelectCategory)
+                return
+            }
+            CategoryAreaDestination.PhraseManagement -> {
+                openPhraseManagementFromCategories()
+                verifyTrainingNavigation(NavigationAction.SelectCategory)
+                return
+            }
+            is CategoryAreaDestination.CommunicationCategory -> Unit
         }
         if (trainingSession.isNavigationTrainingActive()) {
             val expected = trainingSession.expectedNavigationAction()
@@ -1630,6 +2054,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setCommunicationState(LisaCommunicationState.Listening)
         mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
         mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+    }
+
+    private fun openPhraseManagementFromCategories() {
+        phraseManagementOpenedFromCategories = true
+        // Keep Categories menu as the underlying destination so Back restores it.
+        uiGuidedNavigationState.value = uiGuidedNavigationState.value.copy(
+            screenMode = GuidedOverlayScreenMode.CategoryMenu,
+            categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+        )
+        uiPanelReturnTarget.value = null
+        openPanel(LisaPanel.VocabularyTraining)
+    }
+
+    private fun backFromActivePanel() {
+        if (uiActivePanel.value == LisaPanel.VocabularyTraining && phraseManagementOpenedFromCategories) {
+            phraseManagementOpenedFromCategories = false
+            uiActivePanel.value = LisaPanel.None
+            resetPhraseManagementState()
+            // Categories menu remains active underneath.
+            return
+        }
+        navigateBackFromPanel()
     }
 
     /**
@@ -1760,19 +2206,142 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     rawPhrase = result.phrase,
                     allocatedSequence = composerState.pendingAllocatedSequence
                 )
-                uiPhraseComposerState.value = PhraseComposerController.applySaveResult(
+                uiPhraseComposerState.value = PhraseComposerController.applyTransactionSaveResult(
                     composerState,
                     saveResult,
                     uiStrings
                 )
                 setCommunicationState(LisaCommunicationState.Listening)
             }
+            is PhraseComposerSequenceResult.Update -> {
+                val composerState = uiPhraseComposerState.value
+                val updateResult = updateCaregiverPhrase(
+                    identity = result.identity,
+                    category = result.category,
+                    rawPhrase = result.phrase
+                )
+                uiPhraseComposerState.value = when (updateResult) {
+                    is PhraseManagementResult.Success -> composerState.copy(
+                        mode = PhraseComposerMode.Success,
+                        savedMapping = updateResult.mapping,
+                        selectedCategory = updateResult.mapping.caregiverCategory,
+                        savedPhrasePageIndex = CustomPhraseRepository.catalogLocationForMapping(
+                            mapping = updateResult.mapping,
+                            allMappings = mappingsState.toList(),
+                            language = activeLanguage(),
+                            uiStrings = uiStrings,
+                            visibleEntryCap = guidedVisibleEntryCap()
+                        ).second,
+                        errorMessage = null,
+                        pendingAllocatedSequence = null,
+                        confirmedLeft = null,
+                        confirmedRight = null,
+                        wasEdit = true,
+                        editingIdentity = CustomPhraseIdentity.from(updateResult.mapping),
+                        navigationHistory = if (composerState.mode == PhraseComposerMode.Success) {
+                            composerState.navigationHistory
+                        } else {
+                            composerState.navigationHistory + composerState.mode
+                        }
+                    )
+                    is PhraseManagementResult.Failed -> {
+                        val message = when (updateResult.reason) {
+                            PhraseSaveFailureReason.Duplicate ->
+                                updateResult.duplicateMatch?.let { uiStrings.phraseDuplicateExistsMessage(it) }
+                                    ?: uiStrings.phraseAlreadySaved
+                            PhraseSaveFailureReason.Empty -> uiStrings.phraseValidationEmpty
+                            PhraseSaveFailureReason.TooLong -> uiStrings.phraseValidationTooLong
+                            PhraseSaveFailureReason.StorageVerificationFailed ->
+                                uiStrings.phraseStorageVerificationFailed
+                            else -> uiStrings.phraseUpdateFailed
+                        }
+                        if (updateResult.reason == PhraseSaveFailureReason.Duplicate &&
+                            updateResult.duplicateMatch != null
+                        ) {
+                            composerState.copy(
+                                mode = PhraseComposerMode.DuplicateWarning,
+                                duplicateMatch = updateResult.duplicateMatch,
+                                errorMessage = null,
+                                navigationHistory = if (composerState.mode == PhraseComposerMode.DuplicateWarning) {
+                                    composerState.navigationHistory
+                                } else {
+                                    composerState.navigationHistory + composerState.mode
+                                }
+                            )
+                        } else {
+                            composerState.copy(
+                                mode = PhraseComposerMode.SaveConfirmation,
+                                errorMessage = message
+                            )
+                        }
+                    }
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            is PhraseComposerSequenceResult.Delete -> {
+                when (
+                    CustomPhraseRepository.deletePhrase(
+                        result.identity,
+                        mappingsState.toList(),
+                        applicationContext
+                    )
+                ) {
+                    is PhraseManagementResult.Success -> {
+                        refreshRuntimeCustomMappings()
+                        val remaining = customPhrasesForManagement().size
+                        uiPhraseManagementState.value = PhraseManagementController.afterPhraseListChanged(
+                            state = uiPhraseManagementState.value.copy(
+                                screen = PhraseManagementScreen.List,
+                                selectedIdentity = null,
+                                errorMessage = null,
+                                successMessage = uiStrings.phraseDeletedSuccess
+                            ),
+                            remainingCount = remaining
+                        )
+                        exitComposeMode(returnToPhraseManagement = true)
+                    }
+                    is PhraseManagementResult.Failed -> {
+                        uiPhraseComposerState.value = uiPhraseComposerState.value.copy(
+                            errorMessage = uiStrings.phraseDeleteFailed
+                        )
+                    }
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
             is PhraseComposerSequenceResult.OpenExistingPhrase -> {
                 openExistingDuplicatePhrase(result.match)
                 setCommunicationState(LisaCommunicationState.Listening)
             }
-            PhraseComposerSequenceResult.ReturnToCommunication -> returnToCommunicationWorkspace()
-            PhraseComposerSequenceResult.ExitToPreviousPanel -> exitComposeMode(returnToCategoryMenu = true)
+            is PhraseComposerSequenceResult.ViewSavedCategory -> {
+                composerReturnAfterCategoryView = result.returnComposerState
+                exitComposeMode(
+                    openDestinationCategory = result.category,
+                    destinationPhrasePageIndex = result.phrasePageIndex
+                )
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            PhraseComposerSequenceResult.ReturnToCommunication -> {
+                // Legacy alias: treat as explicit View in category when a saved mapping exists.
+                val composerState = uiPhraseComposerState.value
+                val category = composerState.savedMapping?.caregiverCategory
+                if (category != null) {
+                    composerReturnAfterCategoryView = composerState
+                    exitComposeMode(
+                        openDestinationCategory = category,
+                        destinationPhrasePageIndex = composerState.savedPhrasePageIndex
+                    )
+                } else {
+                    exitComposeMode(returnToCategoryMenu = true)
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+            PhraseComposerSequenceResult.ExitToPreviousPanel -> {
+                if (uiPanelReturnTarget.value == LisaPanel.VocabularyTraining) {
+                    exitComposeMode(returnToPhraseManagement = true)
+                } else {
+                    exitComposeMode(returnToCategoryMenu = true)
+                }
+            }
             PhraseComposerSequenceResult.Unmatched -> {
                 if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
                     returnToCommunicationWorkspace()
@@ -1799,6 +2368,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun handleGuidedOverlaySequence(left: Int, right: Int) {
+        if (returnToComposerFromCategoryViewIfNeeded(left, right)) {
+            resetSequence()
+            return
+        }
         if (uiListeningPaused.value && !GuidedModeNavigation.isGlobalNavigationSequence(left, right)) {
             resetSequence()
             updateReadyOrWaitingState()
@@ -1828,10 +2401,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     ) {
         when (result) {
             is GuidedSequenceResult.Navigate -> {
-                val openingCustomComposer = result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
-                    result.newState.categoryIndex == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX
-                if (openingCustomComposer) {
-                    openComposeModeFromCustom()
+                val destination = CategoryAreaDestination.forCategoryIndex(result.newState.categoryIndex)
+                val openingManagementDestination =
+                    result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
+                        (destination is CategoryAreaDestination.CreateCustomPhrase ||
+                            destination is CategoryAreaDestination.PhraseManagement)
+                if (openingManagementDestination) {
+                    when (destination) {
+                        CategoryAreaDestination.CreateCustomPhrase -> openComposeModeFromCustom()
+                        CategoryAreaDestination.PhraseManagement -> openPhraseManagementFromCategories()
+                        is CategoryAreaDestination.CommunicationCategory -> Unit
+                    }
                     uiGuidedConfirmedPhrase.value = null
                     uiGuidedConfirmedLeft.value = null
                     uiGuidedConfirmedRight.value = null
@@ -2548,8 +3128,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 handlePhraseComposerSequence(capturedLeft, capturedRight)
                 return
             }
+            GestureRoutingTarget.PhraseManagement -> {
+                handlePhraseManagementSequence(capturedLeft, capturedRight)
+                return
+            }
             GestureRoutingTarget.SettingsPanelBack -> {
-                navigateBackFromPanel()
+                backFromActivePanel()
                 resetSequence()
                 setCommunicationState(LisaCommunicationState.Listening)
                 return
@@ -2733,15 +3317,8 @@ private fun saveDeveloperMode(context: Context, enabled: Boolean) {
 
 // Format per line: "L,R|phrase|category"
 private fun saveCustomMappings(context: Context, custom: List<WinkMapping>) {
-    val text = CustomPhraseEngine.serializeCustomMappings(custom)
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .edit()
-        .putString(KEY_CUSTOM_MAPS, text)
-        .apply()
+    CustomPhraseRepository.writeCustomMappings(custom, context)
 }
 
-private fun loadCustomMappings(context: Context): List<WinkMapping> {
-    val raw = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .getString(KEY_CUSTOM_MAPS, "") ?: ""
-    return CustomPhraseEngine.parseCustomMappings(raw)
-}
+private fun loadCustomMappings(context: Context): List<WinkMapping> =
+    CustomPhraseRepository.loadCustomMappings(context)

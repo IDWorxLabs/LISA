@@ -49,7 +49,7 @@ class Rc7A5PhraseCreationExperienceTest {
     fun navigationFlowOpensEyeControlledComposerFromCustom() {
         val mainActivity = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
         assertTrue(mainActivity.contains("openComposeModeFromCustom"))
-        assertTrue(mainActivity.contains("CUSTOM_CATEGORY_INDEX"))
+        assertTrue(mainActivity.contains("CategoryAreaDestination.CreateCustomPhrase"))
         assertTrue(mainActivity.contains("PhraseComposerController.keyboardEntryState()"))
     }
 

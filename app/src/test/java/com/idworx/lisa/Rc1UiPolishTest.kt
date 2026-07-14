@@ -30,7 +30,7 @@ class Rc1UiPolishTest {
     @Test
     fun menuItemLabelsArePolished() {
         assertEquals("Communication Profile", english.myCommunication)
-        assertEquals("Vocabulary", english.vocabularyTraining)
+        assertEquals("Phrase Management", english.vocabularyTraining)
         assertEquals("Run Device Check", english.runDeviceCheckTitle)
     }
 

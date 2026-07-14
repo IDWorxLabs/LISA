@@ -42,19 +42,20 @@ class Rc7B2PreserveCategoryShortcutsTest {
                 GuidedVocabularyCategory.Family,
                 GuidedVocabularyCategory.BasicSystemControls,
                 GuidedVocabularyCategory.Preferences,
-                GuidedVocabularyCategory.Custom
+                GuidedVocabularyCategory.Custom,
+                GuidedVocabularyCategory.PhraseManagement
             ),
             GuidedVocabularyCategory.ordered
         )
     }
 
-    // 2. Total page count remains 7.
+    // 2. Total page count includes Phrase Management.
 
     @Test
-    fun totalPageCountRemainsSeven() {
-        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(7, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(7, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+    fun totalPageCountIncludesPhraseManagement() {
+        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
     // 3. Every pre-RC7B.1 category shortcut matches its original value.
@@ -199,6 +200,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
         assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.Custom])
+        assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
     }
 
     // 13. No category-navigation or gesture conflicts are introduced.
@@ -206,7 +208,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
     @Test
     fun noCategoryNavigationConflicts() {
         val gestures = GuidedCategoryShortcuts.allGestures()
-        assertEquals(7, gestures.size)
+        assertEquals(8, gestures.size)
         assertEquals(gestures.size, gestures.distinct().size)
         assertTrue(GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation())
         assertTrue(GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots())
@@ -248,7 +250,8 @@ class Rc7B2PreserveCategoryShortcutsTest {
                 "Family",
                 "Basic System Controls",
                 "Preferences",
-                "Custom"
+                "Custom",
+                "Phrase Management"
             ),
             titles
         )

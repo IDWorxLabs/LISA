@@ -13,34 +13,32 @@ class Rc7AVocabularyCleanupTest {
 
     @Test
     fun vocabularyPanelNoLongerRendersCoreVocabularyList() {
-        val panel = extractFunction("private fun VocabularyTrainingPanel")
+        val panel = extractFunction("private fun VocabularyPhraseListPanel")
         assertFalse(panel.contains("coreVocabulary"))
-        assertFalse(panel.contains("LazyColumn"))
         assertFalse(panel.contains("coreMappings"))
     }
 
     @Test
     fun vocabularyPanelNoLongerRendersSystemCommandsDocumentation() {
-        val panel = extractFunction("private fun VocabularyTrainingPanel")
+        val panel = extractFunction("private fun VocabularyPhraseListPanel")
         assertFalse(panel.contains("SystemCommandsTrainingSection"))
         assertFalse(panel.contains("systemCommandsTitle"))
     }
 
     @Test
     fun manualSequenceEditorRemovedFromVocabularyPage() {
-        val panel = extractFunction("private fun VocabularyTrainingPanel")
+        val panel = extractFunction("private fun VocabularyPhraseListPanel")
         assertFalse(panel.contains("leftLabel"))
         assertFalse(panel.contains("rightLabel"))
-        assertFalse(panel.contains("OutlinedTextField"))
         assertFalse(panel.contains("onAddMapping"))
         assertFalse(panel.contains("Save sequence"))
     }
 
     @Test
-    fun vocabularyPageShowsCustomComposerNote() {
-        val panel = extractFunction("private fun VocabularyTrainingPanel")
-        assertTrue(panel.contains("vocabularyCustomComposerNote"))
-        assertFalse(panel.contains("VocabularyCreatePhraseCard("))
+    fun vocabularyPageShowsCustomPhraseManagement() {
+        val panel = extractFunction("private fun VocabularyPhraseListPanel")
+        assertTrue(panel.contains("vocabularyCustomPhrasesSection"))
+        assertTrue(panel.contains("vocabularyEmptyState"))
     }
 
     @Test
@@ -63,12 +61,12 @@ class Rc7AVocabularyCleanupTest {
 
     @Test
     fun vocabularyPurposeReflectsManagementFocus() {
-        assertEquals("Manage your communication phrases.", english.vocabularyPurpose)
+        assertEquals("Manage your personalised phrases.", english.vocabularyPurpose)
         assertTrue(english.vocabularyBuiltinNote.contains("Communication screen", ignoreCase = true))
     }
 
     private fun extractFunction(signature: String): String {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        val source = readSource("app/src/main/java/com/idworx/lisa/PhraseManagementUi.kt")
         val start = source.indexOf(signature)
         assertTrue("Expected $signature", start >= 0)
         val openBrace = source.indexOf('{', start)

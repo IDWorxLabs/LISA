@@ -42,11 +42,13 @@ class Rc7B1CustomCategoryTest {
                 GuidedVocabularyCategory.Family,
                 GuidedVocabularyCategory.BasicSystemControls,
                 GuidedVocabularyCategory.Preferences,
-                GuidedVocabularyCategory.Custom
+                GuidedVocabularyCategory.Custom,
+                GuidedVocabularyCategory.PhraseManagement
             ),
             GuidedVocabularyCategory.ordered
         )
         assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
     }
 
     @Test
@@ -133,9 +135,9 @@ class Rc7B1CustomCategoryTest {
 
     @Test
     fun communicationPageCountIsSeven() {
-        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(7, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(7, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
     // 7. Previous/next navigation still reaches all pages.
@@ -232,12 +234,12 @@ class Rc7B1CustomCategoryTest {
     fun successScreenShowsPhraseCategoryAndSequence() {
         val composerUi = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
         val composerEngine = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerEngine.kt")
-        assertTrue(composerUi.contains("phraseCreatedSuccess"))
+        assertTrue(composerUi.contains("phraseComposerSuccessTitle"))
         assertTrue(composerUi.contains("phraseCreatedCategoryLine"))
         assertTrue(composerUi.contains("phraseCreatedSequenceLine"))
         assertTrue(composerUi.contains("formatWinkSequenceShort(mapping.left, mapping.right)"))
         assertTrue(composerEngine.contains("phraseEditorCreateAnother"))
-        assertTrue(composerEngine.contains("phraseEditorReturnToCommunication"))
+        assertTrue(composerEngine.contains("phraseComposerViewInCategory"))
         assertEquals("Category: Custom", english.phraseCreatedCategoryLine("Custom"))
         assertEquals("Blink sequence: L7 R2", english.phraseCreatedSequenceLine("L7 R2"))
     }
@@ -253,6 +255,7 @@ class Rc7B1CustomCategoryTest {
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.Medical])
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.Family])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.Custom])
+        assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
         assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
         val familyPage = pages.first { it.category == GuidedVocabularyCategory.Family }

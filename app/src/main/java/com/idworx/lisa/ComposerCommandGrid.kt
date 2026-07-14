@@ -270,39 +270,45 @@ fun ComposerEmergencyCommandCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
+    val title = uiStrings.guidedEmergencyNavTitle
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 64.dp)
+            .defaultMinSize(minHeight = 72.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = uiStrings.emergency }
+            .semantics { contentDescription = "${title} ${sequenceLabel}" }
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
             .border(1.5.dp, LisaEmergencyRed.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "🚨",
             fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             color = LisaEmergencyRed
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(modifier.height(2.dp))
         Text(
-            text = uiStrings.guidedEmergencyNavTitle,
+            text = title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = LisaEmergencyRed,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Spacer(modifier.height(2.dp))
+        Text(
+            text = sequenceLabel,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             color = LisaEmergencyRed,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            color = LisaEmergencyRed,
-            lineHeight = 14.sp
+            lineHeight = 16.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1
         )
     }
 }
@@ -322,5 +328,8 @@ internal fun composerCommandSymbol(actionId: PhraseComposerActionId): String = w
     PhraseComposerActionId.CancelSave -> "✕"
     PhraseComposerActionId.OpenDuplicateCategory -> "📂"
     PhraseComposerActionId.ContinueEditing -> "✎"
+    PhraseComposerActionId.ConfirmDelete -> "🗑"
+    PhraseComposerActionId.ViewInCategory -> "📂"
+    PhraseComposerActionId.ChooseAnotherCategory -> "☰"
     else -> "•"
 }

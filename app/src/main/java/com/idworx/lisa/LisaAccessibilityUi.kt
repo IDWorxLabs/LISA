@@ -79,10 +79,22 @@ fun LisaRootUI(
     onOpenCreatePhrase: () -> Unit = {},
     onOpenPhraseEditor: () -> Unit = {},
     onPreviewCaregiverPhrase: (String) -> Unit = {},
-    onSaveCaregiverPhrase: (CustomPhraseEngine.CaregiverPhraseCategory, String) -> CustomPhraseEngine.SavePhraseResult = { _, _ ->
-        CustomPhraseEngine.SavePhraseResult.ValidationFailed(CustomPhraseEngine.PhraseValidationFailure.Empty)
-    },
     onReturnToCommunication: () -> Unit = {},
+    customPhrases: List<WinkMapping> = emptyList(),
+    phraseManagementState: PhraseManagementUiState = PhraseManagementUiState(),
+    onSelectCustomPhrase: (CustomPhraseIdentity) -> Unit = {},
+    onPhraseManagementBackToList: () -> Unit = {},
+    onPhraseManagementOpenEdit: () -> Unit = {},
+    onPhraseManagementOpenMove: () -> Unit = {},
+    onPhraseManagementOpenDelete: () -> Unit = {},
+    onPhraseManagementEditTextChange: (String) -> Unit = {},
+    onPhraseManagementSaveEdit: () -> Unit = {},
+    onPhraseManagementSelectMoveCategory: (CustomPhraseEngine.CaregiverPhraseCategory) -> Unit = {},
+    onPhraseManagementConfirmMove: () -> Unit = {},
+    onPhraseManagementConfirmDelete: () -> Unit = {},
+    onPhraseManagementCancelSubScreen: () -> Unit = {},
+    onPhraseManagementScrollUp: () -> Unit = {},
+    onPhraseManagementScrollDown: () -> Unit = {},
     onOpenDeviceCheck: () -> Unit = {},
     onOpenDeveloperTools: () -> Unit = {},
     onDeveloperModeChange: (Boolean) -> Unit,
@@ -155,7 +167,7 @@ fun LisaRootUI(
     ),
     onPhraseComposerEntry: (PhraseComposerEntry) -> Unit = {},
     onPhraseComposerCommand: (PhraseComposerEntry) -> Unit = {},
-    onPhraseComposerKeyTouched: (Int, Int) -> Unit = { _, _ -> },
+    onPhraseComposerKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPhraseComposerEmergency: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit = {},
     guidedTrainingActive: Boolean = false,
@@ -527,10 +539,25 @@ fun LisaRootUI(
                         onDeleteProfile = onDeleteProfile,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.VocabularyTraining -> VocabularyTrainingPanel(
+                    LisaPanel.VocabularyTraining -> VocabularyManagementPanel(
                         uiStrings = uiStrings,
-                        onOpenCreatePhrase = onOpenCreatePhrase,
-                        onBack = onBackToMenu
+                        customPhrases = customPhrases,
+                        managementState = phraseManagementState,
+                        onSelectPhrase = onSelectCustomPhrase,
+                        onBackToList = onPhraseManagementBackToList,
+                        onBackToMenu = onBackToMenu,
+                        onOpenEdit = onPhraseManagementOpenEdit,
+                        onOpenMove = onPhraseManagementOpenMove,
+                        onOpenDeleteConfirm = onPhraseManagementOpenDelete,
+                        onEditTextChange = onPhraseManagementEditTextChange,
+                        onSaveEdit = onPhraseManagementSaveEdit,
+                        onSelectMoveCategory = onPhraseManagementSelectMoveCategory,
+                        onConfirmMove = onPhraseManagementConfirmMove,
+                        onConfirmDelete = onPhraseManagementConfirmDelete,
+                        onCancelSubScreen = onPhraseManagementCancelSubScreen,
+                        onScrollUp = onPhraseManagementScrollUp,
+                        onScrollDown = onPhraseManagementScrollDown,
+                        onEmergency = onPhraseComposerEmergency
                     )
                     LisaPanel.CreatePhrase -> CreatePhrasePanel(
                         uiStrings = uiStrings,
@@ -1628,31 +1655,6 @@ private fun SettingsSliderRow(
                 activeTrackColor = LisaBlue,
                 inactiveTrackColor = LisaSoftGray
             )
-        )
-    }
-}
-
-@Composable
-private fun VocabularyTrainingPanel(
-    uiStrings: LisaUiStrings,
-    onOpenCreatePhrase: () -> Unit,
-    onBack: () -> Unit
-) {
-    LisaPanelShell(title = uiStrings.vocabularyTraining, onBack = onBack, backLabel = uiStrings.back) {
-        PanelPurposeLine(uiStrings.vocabularyPurpose)
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = uiStrings.vocabularyCustomComposerNote,
-            fontSize = 13.sp,
-            color = LisaBlueDark.copy(alpha = 0.85f),
-            lineHeight = 18.sp
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = uiStrings.vocabularyBuiltinNote,
-            fontSize = 11.sp,
-            color = LisaGray,
-            lineHeight = 15.sp
         )
     }
 }
