@@ -62,12 +62,13 @@ class Rc7D_15PhraseManagementScrollAndBlinkNavigationTest {
             phrases.size,
             english
         )
-        assertTrue(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown })
-        assertFalse(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp })
+        val scrollDown = commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown }
+        val scrollUp = commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp }
+        assertTrue(scrollDown.enabled)
+        assertFalse(scrollUp.enabled)
         assertEquals(
             GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT,
-            commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown }
-                .let { it.left to it.right }
+            scrollDown.left to scrollDown.right
         )
     }
 
@@ -97,11 +98,11 @@ class Rc7D_15PhraseManagementScrollAndBlinkNavigationTest {
         )
         assertTrue(PhraseManagementController.canScrollUp(down.listPageIndex))
         val commands = PhraseManagementController.listCommandEntries(down, phrases.size, english)
-        assertTrue(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp })
+        val scrollUp = commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp }
+        assertTrue(scrollUp.enabled)
         assertEquals(
             GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT,
-            commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp }
-                .let { it.left to it.right }
+            scrollUp.left to scrollUp.right
         )
     }
 
@@ -143,9 +144,11 @@ class Rc7D_15PhraseManagementScrollAndBlinkNavigationTest {
             phrases.size,
             english
         )
-        assertFalse(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp })
-        assertFalse(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown })
-        assertTrue(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.Back })
+        val scrollUp = commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp }
+        val scrollDown = commands.first { it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown }
+        assertFalse(scrollUp.enabled)
+        assertFalse(scrollDown.enabled)
+        assertTrue(commands.any { it.action == PhraseManagementController.PhraseManagementNavAction.Back && it.enabled })
     }
 
     @Test
@@ -157,7 +160,7 @@ class Rc7D_15PhraseManagementScrollAndBlinkNavigationTest {
         ).first { it.action == PhraseManagementController.PhraseManagementNavAction.Back }
         assertEquals(GuidedModeNavigation.BACK_LEFT, back.left)
         assertEquals(GuidedModeNavigation.BACK_RIGHT, back.right)
-        assertEquals("Back", back.label)
+        assertEquals("Back to Communication", back.label)
         assertEquals("L2 R2", formatWinkSequenceShort(back.left, back.right))
     }
 
@@ -235,7 +238,8 @@ class Rc7D_15PhraseManagementScrollAndBlinkNavigationTest {
         assertTrue(main.contains("handlePhraseManagementSequence"))
         assertTrue(main.contains("scrollPhraseManagementList"))
         assertTrue(main.contains("GestureRoutingTarget.PhraseManagement"))
-        assertTrue(main.contains("backFromActivePanel()"))
+        assertTrue(main.contains("exitPhraseManagement("))
+        assertTrue(main.contains("PhraseManagementExitDestination.CommunicationWorkspace"))
         assertTrue(main.contains("phraseManagementOpenedFromCategories"))
     }
 

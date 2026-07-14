@@ -1701,7 +1701,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         when (state.screen) {
             PhraseManagementScreen.List -> {
                 if (GuidedModeNavigation.isBackSequence(left, right)) {
-                    backFromActivePanel()
+                    exitPhraseManagement(
+                        PhraseManagementController.PhraseManagementExitDestination.CommunicationWorkspace
+                    )
                     resetSequence()
                     setCommunicationState(LisaCommunicationState.Listening)
                     return
@@ -2058,7 +2060,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun openPhraseManagementFromCategories() {
         phraseManagementOpenedFromCategories = true
-        // Keep Categories menu as the underlying destination so Back restores it.
+        // Keep Categories as entry context; List Back exits to Communication Workspace (RC7D.17).
         uiGuidedNavigationState.value = uiGuidedNavigationState.value.copy(
             screenMode = GuidedOverlayScreenMode.CategoryMenu,
             categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
@@ -2067,12 +2069,35 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         openPanel(LisaPanel.VocabularyTraining)
     }
 
+    /**
+     * RC7D.17 — Phrase Management List Back destination is explicit, not history-pop.
+     * Touch and blink both call this handler.
+     */
+    private fun exitPhraseManagement(
+        destination: PhraseManagementController.PhraseManagementExitDestination
+    ) {
+        when (destination) {
+            PhraseManagementController.PhraseManagementExitDestination.CommunicationWorkspace -> {
+                phraseManagementOpenedFromCategories = false
+                uiPanelReturnTarget.value = null
+                uiActivePanel.value = LisaPanel.None
+                resetPhraseManagementState()
+                // Leave Categories if it was underneath — do not reopen Categories or Phrase Details.
+                if (uiGuidedNavigationState.value.screenMode == GuidedOverlayScreenMode.CategoryMenu) {
+                    uiGuidedNavigationState.value = GuidedNavigationController.closeCategoryMenu(
+                        uiGuidedNavigationState.value
+                    )
+                }
+                setCommunicationState(LisaCommunicationState.Listening)
+            }
+        }
+    }
+
     private fun backFromActivePanel() {
-        if (uiActivePanel.value == LisaPanel.VocabularyTraining && phraseManagementOpenedFromCategories) {
-            phraseManagementOpenedFromCategories = false
-            uiActivePanel.value = LisaPanel.None
-            resetPhraseManagementState()
-            // Categories menu remains active underneath.
+        if (uiActivePanel.value == LisaPanel.VocabularyTraining) {
+            exitPhraseManagement(
+                PhraseManagementController.PhraseManagementExitDestination.CommunicationWorkspace
+            )
             return
         }
         navigateBackFromPanel()

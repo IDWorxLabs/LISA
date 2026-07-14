@@ -260,6 +260,10 @@ fun LisaRootUI(
     // workspace overlay must be visible even though onboarding has not finished yet.
     val guidedWorkspaceTrainingActive =
         guidedTrainingActive && guidedTrainingState.phase == TrainingPhase.NavigationLesson
+    // RC7D.17A — Phrase Management must occupy the main workspace slot like the composer.
+    // Hosting it under Menu/Reset (after GuidedVocabularyOverlay weight(1f)) clipped the
+    // fixed Scroll/Back/Emergency controls off the physical-device screen.
+    val phraseManagementActive = PhraseManagementController.occupiesMainContentSlot(activePanel)
     val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
         onboardingCompleted = onboardingCompleted,
         cameraPermissionGranted = cameraPermissionGranted,
@@ -267,7 +271,7 @@ fun LisaRootUI(
         practiceModeOpen = practiceModeOpen,
         quickControlsOpen = quickControlsOpen,
         guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
-    ) && !phraseComposerActive
+    ) && !phraseComposerActive && !phraseManagementActive
     val emergencyAwaitingConfirm = emergencyAwaitingConfirm(guidedTrainingState.brain1Decision)
     val composerInputSuspended = emergencyActive || emergencyAwaitingConfirm
     val activeNavigationLesson = if (guidedWorkspaceTrainingActive) {
@@ -385,7 +389,7 @@ fun LisaRootUI(
             LocalDensity provides Density(density.density, density.fontScale * textSizeScale)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
-        if (!phraseComposerActive) {
+        if (!phraseComposerActive && !phraseManagementActive) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -435,7 +439,7 @@ fun LisaRootUI(
         }
         }
 
-        if (!phraseComposerActive) {
+        if (!phraseComposerActive && !phraseManagementActive) {
         GuidedVocabularyOverlay(
             uiStrings = uiStrings,
             navigationState = guidedNavigationState,
@@ -466,6 +470,36 @@ fun LisaRootUI(
                 .weight(1f)
                 .fillMaxWidth()
         )
+        }
+
+        if (phraseManagementActive) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                VocabularyManagementPanel(
+                    uiStrings = uiStrings,
+                    customPhrases = customPhrases,
+                    managementState = phraseManagementState,
+                    onSelectPhrase = onSelectCustomPhrase,
+                    onBackToList = onPhraseManagementBackToList,
+                    onBackToMenu = onBackToMenu,
+                    onOpenEdit = onPhraseManagementOpenEdit,
+                    onOpenMove = onPhraseManagementOpenMove,
+                    onOpenDeleteConfirm = onPhraseManagementOpenDelete,
+                    onEditTextChange = onPhraseManagementEditTextChange,
+                    onSaveEdit = onPhraseManagementSaveEdit,
+                    onSelectMoveCategory = onPhraseManagementSelectMoveCategory,
+                    onConfirmMove = onPhraseManagementConfirmMove,
+                    onConfirmDelete = onPhraseManagementConfirmDelete,
+                    onCancelSubScreen = onPhraseManagementCancelSubScreen,
+                    onScrollUp = onPhraseManagementScrollUp,
+                    onScrollDown = onPhraseManagementScrollDown,
+                    onEmergency = onPhraseComposerEmergency
+                )
+            }
         }
 
         EyeControlledPhraseComposerOverlay(
@@ -521,7 +555,7 @@ fun LisaRootUI(
                 }
             }
 
-            if (activePanel != LisaPanel.None) {
+            if (activePanel != LisaPanel.None && !phraseManagementActive) {
                 Spacer(Modifier.height(10.dp))
                 when (activePanel) {
                     LisaPanel.Menu -> MenuPanel(
@@ -539,26 +573,7 @@ fun LisaRootUI(
                         onDeleteProfile = onDeleteProfile,
                         onBack = onBackToMenu
                     )
-                    LisaPanel.VocabularyTraining -> VocabularyManagementPanel(
-                        uiStrings = uiStrings,
-                        customPhrases = customPhrases,
-                        managementState = phraseManagementState,
-                        onSelectPhrase = onSelectCustomPhrase,
-                        onBackToList = onPhraseManagementBackToList,
-                        onBackToMenu = onBackToMenu,
-                        onOpenEdit = onPhraseManagementOpenEdit,
-                        onOpenMove = onPhraseManagementOpenMove,
-                        onOpenDeleteConfirm = onPhraseManagementOpenDelete,
-                        onEditTextChange = onPhraseManagementEditTextChange,
-                        onSaveEdit = onPhraseManagementSaveEdit,
-                        onSelectMoveCategory = onPhraseManagementSelectMoveCategory,
-                        onConfirmMove = onPhraseManagementConfirmMove,
-                        onConfirmDelete = onPhraseManagementConfirmDelete,
-                        onCancelSubScreen = onPhraseManagementCancelSubScreen,
-                        onScrollUp = onPhraseManagementScrollUp,
-                        onScrollDown = onPhraseManagementScrollDown,
-                        onEmergency = onPhraseComposerEmergency
-                    )
+                    LisaPanel.VocabularyTraining -> Unit
                     LisaPanel.CreatePhrase -> CreatePhrasePanel(
                         uiStrings = uiStrings,
                         onBegin = onOpenPhraseEditor,

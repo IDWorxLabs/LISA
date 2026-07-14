@@ -842,6 +842,11 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Frases wat jy skep en stoor sal hier verskyn.",
         "Amabinzana owadalayo futhi uwagcina azovela lapha."
     )
+    val phraseManagementBackToCommunication: String get() = t(
+        "Back to Communication",
+        "Terug na Kommunikasie",
+        "Emuva ekuxhumaneni"
+    )
     val phraseManagementDetailsTitle: String get() = t("Phrase Details", "Frasebesonderhede", "Imininingwane Yebinzana")
     val phraseManagementEditPhrase: String get() = t("Edit Phrase", "Wysig frase", "Hlela ibinzana")
     val phraseManagementMoveCategory: String get() = t("Move Category", "Skuif kategorie", "Hambisa isigaba")

@@ -3,11 +3,14 @@ package com.idworx.lisa
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,6 +81,7 @@ fun VocabularyManagementPanel(
     onScrollDown: () -> Unit = {},
     onEmergency: () -> Unit = {}
 ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     when (managementState.screen) {
         PhraseManagementScreen.List -> VocabularyPhraseListPanel(
             uiStrings = uiStrings,
@@ -145,6 +150,7 @@ fun VocabularyManagementPanel(
             )
         }
     }
+    }
 }
 
 @Composable
@@ -162,19 +168,20 @@ private fun VocabularyPhraseListPanel(
         managementState.listPageIndex,
         customPhrases.size
     )
-    val visible = PhraseManagementController.visiblePhrases(customPhrases, pageIndex)
     val commands = PhraseManagementController.listCommandEntries(
         state = managementState.copy(listPageIndex = pageIndex),
         phraseCount = customPhrases.size,
         uiStrings = uiStrings
     )
 
+    // RC7D.17A — fill the main workspace slot; only the phrase area uses weight so
+    // Scroll / Back / Emergency stay fixed and visible on small physical screens.
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .clip(RoundedCornerShape(16.dp))
             .background(LisaBlueLight)
-            .padding(16.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(
             text = uiStrings.vocabularyTraining,
@@ -182,9 +189,9 @@ private fun VocabularyPhraseListPanel(
             fontSize = 17.sp,
             color = LisaBlueDark
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         PanelPurposeLine(uiStrings.vocabularyPurpose)
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = uiStrings.vocabularyCustomPhrasesSection,
             fontWeight = FontWeight.SemiBold,
@@ -193,57 +200,64 @@ private fun VocabularyPhraseListPanel(
             letterSpacing = 0.5.sp
         )
         if (customPhrases.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = PhraseManagementController.pageIndicatorLabel(pageIndex, customPhrases.size),
                 fontSize = 12.sp,
                 color = LisaGray
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
         ) {
-            if (customPhrases.isEmpty()) {
-                Text(
-                    text = uiStrings.vocabularyEmptyState,
-                    fontSize = 14.sp,
-                    color = LisaBlueDark.copy(alpha = 0.85f),
-                    lineHeight = 20.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = uiStrings.vocabularyEmptyHint,
-                    fontSize = 13.sp,
-                    color = LisaGray,
-                    lineHeight = 18.sp
-                )
-            } else {
-                val slots = PhraseManagementController.visiblePhraseSelectionSlots(
-                    customPhrases,
-                    pageIndex
-                )
-                slots.forEach { (mapping, sequence) ->
-                    CustomPhraseListCard(
-                        uiStrings = uiStrings,
-                        mapping = mapping,
-                        sequenceLabel = formatWinkSequenceShort(sequence.first, sequence.second),
-                        onClick = { onSelectPhrase(CustomPhraseIdentity.from(mapping)) }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (customPhrases.isEmpty()) {
+                    Text(
+                        text = uiStrings.vocabularyEmptyState,
+                        fontSize = 14.sp,
+                        color = LisaBlueDark.copy(alpha = 0.85f),
+                        lineHeight = 20.sp
                     )
+                    Text(
+                        text = uiStrings.vocabularyEmptyHint,
+                        fontSize = 13.sp,
+                        color = LisaGray,
+                        lineHeight = 18.sp
+                    )
+                } else {
+                    val slots = PhraseManagementController.visiblePhraseSelectionSlots(
+                        customPhrases,
+                        pageIndex
+                    )
+                    slots.forEach { (mapping, sequence) ->
+                        CustomPhraseListCard(
+                            uiStrings = uiStrings,
+                            mapping = mapping,
+                            sequenceLabel = formatWinkSequenceShort(sequence.first, sequence.second),
+                            onClick = { onSelectPhrase(CustomPhraseIdentity.from(mapping)) }
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         PhraseManagementCommandStrip(
             commands = commands,
             onScrollUp = onScrollUp,
             onScrollDown = onScrollDown,
             onBack = onBack
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         ComposerEmergencyCommandCard(
             uiStrings = uiStrings,
             onClick = onEmergency
@@ -258,21 +272,44 @@ private fun PhraseManagementCommandStrip(
     onScrollDown: () -> Unit,
     onBack: () -> Unit
 ) {
-    Row(
+    val scrollUp = commands.firstOrNull {
+        it.action == PhraseManagementController.PhraseManagementNavAction.ScrollUp
+    }
+    val scrollDown = commands.firstOrNull {
+        it.action == PhraseManagementController.PhraseManagementNavAction.ScrollDown
+    }
+    val back = commands.firstOrNull {
+        it.action == PhraseManagementController.PhraseManagementNavAction.Back
+    }
+    // Two-row grid keeps sequences readable on narrow phones (RC7D.17A).
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        commands.forEach { command ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (scrollUp != null) {
+                PhraseManagementNavCard(
+                    command = scrollUp,
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (scrollUp.enabled) onScrollUp() }
+                )
+            }
+            if (scrollDown != null) {
+                PhraseManagementNavCard(
+                    command = scrollDown,
+                    modifier = Modifier.weight(1f),
+                    onClick = { if (scrollDown.enabled) onScrollDown() }
+                )
+            }
+        }
+        if (back != null) {
             PhraseManagementNavCard(
-                command = command,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    when (command.action) {
-                        PhraseManagementController.PhraseManagementNavAction.ScrollUp -> onScrollUp()
-                        PhraseManagementController.PhraseManagementNavAction.ScrollDown -> onScrollDown()
-                        PhraseManagementController.PhraseManagementNavAction.Back -> onBack()
-                    }
-                }
+                command = back,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { if (back.enabled) onBack() }
             )
         }
     }
@@ -285,31 +322,34 @@ private fun PhraseManagementNavCard(
     modifier: Modifier = Modifier
 ) {
     val sequenceLabel = formatWinkSequenceShort(command.left, command.right)
+    val contentColor = if (command.enabled) LisaBlueDark else LisaGray
+    val interactionSource = remember { MutableInteractionSource() }
     Column(
         modifier = modifier
-            .defaultMinSize(minHeight = 72.dp)
+            .defaultMinSize(minHeight = 64.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, LisaBlue.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                enabled = command.enabled,
+                role = Role.Button,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
             .semantics { contentDescription = "${command.label} $sequenceLabel" }
-            .background(LisaWhite)
-            .padding(horizontal = 6.dp, vertical = 8.dp),
+            .background(
+                if (command.enabled) LisaWhite else LisaSoftGray.copy(alpha = 0.65f)
+            )
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = command.symbol,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = LisaBlueDark
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
             text = command.label,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 11.sp,
-            color = LisaBlueDark,
-            lineHeight = 13.sp,
+            fontSize = 13.sp,
+            color = contentColor,
+            lineHeight = 15.sp,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
@@ -318,8 +358,8 @@ private fun PhraseManagementNavCard(
         Text(
             text = sequenceLabel,
             fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            color = LisaBlueDark,
+            fontSize = 14.sp,
+            color = contentColor,
             textAlign = TextAlign.Center,
             maxLines = 1
         )

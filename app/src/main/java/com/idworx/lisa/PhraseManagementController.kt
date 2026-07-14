@@ -1,12 +1,37 @@
 package com.idworx.lisa
 
 /**
- * RC7D.15 — page-based, blink-controlled Phrase Management list.
+ * RC7D.15 / RC7D.17A — page-based, blink-controlled Phrase Management list.
  * Uses canonical PREVIOUS (L2 R0) / NEXT (L0 R2) scroll sequences.
  */
 object PhraseManagementController {
 
-    const val PAGE_SIZE: Int = 4
+    /**
+     * Compact page size so heading + indicator + phrase cards + fixed nav + Emergency
+     * fit on small physical phones without clipping fixed controls.
+     */
+    const val PAGE_SIZE: Int = 3
+
+    /** Whether Phrase Management occupies the main workspace slot (like the composer). */
+    fun occupiesMainContentSlot(activePanel: LisaPanel): Boolean =
+        activePanel == LisaPanel.VocabularyTraining
+
+    /**
+     * Compact-device budget: reserve fixed chrome (header + command strip + Emergency)
+     * and confirm remaining height can hold [PAGE_SIZE] phrase cards.
+     */
+    fun compactLayoutFits(
+        screenHeightDp: Int,
+        headerDp: Int = 88,
+        commandStripDp: Int = 168,
+        emergencyDp: Int = 76,
+        phraseCardDp: Int = 108,
+        bottomChromeDp: Int = 72
+    ): Boolean {
+        val fixed = headerDp + commandStripDp + emergencyDp + bottomChromeDp
+        val remaining = screenHeightDp - fixed
+        return remaining >= phraseCardDp // at least one readable card; paging covers the rest
+    }
 
     fun pageCount(phraseCount: Int): Int =
         GuidedNavigationController.phrasePageCount(phraseCount, PAGE_SIZE)
@@ -52,7 +77,8 @@ object PhraseManagementController {
         val right: Int,
         val label: String,
         val symbol: String,
-        val action: PhraseManagementNavAction
+        val action: PhraseManagementNavAction,
+        val enabled: Boolean = true
     )
 
     enum class PhraseManagementNavAction {
@@ -61,43 +87,45 @@ object PhraseManagementController {
         Back
     }
 
+    /** Explicit exit destinations for Phrase Management Back — not history-pop. */
+    enum class PhraseManagementExitDestination {
+        CommunicationWorkspace
+    }
+
+    /**
+     * RC7D.17 — always show Scroll Up / Scroll Down / Back to Communication.
+     * Scroll controls stay visible when inactive; [VisibleCommand.enabled] reflects availability.
+     */
     fun listCommandEntries(
         state: PhraseManagementUiState,
         phraseCount: Int,
         uiStrings: LisaUiStrings
-    ): List<VisibleCommand> = buildList {
-        if (canScrollUp(state.listPageIndex)) {
-            add(
-                VisibleCommand(
-                    left = GuidedModeNavigation.PREVIOUS_LEFT,
-                    right = GuidedModeNavigation.PREVIOUS_RIGHT,
-                    label = uiStrings.guidedScrollUp,
-                    symbol = "↑",
-                    action = PhraseManagementNavAction.ScrollUp
-                )
-            )
-        }
-        if (canScrollDown(state.listPageIndex, phraseCount)) {
-            add(
-                VisibleCommand(
-                    left = GuidedModeNavigation.NEXT_LEFT,
-                    right = GuidedModeNavigation.NEXT_RIGHT,
-                    label = uiStrings.guidedScrollDown,
-                    symbol = "↓",
-                    action = PhraseManagementNavAction.ScrollDown
-                )
-            )
-        }
-        add(
-            VisibleCommand(
-                left = GuidedModeNavigation.BACK_LEFT,
-                right = GuidedModeNavigation.BACK_RIGHT,
-                label = uiStrings.back,
-                symbol = "↩",
-                action = PhraseManagementNavAction.Back
-            )
+    ): List<VisibleCommand> = listOf(
+        VisibleCommand(
+            left = GuidedModeNavigation.PREVIOUS_LEFT,
+            right = GuidedModeNavigation.PREVIOUS_RIGHT,
+            label = uiStrings.guidedScrollUp,
+            symbol = "↑",
+            action = PhraseManagementNavAction.ScrollUp,
+            enabled = canScrollUp(state.listPageIndex)
+        ),
+        VisibleCommand(
+            left = GuidedModeNavigation.NEXT_LEFT,
+            right = GuidedModeNavigation.NEXT_RIGHT,
+            label = uiStrings.guidedScrollDown,
+            symbol = "↓",
+            action = PhraseManagementNavAction.ScrollDown,
+            enabled = canScrollDown(state.listPageIndex, phraseCount)
+        ),
+        VisibleCommand(
+            left = GuidedModeNavigation.BACK_LEFT,
+            right = GuidedModeNavigation.BACK_RIGHT,
+            label = uiStrings.phraseManagementBackToCommunication,
+            symbol = "↩",
+            action = PhraseManagementNavAction.Back,
+            enabled = true
         )
-    }
+    )
 
     fun visiblePhraseSelectionSlots(
         phrases: List<WinkMapping>,
