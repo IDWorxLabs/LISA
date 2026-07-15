@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -272,7 +273,12 @@ fun ComposerEmergencyCommandCard(
 ) {
     val sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
     val title = uiStrings.guidedEmergencyNavTitle
-    Column(
+    // RC7D.24 — single horizontal row: label on the left, the emergency icon in the centre and the
+    // wink sequence on the right. The two text areas each take weight(1f) so they balance, which
+    // keeps the fixed-size centre icon visually centred in the full-width button even when the
+    // left/right label widths differ. Height, red styling, border, click target, sequence source
+    // and accessibility semantics are all unchanged.
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 72.dp)
@@ -282,33 +288,36 @@ fun ComposerEmergencyCommandCard(
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
             .border(1.5.dp, LisaEmergencyRed.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = LisaEmergencyRed,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(12.dp))
         Text(
             text = "🚨",
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             color = LisaEmergencyRed
         )
-        Spacer(modifier.height(2.dp))
-        Text(
-            text = title,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            color = LisaEmergencyRed,
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        Spacer(modifier.height(2.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             text = sequenceLabel,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             color = LisaEmergencyRed,
             lineHeight = 16.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 1
+            textAlign = TextAlign.Start,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
     }
 }

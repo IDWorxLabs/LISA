@@ -474,6 +474,13 @@ private fun GuidedOverlayHeader(
     // only duplicate it, so this small section label is all that shows in that state.
     val isPlainVocabularyBrowsing = screenMode == GuidedOverlayScreenMode.Vocabulary &&
         preferencesAdjustMode == GuidedPreferencesAdjustMode.None
+    // RC7D.23 — the Category Menu renders its own "Choose a Category" heading directly above the
+    // category cards, so the header must NOT also print the near-identical "Choose Category" mode
+    // label (that was the duplicated heading). The small Communication context label and the
+    // Category X / Y + Page X / Y indicator card are preserved; suppressing only the redundant mode
+    // label lets the cards move up into the reclaimed space with no leftover gap.
+    val showModeLabel = !isPlainVocabularyBrowsing &&
+        screenMode != GuidedOverlayScreenMode.CategoryMenu
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -486,7 +493,7 @@ private fun GuidedOverlayHeader(
                 fontWeight = FontWeight.Medium,
                 color = LisaWhite.copy(alpha = 0.65f)
             )
-            if (!isPlainVocabularyBrowsing) {
+            if (showModeLabel) {
                 Text(
                     text = modeLabel,
                     fontWeight = FontWeight.Bold,

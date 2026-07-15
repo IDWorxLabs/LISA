@@ -222,7 +222,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         GuidedVocabularyCategory.BasicNeeds -> t("Basic Needs", "Basiese Behoeftes", "Izidingo Eziyisisekelo")
         GuidedVocabularyCategory.Medical -> t("Medical", "Medies", "Ezesimpilo")
         GuidedVocabularyCategory.Family -> t("Family", "Familie", "Umndeni")
-        GuidedVocabularyCategory.Custom -> t("Custom", "Pasgemaak", "Ngokwezifiso")
+        // RC7D.23 — caregiver-facing display label only; the internal enum identity (Custom),
+        // storage keys and navigation IDs are deliberately unchanged.
+        GuidedVocabularyCategory.Custom -> t("Customize Phrases", "Pas Frases Aan", "Lungisa Amabinzana")
         GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
         GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
         GuidedVocabularyCategory.PhraseManagement -> t("Phrase Management", "Frasebestuur", "Ukuphathwa Kwebinzana")
@@ -901,7 +903,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         CustomPhraseEngine.CaregiverPhraseCategory.BasicNeeds -> t("Basic Needs", "Basiese Behoeftes", "Izidingo Eziyisisekelo")
         CustomPhraseEngine.CaregiverPhraseCategory.Medical -> t("Medical", "Medies", "Ezesimpilo")
         CustomPhraseEngine.CaregiverPhraseCategory.Family -> t("Family", "Familie", "Umndeni")
-        CustomPhraseEngine.CaregiverPhraseCategory.Custom -> t("Custom", "Pasgemaak", "Ngokwezifiso")
+        // RC7D.23 — same caregiver-facing label as guidedCategoryTitle(Custom); internal identity
+        // (enum name, storage key) is unchanged.
+        CustomPhraseEngine.CaregiverPhraseCategory.Custom -> t("Customize Phrases", "Pas Frases Aan", "Lungisa Amabinzana")
     }
     val communicationTimingPurpose: String get() = t(
         "How long LISA waits after your last wink.",

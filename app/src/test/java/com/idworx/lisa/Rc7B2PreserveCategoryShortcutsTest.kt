@@ -278,7 +278,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
                 "Family",
                 "Basic System Controls",
                 "Preferences",
-                "Custom",
+                "Customize Phrases",
                 "Phrase Management"
             ),
             titles

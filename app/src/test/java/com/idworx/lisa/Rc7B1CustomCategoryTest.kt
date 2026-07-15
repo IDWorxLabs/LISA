@@ -54,15 +54,15 @@ class Rc7B1CustomCategoryTest {
     @Test
     fun customTitleIsLocalizedInAllLanguages() {
         assertEquals(
-            "Custom",
+            "Customize Phrases",
             LisaUiStrings.forLanguage(PreferredLanguage.English).guidedCategoryTitle(GuidedVocabularyCategory.Custom)
         )
         assertEquals(
-            "Pasgemaak",
+            "Pas Frases Aan",
             LisaUiStrings.forLanguage(PreferredLanguage.Afrikaans).guidedCategoryTitle(GuidedVocabularyCategory.Custom)
         )
         assertEquals(
-            "Ngokwezifiso",
+            "Lungisa Amabinzana",
             LisaUiStrings.forLanguage(PreferredLanguage.IsiZulu).guidedCategoryTitle(GuidedVocabularyCategory.Custom)
         )
     }
