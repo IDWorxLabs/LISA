@@ -193,17 +193,37 @@ object ModeScopedGestureAuthority {
             )
         }
 
-    /** Bindings owned by Category Menu mode (direct category shortcuts). */
+    /**
+     * Bindings owned by Category Menu mode: whole-page jump commands (RC7D.20) plus direct
+     * category shortcuts. Page jumps sit in the Command tier so they never collide with the
+     * Content-tier category shortcuts within this one mode.
+     */
     fun communicationCategoryMenuBindings(): List<ModeGestureBinding> =
-        GuidedCategoryShortcuts.allGestures().mapIndexed { index, (left, right) ->
+        listOf(
             ModeGestureBinding(
                 mode = LisaInteractionMode.CommunicationCategoryMenu,
-                left = left,
-                right = right,
-                label = "category_shortcut_$index",
-                tier = ModeGestureTier.Content
+                left = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                right = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+                label = "previous_category_page",
+                tier = ModeGestureTier.Command
+            ),
+            ModeGestureBinding(
+                mode = LisaInteractionMode.CommunicationCategoryMenu,
+                left = GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                right = GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
+                label = "next_category_page",
+                tier = ModeGestureTier.Command
             )
-        }
+        ) +
+            GuidedCategoryShortcuts.allGestures().mapIndexed { index, (left, right) ->
+                ModeGestureBinding(
+                    mode = LisaInteractionMode.CommunicationCategoryMenu,
+                    left = left,
+                    right = right,
+                    label = "category_shortcut_$index",
+                    tier = ModeGestureTier.Content
+                )
+            }
 
     /** Keyboard composer command-panel bindings (command tier only — cursor selects keys). */
     fun phraseComposerKeyboardCommandBindings(): List<ModeGestureBinding> =

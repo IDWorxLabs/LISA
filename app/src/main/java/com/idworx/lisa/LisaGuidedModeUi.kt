@@ -22,12 +22,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
@@ -90,10 +97,13 @@ fun GuidedVocabularyOverlay(
     onNavigateDown: () -> Unit,
     onEmergency: () -> Unit,
     onCategories: () -> Unit,
+    onPreviousCategoryPage: () -> Unit = {},
+    onNextCategoryPage: () -> Unit = {},
     onDecreaseValue: () -> Unit,
     onIncreaseValue: () -> Unit,
     onPhraseEntry: (GuidedVocabularyEntry) -> Unit,
     onCategoryRow: (Int) -> Unit,
+    onCategoryViewportPageState: (pageCount: Int, currentPage: Int) -> Unit = { _, _ -> },
     workspaceMode: com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode =
         com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode.NORMAL,
     trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
@@ -111,6 +121,8 @@ fun GuidedVocabularyOverlay(
     val categoryIndex = safeState.categoryIndex
     val phrasePageIndex = safeState.phrasePageIndex
     val categoryMenuSelection = safeState.categoryMenuSelection
+    val categoryViewportPage = safeState.categoryViewportPage
+    val categoryViewportPageCount = safeState.categoryViewportPageCount
     val preferencesAdjustMode = safeState.preferencesAdjustMode
     val isPreferencesPage = categoryIndex == GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
     val isAdjusting = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
@@ -144,7 +156,9 @@ fun GuidedVocabularyOverlay(
                     uiStrings = uiStrings,
                     screenMode = screenMode,
                     categoryTitle = categoryPage?.title,
-                    categoryIndex = categoryIndex,
+                    categoryMenuSelection = categoryMenuSelection,
+                    categoryViewportPage = categoryViewportPage,
+                    categoryViewportPageCount = categoryViewportPageCount,
                     phrasePageIndex = phrasePageIndex,
                     phrasePageCount = phrasePageCount,
                     preferencesAdjustMode = preferencesAdjustMode
@@ -269,24 +283,130 @@ fun GuidedVocabularyOverlay(
                             color = LisaWhite
                         )
                         Spacer(Modifier.height(6.dp))
+                        // RC7D.22 — ONE canonical, cause-aware scroll coordinator drives the whole
+                        // Category Menu. The navigation cause carried in the state decides how it
+                        // moves:
+                        //   • PAGE_MOVEMENT (Previous/Next Page) scrolls straight to the measured
+                        //     viewport-PAGE anchor and deliberately skips selection centring, so a
+                        //     page jump is one direct move — never a walk through categories and
+                        //     never overridden by RC7D.21 centring.
+                        //   • every other cause (Move Up/Down, direct shortcut, menu restore, touch)
+                        //     centres the selected row via the RC7D.21 authority.
+                        // A second effect measures the real viewport + content and syncs the
+                        // canonical viewport-page count / current page back into navigation state so
+                        // the header, the button-enabled state and the controller's page-nav gating
+                        // all read one source of truth.
+                        val categoryMenuScrollState = rememberScrollState()
+                        var categoryViewportHeightPx by remember { mutableIntStateOf(0) }
+                        var selectedCategoryTopPx by remember { mutableIntStateOf(0) }
+                        var selectedCategoryHeightPx by remember { mutableIntStateOf(0) }
+                        val categoryMaxScrollPx = categoryMenuScrollState.maxValue
+                        val categoryNavigationCause = safeState.categoryNavigationCause
+                        LaunchedEffect(
+                            categoryMenuSelection,
+                            categoryViewportPage,
+                            categoryNavigationCause,
+                            selectedCategoryTopPx,
+                            selectedCategoryHeightPx,
+                            categoryViewportHeightPx,
+                            categoryMaxScrollPx
+                        ) {
+                            // Only scroll once real measurements exist; otherwise leave the resting
+                            // offset untouched (guards against stale / unavailable coordinates).
+                            if (categoryViewportHeightPx > 0 && categoryMaxScrollPx > 0) {
+                                val target: Int? = if (
+                                    categoryNavigationCause == CategoryNavigationCause.PAGE_MOVEMENT
+                                ) {
+                                    // PAGE NAVIGATION: authoritative page anchor, selection ignored.
+                                    CategoryViewportPaging.pageAnchorOffsetPx(
+                                        pageIndex = categoryViewportPage,
+                                        viewportHeightPx = categoryViewportHeightPx,
+                                        maxScrollPx = categoryMaxScrollPx
+                                    )
+                                } else if (selectedCategoryHeightPx > 0) {
+                                    // ITEM / SHORTCUT / RESTORE: centre the selected row (RC7D.21).
+                                    GuidedCategoryMenuScroll.centeredScrollOffsetPx(
+                                        selectedItemTopPx = selectedCategoryTopPx,
+                                        selectedItemHeightPx = selectedCategoryHeightPx,
+                                        viewportHeightPx = categoryViewportHeightPx,
+                                        maxScrollPx = categoryMaxScrollPx
+                                    )
+                                } else {
+                                    null
+                                }
+                                if (target != null &&
+                                    GuidedCategoryMenuScroll.shouldAnimateTo(
+                                        current = categoryMenuScrollState.value,
+                                        target = target
+                                    )
+                                ) {
+                                    categoryMenuScrollState.animateScrollTo(target)
+                                }
+                            }
+                        }
+                        // Canonical viewport-page sync. Fires only once the list has settled so it
+                        // never pushes an intermediate page mid-animation. A PAGE_MOVEMENT keeps the
+                        // controller-set target page (already authoritative); every other cause maps
+                        // the settled scroll offset to its viewport page so item movement crossing a
+                        // boundary, restore and manual scrolling all keep the indicators accurate.
+                        LaunchedEffect(
+                            categoryViewportHeightPx,
+                            categoryMaxScrollPx,
+                            categoryViewportPage,
+                            categoryNavigationCause
+                        ) {
+                            snapshotFlow {
+                                categoryMenuScrollState.isScrollInProgress to categoryMenuScrollState.value
+                            }.collect { (inProgress, scroll) ->
+                                if (!inProgress && categoryViewportHeightPx > 0) {
+                                    val pageCount = CategoryViewportPaging.pageCount(
+                                        viewportHeightPx = categoryViewportHeightPx,
+                                        maxScrollPx = categoryMaxScrollPx
+                                    )
+                                    val currentPage =
+                                        if (categoryNavigationCause == CategoryNavigationCause.PAGE_MOVEMENT) {
+                                            categoryViewportPage
+                                        } else {
+                                            CategoryViewportPaging.currentPageForScroll(
+                                                scrollPx = scroll,
+                                                viewportHeightPx = categoryViewportHeightPx,
+                                                maxScrollPx = categoryMaxScrollPx
+                                            )
+                                        }
+                                    onCategoryViewportPageState(pageCount, currentPage)
+                                }
+                            }
+                        }
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
-                                .verticalScroll(rememberScrollState()),
+                                .onGloballyPositioned { categoryViewportHeightPx = it.size.height }
+                                .verticalScroll(categoryMenuScrollState),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             categoryMenuTitles.forEachIndexed { index, title ->
                                 val rowTrainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
                                     index == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+                                val isSelectedRow = index == categoryMenuSelection
                                 GuidedCategoryMenuRow(
                                     title = title,
                                     index = index,
                                     sequenceLabel = GuidedCategoryShortcuts.sequenceLabelForCategory(index),
-                                    selected = index == categoryMenuSelection,
+                                    selected = isSelectedRow,
                                     trainingHighlighted = rowTrainingHighlighted,
                                     trainingDimmed = trainingDimActive && !rowTrainingHighlighted,
-                                    onClick = { onCategoryRow(index) }
+                                    onClick = { onCategoryRow(index) },
+                                    modifier = if (isSelectedRow) {
+                                        Modifier.onGloballyPositioned { coords ->
+                                            // Content-space top (unaffected by the scroll layer) so
+                                            // the centring target stays stable while scrolling.
+                                            selectedCategoryTopPx = coords.positionInParent().y.roundToInt()
+                                            selectedCategoryHeightPx = coords.size.height
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
                                 )
                             }
                         }
@@ -313,11 +433,17 @@ fun GuidedVocabularyOverlay(
                     screenMode == GuidedOverlayScreenMode.Vocabulary -> phrasePageIndex < phrasePageCount - 1
                     else -> categoryMenuSelection < GuidedVocabularyCategory.PAGE_COUNT - 1
                 },
+                canGoPreviousCategoryPage = screenMode == GuidedOverlayScreenMode.CategoryMenu &&
+                    CategoryViewportPaging.canGoToPreviousPage(categoryViewportPage),
+                canGoNextCategoryPage = screenMode == GuidedOverlayScreenMode.CategoryMenu &&
+                    CategoryViewportPaging.canGoToNextPage(categoryViewportPage, categoryViewportPageCount),
                 onNavigateUp = onNavigateUp,
                 onSelectEnter = onSelectEnter,
                 onBack = onBack,
                 onCategories = onCategories,
                 onNavigateDown = onNavigateDown,
+                onPreviousCategoryPage = onPreviousCategoryPage,
+                onNextCategoryPage = onNextCategoryPage,
                 onEmergency = onEmergency,
                 highlightTarget = trainingHighlight
             )
@@ -330,7 +456,9 @@ private fun GuidedOverlayHeader(
     uiStrings: LisaUiStrings,
     screenMode: GuidedOverlayScreenMode,
     categoryTitle: String?,
-    categoryIndex: Int,
+    categoryMenuSelection: Int,
+    categoryViewportPage: Int,
+    categoryViewportPageCount: Int,
     phrasePageIndex: Int,
     phrasePageCount: Int,
     preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None
@@ -374,21 +502,47 @@ private fun GuidedOverlayHeader(
                 }
             }
         }
-        Text(
-            text = when (screenMode) {
-                GuidedOverlayScreenMode.Vocabulary ->
-                    uiStrings.guidedPhrasePageIndicator(phrasePageIndex + 1, phrasePageCount)
-                GuidedOverlayScreenMode.CategoryMenu ->
-                    uiStrings.guidedCategoryIndicator(categoryIndex + 1, GuidedVocabularyCategory.PAGE_COUNT)
-            },
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LisaWhite.copy(alpha = 0.9f),
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White.copy(alpha = 0.14f))
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-        )
+        when (screenMode) {
+            GuidedOverlayScreenMode.Vocabulary -> Text(
+                text = uiStrings.guidedPhrasePageIndicator(phrasePageIndex + 1, phrasePageCount),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LisaWhite.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.14f))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+            // RC7D.22 — two INDEPENDENT indicators. "Category X / 8" tracks the highlighted
+            // selection (canonical ordered destination count). "Page X / Y" reports the current
+            // VIEWPORT page — a measured scroll window, not selectionIndex / pageSize — so a
+            // partly-visible Category 7 can read Page 1 at the top and Page 2 after a page-down.
+            GuidedOverlayScreenMode.CategoryMenu -> {
+                val categoryTotal = GuidedVocabularyCategory.PAGE_COUNT
+                val pageTotal = categoryViewportPageCount.coerceAtLeast(1)
+                val currentPage = (categoryViewportPage + 1).coerceIn(1, pageTotal)
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = uiStrings.guidedCategoryIndicator(categoryMenuSelection + 1, categoryTotal),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaWhite.copy(alpha = 0.9f)
+                    )
+                    Text(
+                        text = uiStrings.guidedPageIndicator(currentPage, pageTotal),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaWhite.copy(alpha = 0.75f)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -400,10 +554,11 @@ private fun GuidedCategoryMenuRow(
     selected: Boolean,
     trainingHighlighted: Boolean = false,
     trainingDimmed: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
@@ -511,36 +666,49 @@ private fun GuidedModeNavigationPanel(
     panelContext: GuidedNavigationPanelSpec.PanelContext,
     canGoPrevious: Boolean,
     canGoNext: Boolean,
+    canGoPreviousCategoryPage: Boolean,
+    canGoNextCategoryPage: Boolean,
     onNavigateUp: () -> Unit,
     onSelectEnter: () -> Unit,
     onBack: () -> Unit,
     onCategories: () -> Unit,
     onNavigateDown: () -> Unit,
+    onPreviousCategoryPage: () -> Unit,
+    onNextCategoryPage: () -> Unit,
     onEmergency: () -> Unit,
     highlightTarget: GuidedWorkspaceHighlightTarget? = null
 ) {
     val actions = GuidedNavigationPanelSpec.panelActions(uiStrings, panelContext)
-    val handlers = listOf(
-        onNavigateUp,
-        onSelectEnter,
-        onBack,
-        onCategories,
-        onEmergency,
-        onNavigateDown
-    )
-    val enabledFlags = listOf(canGoPrevious, true, true, true, true, canGoNext)
-    // Index order mirrors GuidedNavigationPanelSpec.panelActions: Previous, Select, Back, Categories, Emergency, Next.
-    val highlightFlags = listOf(
-        highlightTarget == GuidedWorkspaceHighlightTarget.PreviousPage,
-        false,
-        highlightTarget == GuidedWorkspaceHighlightTarget.Back,
-        highlightTarget == GuidedWorkspaceHighlightTarget.OpenCategories,
-        highlightTarget == GuidedWorkspaceHighlightTarget.Emergency,
-        highlightTarget == GuidedWorkspaceHighlightTarget.NextPage
-    )
+    // Handler / enabled / highlight are keyed by the action's stable kind, so extra Category Menu
+    // page-jump buttons wire correctly without depending on list position (RC7D.20). Touch here
+    // calls the exact same canonical handlers a blink sequence drives through the controller.
+    fun handlerFor(kind: GuidedPanelActionKind): () -> Unit = when (kind) {
+        GuidedPanelActionKind.ScrollUp -> onNavigateUp
+        GuidedPanelActionKind.ScrollDown -> onNavigateDown
+        GuidedPanelActionKind.PreviousCategoryPage -> onPreviousCategoryPage
+        GuidedPanelActionKind.NextCategoryPage -> onNextCategoryPage
+        GuidedPanelActionKind.Select -> onSelectEnter
+        GuidedPanelActionKind.Back -> onBack
+        GuidedPanelActionKind.Categories -> onCategories
+        GuidedPanelActionKind.Emergency -> onEmergency
+    }
+    fun enabledFor(kind: GuidedPanelActionKind): Boolean = when (kind) {
+        GuidedPanelActionKind.ScrollUp -> canGoPrevious
+        GuidedPanelActionKind.ScrollDown -> canGoNext
+        GuidedPanelActionKind.PreviousCategoryPage -> canGoPreviousCategoryPage
+        GuidedPanelActionKind.NextCategoryPage -> canGoNextCategoryPage
+        else -> true
+    }
+    fun highlightFor(kind: GuidedPanelActionKind): Boolean = when (kind) {
+        GuidedPanelActionKind.ScrollUp -> highlightTarget == GuidedWorkspaceHighlightTarget.PreviousPage
+        GuidedPanelActionKind.ScrollDown -> highlightTarget == GuidedWorkspaceHighlightTarget.NextPage
+        GuidedPanelActionKind.Back -> highlightTarget == GuidedWorkspaceHighlightTarget.Back
+        GuidedPanelActionKind.Categories -> highlightTarget == GuidedWorkspaceHighlightTarget.OpenCategories
+        GuidedPanelActionKind.Emergency -> highlightTarget == GuidedWorkspaceHighlightTarget.Emergency
+        else -> false
+    }
     // De-emphasise every other panel button while a lesson has a specific target to practice.
     val dimActive = highlightTarget != null
-    val dimFlags = highlightFlags.map { isTarget -> dimActive && !isTarget }
 
     Column(
         modifier = Modifier
@@ -549,19 +717,21 @@ private fun GuidedModeNavigationPanel(
             .clip(RoundedCornerShape(12.dp))
             .background(NavBackground)
             .padding(6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        actions.forEachIndexed { index, action ->
-            if (action.sequenceLabel == formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)) {
+        actions.forEach { action ->
+            val highlighted = highlightFor(action.kind)
+            val dimmed = dimActive && !highlighted
+            if (action.kind == GuidedPanelActionKind.Emergency) {
                 GuidedEmergencyNavButton(
                     symbol = action.symbol,
                     title = action.title,
                     gestureHint = action.gestureHint,
                     sequenceLabel = action.sequenceLabel,
                     compact = true,
-                    trainingHighlighted = highlightFlags[index],
-                    trainingDimmed = dimFlags[index],
-                    onClick = handlers[index]
+                    trainingHighlighted = highlighted,
+                    trainingDimmed = dimmed,
+                    onClick = handlerFor(action.kind)
                 )
             } else {
                 GuidedNavigationActionButton(
@@ -569,11 +739,11 @@ private fun GuidedModeNavigationPanel(
                     title = action.title,
                     gestureHint = action.gestureHint,
                     sequenceLabel = action.sequenceLabel,
-                    enabled = enabledFlags[index],
+                    enabled = enabledFor(action.kind),
                     compact = true,
-                    trainingHighlighted = highlightFlags[index],
-                    trainingDimmed = dimFlags[index],
-                    onClick = handlers[index]
+                    trainingHighlighted = highlighted,
+                    trainingDimmed = dimmed,
+                    onClick = handlerFor(action.kind)
                 )
             }
         }

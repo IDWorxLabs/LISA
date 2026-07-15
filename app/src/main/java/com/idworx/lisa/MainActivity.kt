@@ -477,10 +477,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onGuidedNavigateDown = { applyGuidedTouchNavigation(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT) },
                         onGuidedEmergency = { triggerGuidedEmergencyTouch() },
                         onGuidedCategories = { applyGuidedTouchNavigation(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT) },
+                        onGuidedPreviousCategoryPage = {
+                            applyGuidedTouchNavigation(
+                                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+                            )
+                        },
+                        onGuidedNextCategoryPage = {
+                            applyGuidedTouchNavigation(
+                                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+                            )
+                        },
                         onGuidedDecreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT) },
                         onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
                         onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
                         onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
+                        onGuidedCategoryViewportPageState = { pageCount, currentPage ->
+                            updateGuidedCategoryViewportPageState(pageCount, currentPage)
+                        },
                         phraseComposerState = uiPhraseComposerState.value,
                         phraseComposerActive = uiActivePanel.value == LisaPanel.PhraseEditor,
                         composerEyeFeedback = ComposerEyeFeedback(
@@ -2011,6 +2026,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             verifyTrainingNavigation(NavigationAction.OpenCategories)
         }
         handleGuidedOverlaySequence(left, right)
+    }
+
+    /**
+     * RC7D.22 — the Compose layer measures the real category-list viewport + content and reports the
+     * canonical viewport-page count and current page. Fold it into navigation state (guarded, and
+     * only while the Category Menu is showing) so the header, button-enabled state and the
+     * controller's page-nav gating share one source of truth. Guarding on a real change keeps this
+     * measurement → state → recompose path from looping.
+     */
+    private fun updateGuidedCategoryViewportPageState(pageCount: Int, currentPage: Int) {
+        val current = uiGuidedNavigationState.value
+        if (current.screenMode != GuidedOverlayScreenMode.CategoryMenu) return
+        val safeCount = pageCount.coerceAtLeast(1)
+        val safePage = currentPage.coerceIn(0, safeCount - 1)
+        if (current.categoryViewportPageCount == safeCount && current.categoryViewportPage == safePage) return
+        uiGuidedNavigationState.value = current.copy(
+            categoryViewportPageCount = safeCount,
+            categoryViewportPage = safePage
+        )
     }
 
     private fun openGuidedCategoryFromTouch(categoryIndex: Int) {

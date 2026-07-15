@@ -270,7 +270,18 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun allPanelGesturesAreTappableViaTouchSpec() {
-        assertEquals(7, GuidedTouchNavigationSpec.panelGestures.size)
+        // 7 base panel gestures + 2 RC7D.20 Category Menu page jumps (L4 R0 / L0 R4).
+        assertEquals(9, GuidedTouchNavigationSpec.panelGestures.size)
+        assertTrue(
+            GuidedTouchNavigationSpec.panelGestures.contains(
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT to GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+            )
+        )
+        assertTrue(
+            GuidedTouchNavigationSpec.panelGestures.contains(
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT to GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+            )
+        )
         GuidedTouchNavigationSpec.panelGestures.forEach { (left, right) ->
             assertTrue(GuidedTouchNavigationSpec.touchMirrorsEyeGesture(left, right))
         }

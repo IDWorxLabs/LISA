@@ -152,10 +152,13 @@ fun LisaRootUI(
     onGuidedNavigateDown: () -> Unit = {},
     onGuidedEmergency: () -> Unit = {},
     onGuidedCategories: () -> Unit = {},
+    onGuidedPreviousCategoryPage: () -> Unit = {},
+    onGuidedNextCategoryPage: () -> Unit = {},
     onGuidedDecreaseValue: () -> Unit = {},
     onGuidedIncreaseValue: () -> Unit = {},
     onGuidedPhraseEntry: (GuidedVocabularyEntry) -> Unit = {},
     onGuidedCategoryRow: (Int) -> Unit = {},
+    onGuidedCategoryViewportPageState: (pageCount: Int, currentPage: Int) -> Unit = { _, _ -> },
     phraseComposerState: PhraseComposerState = PhraseComposerController.initialState(),
     phraseComposerActive: Boolean = false,
     composerEyeFeedback: ComposerEyeFeedback = ComposerEyeFeedback(
@@ -474,10 +477,13 @@ fun LisaRootUI(
             onNavigateDown = onGuidedNavigateDown,
             onEmergency = onGuidedEmergency,
             onCategories = onGuidedCategories,
+            onPreviousCategoryPage = onGuidedPreviousCategoryPage,
+            onNextCategoryPage = onGuidedNextCategoryPage,
             onDecreaseValue = onGuidedDecreaseValue,
             onIncreaseValue = onGuidedIncreaseValue,
             onPhraseEntry = onGuidedPhraseEntry,
             onCategoryRow = onGuidedCategoryRow,
+            onCategoryViewportPageState = onGuidedCategoryViewportPageState,
             workspaceMode = if (guidedWorkspaceTrainingActive) {
                 GuidedWorkspaceMode.GUIDED_TRAINING
             } else {

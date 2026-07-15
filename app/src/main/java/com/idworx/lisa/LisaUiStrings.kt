@@ -122,6 +122,18 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val guidedMoveDownCategory: String get() = t("Move Down Category", "Skuif Kategorie Af", "Hambisa Isigaba Phansi")
     val guidedOpenSelectedCategory: String get() = t("Open Selected Category", "Open Gekose Kategorie", "Vula Isigaba Esikhethiwe")
     val guidedBackToPhrases: String get() = t("Back to Phrases", "Terug na Frases", "Buyela Emagameni")
+    // RC7D.20 — whole-page category jumps. Hints derive from the real page-nav constants so they
+    // can never drift out of sync with the gestures the controller actually processes.
+    val guidedPreviousCategoryPage: String get() = t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
+    val guidedNextCategoryPage: String get() = t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
+    val guidedPreviousCategoryPageHint: String get() = guidedGestureHint(
+        GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+        GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+    )
+    val guidedNextCategoryPageHint: String get() = guidedGestureHint(
+        GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+        GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+    )
     fun guidedPhrasePageIndicator(page: Int, total: Int): String =
         t("Phrases $page / $total", "Frases $page / $total", "Amagama $page / $total")
     fun guidedCategoryIndicator(category: Int, total: Int): String =

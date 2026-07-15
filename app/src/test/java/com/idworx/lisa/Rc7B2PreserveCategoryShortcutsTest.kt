@@ -125,6 +125,34 @@ class Rc7B2PreserveCategoryShortcutsTest {
         assertEquals(GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX, opened.categoryIndex)
     }
 
+    @Test
+    fun phraseManagementReachableThroughCategoryMenuNavigation() {
+        var state = GuidedNavigationState(
+            screenMode = GuidedOverlayScreenMode.CategoryMenu,
+            categoryMenuSelection = 0
+        )
+        for (expected in 1..GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX) {
+            val result = GuidedNavigationController.processSequence(
+                GuidedModeNavigation.NEXT_LEFT,
+                GuidedModeNavigation.NEXT_RIGHT,
+                state,
+                PreferredLanguage.English,
+                english
+            )
+            assertTrue(
+                "Expected Navigate at selection ${expected - 1}, got $result",
+                result is GuidedSequenceResult.Navigate
+            )
+            state = (result as GuidedSequenceResult.Navigate).newState
+            assertEquals(expected, state.categoryMenuSelection)
+        }
+        assertEquals(
+            GuidedVocabularyCategory.PhraseManagement,
+            GuidedVocabularyCategory.ordered[state.categoryMenuSelection]
+        )
+        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, state.categoryMenuSelection)
+    }
+
     // 8. User-created phrases never appear on Custom.
 
     @Test

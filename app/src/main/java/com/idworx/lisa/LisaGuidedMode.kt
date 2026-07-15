@@ -43,6 +43,18 @@ object GuidedModeNavigation {
     const val INCREASE_VALUE_LEFT = 1
     const val INCREASE_VALUE_RIGHT = 3
 
+    /**
+     * Category-page jump shortcuts (RC7D.20) — active only in Category Menu Mode. These move the
+     * highlighted category directly between whole category pages, unlike the item-by-item
+     * [PREVIOUS_LEFT]/[NEXT_LEFT] scroll gestures which stay one category at a time. Deliberately
+     * distinct from the constitutional global-nav and emergency sequences, and from every
+     * category-shortcut/vocabulary slot in [GuidedPageSequences], so they never shadow or collide.
+     */
+    const val PREVIOUS_CATEGORY_PAGE_LEFT = 4
+    const val PREVIOUS_CATEGORY_PAGE_RIGHT = 0
+    const val NEXT_CATEGORY_PAGE_LEFT = 0
+    const val NEXT_CATEGORY_PAGE_RIGHT = 4
+
     fun isPreviousSequence(left: Int, right: Int): Boolean =
         left == PREVIOUS_LEFT && right == PREVIOUS_RIGHT
 
@@ -66,6 +78,12 @@ object GuidedModeNavigation {
 
     fun isIncreaseValueSequence(left: Int, right: Int): Boolean =
         left == INCREASE_VALUE_LEFT && right == INCREASE_VALUE_RIGHT
+
+    fun isPreviousCategoryPageSequence(left: Int, right: Int): Boolean =
+        left == PREVIOUS_CATEGORY_PAGE_LEFT && right == PREVIOUS_CATEGORY_PAGE_RIGHT
+
+    fun isNextCategoryPageSequence(left: Int, right: Int): Boolean =
+        left == NEXT_CATEGORY_PAGE_LEFT && right == NEXT_CATEGORY_PAGE_RIGHT
 
     fun isGlobalNavigationSequence(left: Int, right: Int): Boolean =
         isPreviousSequence(left, right) ||
@@ -253,6 +271,21 @@ enum class GuidedOverlayAction {
     OpenPhraseComposer
 }
 
+/**
+ * RC7D.22 — why the Category Menu navigation state last changed, so the single Compose scroll
+ * coordinator can pick the right behaviour. PAGE_MOVEMENT scrolls straight to a viewport-page
+ * anchor and deliberately skips the RC7D.21 selection-centring path; every other cause reveals /
+ * centres the selected row. This replaces fragile "suppress one effect after another" delays with
+ * explicit intent carried in the state itself.
+ */
+enum class CategoryNavigationCause {
+    ITEM_MOVEMENT,
+    PAGE_MOVEMENT,
+    DIRECT_SHORTCUT,
+    MENU_RESTORE,
+    TOUCH_SELECTION
+}
+
 data class GuidedNavigationState(
     val screenMode: GuidedOverlayScreenMode = GuidedOverlayScreenMode.Vocabulary,
     val categoryIndex: Int = 0,
@@ -261,7 +294,15 @@ data class GuidedNavigationState(
     val preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None,
     val draftResponseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val draftSensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
-    val adjustmentScrollStep: Int = 0
+    val adjustmentScrollStep: Int = 0,
+    // RC7D.22 — explicit category-list VIEWPORT page, independent of which category is selected.
+    // The viewport page is what the caregiver perceives as "Page 1 / Page 2" (a scroll window),
+    // never selectionIndex / pageSize. [categoryViewportPageCount] is measured by the Compose layer
+    // from the real viewport + content height and pushed back into state so both the header and the
+    // controller's page-nav gating read one canonical source of truth.
+    val categoryViewportPage: Int = 0,
+    val categoryViewportPageCount: Int = 1,
+    val categoryNavigationCause: CategoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
 ) {
     fun normalized(): GuidedNavigationState = copy(
         categoryIndex = categoryIndex.coerceIn(0, GuidedVocabularyCategory.PAGE_COUNT - 1),
@@ -269,7 +310,9 @@ data class GuidedNavigationState(
         phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
         draftResponseTimeSec = SequenceProcessingDelay.coerce(draftResponseTimeSec),
         draftSensitivityLevel = draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
-        adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0)
+        adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0),
+        categoryViewportPageCount = categoryViewportPageCount.coerceAtLeast(1),
+        categoryViewportPage = categoryViewportPage.coerceIn(0, (categoryViewportPageCount.coerceAtLeast(1) - 1))
     )
 
     val isPreferencesAdjustmentActive: Boolean
@@ -306,11 +349,29 @@ data class GuidedCategoryPage(
     val entries: List<GuidedVocabularyEntry>
 )
 
+/**
+ * Stable identity of a guided navigation-panel action, so touch handler / enabled / highlight
+ * wiring is keyed by meaning rather than a fragile list position — this lets the Category Menu
+ * panel carry extra page-navigation buttons (RC7D.20) without disturbing the Vocabulary /
+ * Adjustment panel ordering other auditors depend on.
+ */
+enum class GuidedPanelActionKind {
+    ScrollUp,
+    ScrollDown,
+    PreviousCategoryPage,
+    NextCategoryPage,
+    Select,
+    Back,
+    Categories,
+    Emergency
+}
+
 data class GuidedNavPanelAction(
     val symbol: String,
     val title: String,
     val gestureHint: String,
-    val sequenceLabel: String
+    val sequenceLabel: String,
+    val kind: GuidedPanelActionKind = GuidedPanelActionKind.Select
 )
 
 object GuidedNavigationPanelSpec {
@@ -345,32 +406,61 @@ object GuidedNavigationPanelSpec {
         // Every sequenceLabel is derived directly from the same GuidedModeNavigation/emergency
         // constants the real gesture handlers check against — never a separately hardcoded copy —
         // so this panel can never drift out of sync with what a gesture actually does.
-        return listOf(
-            GuidedNavPanelAction(
-                "↑↑", scrollUpTitle, uiStrings.guidedScrollUpHint,
-                formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT)
-            ),
-            GuidedNavPanelAction(
-                "✅", selectTitle, uiStrings.guidedSelectEnterHint,
-                formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
-            ),
-            GuidedNavPanelAction(
-                "↩", backTitle, uiStrings.guidedBackHint,
-                formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
-            ),
-            GuidedNavPanelAction(
-                "☰", uiStrings.guidedCategoriesNavTitle, uiStrings.guidedCategoriesNavHint,
-                formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
-            ),
-            GuidedNavPanelAction(
-                "🚨", uiStrings.guidedEmergencyNavTitle, uiStrings.guidedEmergencyNavHint,
-                formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
-            ),
-            GuidedNavPanelAction(
-                "↓↓", scrollDownTitle, uiStrings.guidedScrollDownHint,
-                formatWinkSequenceShort(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT)
-            )
+        val scrollUp = GuidedNavPanelAction(
+            "↑↑", scrollUpTitle, uiStrings.guidedScrollUpHint,
+            formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT),
+            GuidedPanelActionKind.ScrollUp
         )
+        val scrollDown = GuidedNavPanelAction(
+            "↓↓", scrollDownTitle, uiStrings.guidedScrollDownHint,
+            formatWinkSequenceShort(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT),
+            GuidedPanelActionKind.ScrollDown
+        )
+        val select = GuidedNavPanelAction(
+            "✅", selectTitle, uiStrings.guidedSelectEnterHint,
+            formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
+            GuidedPanelActionKind.Select
+        )
+        val back = GuidedNavPanelAction(
+            "↩", backTitle, uiStrings.guidedBackHint,
+            formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
+            GuidedPanelActionKind.Back
+        )
+        val categories = GuidedNavPanelAction(
+            "☰", uiStrings.guidedCategoriesNavTitle, uiStrings.guidedCategoriesNavHint,
+            formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT),
+            GuidedPanelActionKind.Categories
+        )
+        val emergency = GuidedNavPanelAction(
+            "🚨", uiStrings.guidedEmergencyNavTitle, uiStrings.guidedEmergencyNavHint,
+            formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            GuidedPanelActionKind.Emergency
+        )
+        // RC7D.20 — the Category Menu carries whole-page jump shortcuts alongside the item-by-item
+        // Move Up / Move Down. Categories (☰) is dropped here (you are already in the menu) so the
+        // narrow panel has room for both without hiding item navigation.
+        if (context == PanelContext.CategoryMenu) {
+            val previousPage = GuidedNavPanelAction(
+                "⏮", uiStrings.guidedPreviousCategoryPage, uiStrings.guidedPreviousCategoryPageHint,
+                formatWinkSequenceShort(
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+                ),
+                GuidedPanelActionKind.PreviousCategoryPage
+            )
+            val nextPage = GuidedNavPanelAction(
+                "⏭", uiStrings.guidedNextCategoryPage, uiStrings.guidedNextCategoryPageHint,
+                formatWinkSequenceShort(
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+                ),
+                GuidedPanelActionKind.NextCategoryPage
+            )
+            return listOf(scrollUp, scrollDown, previousPage, nextPage, select, back, emergency)
+        }
+        // Vocabulary / Adjustment order is unchanged (index 0 Previous … 5 Next) — other auditors
+        // rely on this positional layout.
+        return listOf(scrollUp, select, back, categories, emergency, scrollDown)
     }
 
     fun vocabularyModeActions(uiStrings: LisaUiStrings): List<GuidedNavPanelAction> =
@@ -400,6 +490,9 @@ object GuidedTouchNavigationSpec {
         GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
         EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS,
         GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT,
+        // RC7D.20 — Category Menu whole-page jumps, touch-mirrored like every other panel button.
+        GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT to GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+        GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT to GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
         // Finish Training mirrors the bottom-bar Reset touch button — see performReset() in MainActivity.
         GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT
     )
@@ -503,6 +596,159 @@ object PreferenceAdjustmentController {
         }
 }
 
+/**
+ * RC7D.19 kept the Category Menu blink selection *visible*; RC7D.21 upgrades that to a single
+ * canonical **viewport-centering** authority. Every selection change — Move Up / Move Down,
+ * Previous Page / Next Page, touch, direct shortcut, and Category Menu restoration — feeds the same
+ * pure calculation here, so positioning can never drift between input sources.
+ *
+ * The policy: place the selected category near the vertical centre of the visible category list
+ * whenever there is enough scroll room, and clamp to the top / content-bottom otherwise so we never
+ * open blank space above category 1 or below the final category. It is measurement-driven (item
+ * top, item height, viewport height, max scroll) rather than fixed-index, and is safe when
+ * measurements are momentarily unavailable (returns a harmless clamped value instead of crashing).
+ */
+object GuidedCategoryMenuScroll {
+    /**
+     * Approximate [GuidedCategoryMenuRow] pitch (padding + text + 8.dp spacing). Only a deterministic
+     * fallback row model for [centeredScrollOffsetPxForIndex] where a live measurement is not
+     * available (and for focused index-based tests); the live Compose path measures real pixels.
+     */
+    const val ROW_PITCH_PX: Int = 72
+
+    /**
+     * Minimum |target - current| gap worth animating. Prevents one-pixel correction loops / jitter
+     * when a fresh measurement lands a hair off the current resting offset.
+     */
+    const val CENTERING_TOLERANCE_PX: Int = 4
+
+    /**
+     * Canonical RC7D.21 calculation. Returns the scroll offset that centres the selected category in
+     * the viewport, clamped to `[0, maxScrollPx]`.
+     *
+     * Safe by construction: zero/negative viewport or max scroll yields 0 (nothing to scroll),
+     * negative measurements are coerced, and the result is always within the valid scroll range —
+     * never negative, never past the content bottom. Pure and deterministic: identical inputs always
+     * produce an identical target, so it can be unit-tested without Compose.
+     */
+    fun centeredScrollOffsetPx(
+        selectedItemTopPx: Int,
+        selectedItemHeightPx: Int,
+        viewportHeightPx: Int,
+        maxScrollPx: Int
+    ): Int {
+        if (viewportHeightPx <= 0 || maxScrollPx <= 0) return 0
+        val safeTop = selectedItemTopPx.coerceAtLeast(0)
+        val safeHeight = selectedItemHeightPx.coerceAtLeast(0)
+        val itemCentre = safeTop + safeHeight / 2
+        val target = itemCentre - viewportHeightPx / 2
+        return target.coerceIn(0, maxScrollPx)
+    }
+
+    /**
+     * Index-based convenience over [centeredScrollOffsetPx] using the uniform [ROW_PITCH_PX] row
+     * model. Used where only a selection index is known (deterministic fallback + focused tests).
+     */
+    fun centeredScrollOffsetPxForIndex(
+        selectionIndex: Int,
+        viewportHeightPx: Int,
+        maxScrollPx: Int,
+        rowPitchPx: Int = ROW_PITCH_PX
+    ): Int {
+        val pitch = rowPitchPx.coerceAtLeast(1)
+        return centeredScrollOffsetPx(
+            selectedItemTopPx = selectionIndex.coerceAtLeast(0) * pitch,
+            selectedItemHeightPx = pitch,
+            viewportHeightPx = viewportHeightPx,
+            maxScrollPx = maxScrollPx
+        )
+    }
+
+    /**
+     * Integration gate: only animate when the freshly calculated [target] differs from the [current]
+     * resting offset by more than [tolerancePx]. Keeps recomposition-driven re-measures from firing
+     * redundant scroll animations.
+     */
+    fun shouldAnimateTo(
+        current: Int,
+        target: Int,
+        tolerancePx: Int = CENTERING_TOLERANCE_PX
+    ): Boolean = kotlin.math.abs(target - current) > tolerancePx
+
+    fun canReachEveryCategoryByBlink(itemCount: Int = GuidedVocabularyCategory.PAGE_COUNT): Boolean =
+        itemCount == GuidedVocabularyCategory.ordered.size &&
+            itemCount == GuidedVocabularyCategory.PAGE_COUNT
+}
+
+/**
+ * RC7D.22 — canonical VIEWPORT-page authority for the Category Menu.
+ *
+ * A "page" here is a scroll window over the category list, derived purely from measured layout
+ * (viewport height, content height / maximum scroll offset) — never from `selectionIndex / 7`.
+ * The visible top of the list (scroll offset 0) is page 1; scrolling to the bottom (maxScrollPx)
+ * is the final page. A category that straddles a viewport boundary (e.g. a partly-visible
+ * Category 7) can therefore legitimately belong to two adjacent pages, which is exactly why page
+ * position and selected-category position are kept independent.
+ *
+ * Every function is pure, deterministic and defensive against zero/negative measurements so it can
+ * be unit-tested without Compose and can never crash on a transient un-measured frame.
+ */
+object CategoryViewportPaging {
+    /** Small tolerance so a resting offset a hair short of the bottom still counts as the last page. */
+    const val ANCHOR_TOLERANCE_PX: Int = 4
+
+    /**
+     * Number of viewport-sized pages needed to cover the scrollable content. Content that fits
+     * entirely inside the viewport (no scroll room) is a single page; any overflow up to one
+     * viewport is two pages; further overflow adds a page per viewport height.
+     */
+    fun pageCount(viewportHeightPx: Int, maxScrollPx: Int): Int {
+        if (viewportHeightPx <= 0 || maxScrollPx <= 0) return 1
+        return 1 + ((maxScrollPx + viewportHeightPx - 1) / viewportHeightPx)
+    }
+
+    /** Convenience page count from a content height instead of a pre-computed maximum scroll. */
+    fun pageCountForContent(viewportHeightPx: Int, contentHeightPx: Int): Int {
+        val maxScroll = (contentHeightPx - viewportHeightPx).coerceAtLeast(0)
+        return pageCount(viewportHeightPx, maxScroll)
+    }
+
+    /**
+     * Scroll offset that anchors a given viewport page. Page 0 anchors at the top (0); the final
+     * page always anchors at [maxScrollPx] (so the bottom of the list is fully revealed with no
+     * blank space); interim pages step down one viewport height at a time. Always clamped into
+     * `[0, maxScrollPx]`.
+     */
+    fun pageAnchorOffsetPx(pageIndex: Int, viewportHeightPx: Int, maxScrollPx: Int): Int {
+        if (viewportHeightPx <= 0 || maxScrollPx <= 0) return 0
+        val count = pageCount(viewportHeightPx, maxScrollPx)
+        val page = clampPage(pageIndex, count)
+        if (page >= count - 1) return maxScrollPx
+        return (page.toLong() * viewportHeightPx).coerceIn(0L, maxScrollPx.toLong()).toInt()
+    }
+
+    /**
+     * Which viewport page a raw scroll offset currently sits on. Anything at (or within tolerance
+     * of) the bottom is the final page; otherwise the offset is bucketed by viewport height.
+     */
+    fun currentPageForScroll(scrollPx: Int, viewportHeightPx: Int, maxScrollPx: Int): Int {
+        val count = pageCount(viewportHeightPx, maxScrollPx)
+        if (count <= 1 || viewportHeightPx <= 0) return 0
+        if (scrollPx >= maxScrollPx - ANCHOR_TOLERANCE_PX) return count - 1
+        val page = scrollPx.coerceAtLeast(0) / viewportHeightPx
+        return clampPage(page, count)
+    }
+
+    fun clampPage(pageIndex: Int, pageCount: Int): Int =
+        pageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+
+    fun canGoToNextPage(currentPage: Int, pageCount: Int): Boolean =
+        currentPage < pageCount - 1
+
+    fun canGoToPreviousPage(currentPage: Int): Boolean =
+        currentPage > 0
+}
+
 object GuidedNavigationController {
 
     fun phrasePageCount(entryCount: Int, visibleCap: Int): Int {
@@ -524,7 +770,11 @@ object GuidedNavigationController {
     fun openCategoryMenu(state: GuidedNavigationState): GuidedNavigationState =
         state.normalized().copy(
             screenMode = GuidedOverlayScreenMode.CategoryMenu,
-            categoryMenuSelection = state.categoryIndex
+            categoryMenuSelection = state.categoryIndex,
+            // RC7D.22 — restore deterministically from the top; the Compose layer re-measures the
+            // real viewport, syncs the page count, and reveals the restored selection.
+            categoryViewportPage = 0,
+            categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
         )
 
     fun closeCategoryMenu(state: GuidedNavigationState): GuidedNavigationState =
@@ -534,7 +784,8 @@ object GuidedNavigationController {
         val normalized = state.normalized()
         return normalized.copy(
             categoryMenuSelection = (normalized.categoryMenuSelection - 1)
-                .coerceAtLeast(0)
+                .coerceAtLeast(0),
+            categoryNavigationCause = CategoryNavigationCause.ITEM_MOVEMENT
         )
     }
 
@@ -542,7 +793,42 @@ object GuidedNavigationController {
         val normalized = state.normalized()
         return normalized.copy(
             categoryMenuSelection = (normalized.categoryMenuSelection + 1)
-                .coerceAtMost(GuidedVocabularyCategory.PAGE_COUNT - 1)
+                .coerceAtMost(GuidedVocabularyCategory.PAGE_COUNT - 1),
+            categoryNavigationCause = CategoryNavigationCause.ITEM_MOVEMENT
+        )
+    }
+
+    /**
+     * RC7D.22 — TRUE viewport page navigation. Advances the category-list viewport page directly
+     * (never `selectionIndex / pageSize`); the Compose coordinator then scrolls straight to that
+     * page's measured anchor — no stepping through categories, no dependence on selection centring.
+     * A single decorative selection update (the final category, visible on the bottom page) gives a
+     * usable highlight, but the PAGE_MOVEMENT cause guarantees the page anchor — not the selection —
+     * is what drives the scroll. No-op / never wraps at the last page (gated by the caller).
+     */
+    fun nextCategoryPage(state: GuidedNavigationState): GuidedNavigationState {
+        val normalized = state.normalized()
+        val lastPage = (normalized.categoryViewportPageCount - 1).coerceAtLeast(0)
+        return normalized.copy(
+            categoryViewportPage = (normalized.categoryViewportPage + 1).coerceAtMost(lastPage),
+            categoryMenuSelection = (GuidedVocabularyCategory.PAGE_COUNT - 1).coerceAtLeast(0),
+            categoryNavigationCause = CategoryNavigationCause.PAGE_MOVEMENT
+        )
+    }
+
+    /**
+     * RC7D.22 — TRUE viewport page navigation back to the preceding page. Sets the viewport page
+     * directly so the coordinator scrolls straight to that page's anchor (page 1 → offset 0,
+     * restoring the exact top view seen when the menu first opens). Selection is moved once to
+     * Category 1 for a usable highlight; the PAGE_MOVEMENT cause keeps the page anchor authoritative
+     * so centring can never drag the view back toward the lower page. No-op / never wraps at page 1.
+     */
+    fun previousCategoryPage(state: GuidedNavigationState): GuidedNavigationState {
+        val normalized = state.normalized()
+        return normalized.copy(
+            categoryViewportPage = (normalized.categoryViewportPage - 1).coerceAtLeast(0),
+            categoryMenuSelection = 0,
+            categoryNavigationCause = CategoryNavigationCause.PAGE_MOVEMENT
         )
     }
 
@@ -557,6 +843,7 @@ object GuidedNavigationController {
 
     fun openCategoryDirectly(state: GuidedNavigationState, categoryIndex: Int): GuidedNavigationState =
         openCategoryAtPage(state, categoryIndex, phrasePageIndex = 0)
+            .copy(categoryNavigationCause = CategoryNavigationCause.DIRECT_SHORTCUT)
 
     /** RC7D.10 — open destination category on the page that contains [phrasePageIndex]. */
     fun openCategoryAtPage(
@@ -719,6 +1006,20 @@ object GuidedNavigationController {
         GuidedModeNavigation.isNextSequence(left, right) ->
             if (state.categoryMenuSelection < GuidedVocabularyCategory.PAGE_COUNT - 1) {
                 GuidedSequenceResult.Navigate(moveCategorySelectionDown(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
+        GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) ->
+            // RC7D.22 — gated on the VIEWPORT page, not the selected category. Previous Page is a
+            // safe no-op on page 1 and never wraps.
+            if (CategoryViewportPaging.canGoToPreviousPage(state.categoryViewportPage)) {
+                GuidedSequenceResult.Navigate(previousCategoryPage(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
+        GuidedModeNavigation.isNextCategoryPageSequence(left, right) ->
+            if (CategoryViewportPaging.canGoToNextPage(state.categoryViewportPage, state.categoryViewportPageCount)) {
+                GuidedSequenceResult.Navigate(nextCategoryPage(state))
             } else {
                 GuidedSequenceResult.Unmatched
             }
@@ -1150,9 +1451,22 @@ object GuidedNavigationGestureAudit {
     }
 
     fun categoryMenuModeBindings(): List<GestureBinding> =
-        globalPanelBindings() + GuidedCategoryShortcuts.allGestures().mapIndexed { index, gesture ->
-            GestureBinding(gesture.first, gesture.second, "CategoryShortcut:$index")
-        }
+        globalPanelBindings() +
+            listOf(
+                GestureBinding(
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+                    "PreviousCategoryPage"
+                ),
+                GestureBinding(
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
+                    "NextCategoryPage"
+                )
+            ) +
+            GuidedCategoryShortcuts.allGestures().mapIndexed { index, gesture ->
+                GestureBinding(gesture.first, gesture.second, "CategoryShortcut:$index")
+            }
 
     fun preferencesPageBindings(): List<GestureBinding> =
         vocabularyModeBindings(GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
@@ -1257,7 +1571,15 @@ object WorkspacePhraseResolver {
         visibleEntryCap: Int = GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP
     ): List<WinkMapping> = when (state.screenMode) {
         GuidedOverlayScreenMode.CategoryMenu ->
-            GuidedCategoryShortcuts.allGestures().map { (left, right) ->
+            (
+                GuidedCategoryShortcuts.allGestures() +
+                    listOf(
+                        GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT to
+                            GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+                        GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT to
+                            GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+                    )
+                ).map { (left, right) ->
                 WinkMapping(left, right, "", isCustom = true, customPhrase = "")
             }
         GuidedOverlayScreenMode.Vocabulary ->
