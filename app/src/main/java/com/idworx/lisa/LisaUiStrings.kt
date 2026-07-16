@@ -228,6 +228,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
         GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
         GuidedVocabularyCategory.PhraseManagement -> t("Phrase Management", "Frasebestuur", "Ukuphathwa Kwebinzana")
+        GuidedVocabularyCategory.AdjustSettings -> t("Adjust Settings", "Verstel Instellings", "Lungisa Izilungiselelo")
     }
 
     val guidedCustomEmptyTitle: String get() = t(
@@ -267,7 +268,24 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val guidedIncreaseResponseTime: String get() = t("Increase response time", "Verhoog reaksietyd", "Khulisa isikhathi sokuphendula")
     val guidedSaveResponseTime: String get() = t("Select / Save response time", "Kies / Stoor reaksietyd", "Khetha / Londoloza isikhathi sokuphendula")
     val guidedSaveSensitivity: String get() = t("Select / Save sensitivity", "Kies / Stoor sensitiwiteit", "Khetha / Londoloza ukuzwela")
-    val guidedCancelToPreferences: String get() = t("Cancel / Back to Preferences", "Kanselleer / Terug na Voorkeure", "Khansela / Buyela Kokuncanyelwayo")
+    val guidedCancelToPreferences: String get() = t("Cancel / Back", "Kanselleer / Terug", "Khansela / Emuva")
+    val guidedCancelBack: String get() = guidedCancelToPreferences
+    fun guidedSaveSensitivityConfirmTitle(): String =
+        t("Save Sensitivity?", "Stoor sensitiwiteit?", "Londoloza ukuzwela?")
+    fun guidedSaveResponseTimeConfirmTitle(): String =
+        t("Save Response Time?", "Stoor reaksietyd?", "Londoloza isikhathi sokuphendula?")
+    fun guidedSaveConfirmOriginalSensitivity(value: Int): String =
+        t("Current saved value: $value", "Huidige gestoorde waarde: $value", "Inani elilondoloziwe: $value")
+    fun guidedSaveConfirmNewSensitivity(value: Int): String =
+        t("New value: $value", "Nuwe waarde: $value", "Inani elisha: $value")
+    fun guidedSaveConfirmOriginalResponseTime(seconds: Int): String =
+        t("Current saved value: ${seconds}s", "Huidige gestoorde waarde: ${seconds}s", "Inani elilondoloziwe: ${seconds}s")
+    fun guidedSaveConfirmNewResponseTime(seconds: Int): String =
+        t("New value: ${seconds}s", "Nuwe waarde: ${seconds}s", "Inani elisha: ${seconds}s")
+    val guidedConfirmSave: String get() = t("Confirm", "Bevestig", "Qinisekisa")
+    val guidedCancelSaveConfirmation: String get() = t("Cancel", "Kanselleer", "Khansela")
+    /** Display label for R1 L1 (confirmation cancel). */
+    val guidedConfirmCancelSequenceLabel: String get() = "R1 L1"
     fun guidedDraftResponseTime(seconds: Int): String =
         t("$seconds seconds", "$seconds sekondes", "$seconds imizuzwana")
     fun guidedDraftSensitivity(level: Int): String = level.toString()
@@ -275,6 +293,41 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         t("Current value: $seconds seconds", "Huidige waarde: $seconds sekondes", "Inani lamanje: $seconds imizuzwana")
     fun guidedAdjustmentCurrentValueSensitivity(level: Int): String =
         t("Current value: $level", "Huidige waarde: $level", "Inani lamanje: $level")
+
+    // RC7D.25 / RC7D.26 — Adjust Settings sub-mode (blink-accessible Sensitivity / Response Time).
+    val guidedAdjustSettingsTitle: String get() = t("Adjust Settings", "Verstel Instellings", "Lungisa Izilungiselelo")
+    val guidedOpenSelectedSetting: String get() = t("Open Selected Setting", "Open Gekose Instelling", "Vula Isilungiselelo Esikhethiwe")
+    val guidedSelectSensitivitySetting: String get() = t("Sensitivity", "Sensitiwiteit", "Ukuzwela")
+    val guidedSelectResponseTimeSetting: String get() = t("Response Time", "Reaksietyd", "Isikhathi Sokuphendula")
+    fun guidedSettingIndicator(current: Int, total: Int): String =
+        t("Setting $current / $total", "Instelling $current / $total", "Isilungiselelo $current / $total")
+    val guidedSensitivityAdjustmentTitle: String
+        get() = t("Sensitivity Adjustment", "Sensitiwiteit-verstelling", "Ukulungiswa Kokuzwela")
+    val guidedResponseTimeAdjustmentTitle: String
+        get() = t("Response Time Adjustment", "Reaksietyd-verstelling", "Ukulungiswa Kwesikhathi Sokuphendula")
+    val guidedDecreaseShort: String get() = t("Decrease", "Verminder", "Nciphisa")
+    val guidedIncreaseShort: String get() = t("Increase", "Verhoog", "Khulisa")
+    val guidedResponseTimeMeterHint: String get() = t(
+        "Lower = faster confirmation. Higher = more time to finish the sequence.",
+        "Laer = vinniger bevestiging. Hoër = meer tyd om die reeks te voltooi.",
+        "Okuphansi = ukuqinisekisa okusheshayo. Okuphezulu = isikhathi esengeziwe sokuqeda uchungechunge."
+    )
+    fun guidedSensitivitySaved(level: Int): String =
+        t("Sensitivity saved: $level", "Sensitiwiteit gestoor: $level", "Ukuzwela kulondoloziwe: $level")
+    fun guidedResponseTimeSaved(seconds: Int): String =
+        t(
+            "Response time saved: $seconds seconds",
+            "Reaksietyd gestoor: $seconds sekondes",
+            "Isikhathi sokuphendula silondoloziwe: $seconds imizuzwana"
+        )
+    val guidedSensitivityChangesCancelled: String
+        get() = t("Sensitivity changes cancelled", "Sensitiwiteit-veranderinge gekanselleer", "Izinguquko zokuzwela zikhanseliwe")
+    val guidedResponseTimeChangesCancelled: String
+        get() = t(
+            "Response time changes cancelled",
+            "Reaksietyd-veranderinge gekanselleer",
+            "Izinguquko zesikhathi sokuphendula zikhanseliwe"
+        )
 
     fun listeningStatusLine(sensitivityLevel: Int, responseTimeSec: Int): String =
         t(

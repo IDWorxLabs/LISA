@@ -121,7 +121,9 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         assertTrue(controls.contains("uiStrings.sensitivityDecrease"))
         assertTrue(controls.contains("uiStrings.sensitivityIncrease"))
         assertTrue(controls.contains("uiStrings.sensitivity"))
-        assertTrue(controls.contains("listeningStatusLine(sensitivityLevel, responseTimeSec)"))
+        // RC7D.27 — combined summary line removed; individual Sensitivity value label remains.
+        assertFalse(controls.contains("listeningStatusLine(sensitivityLevel, responseTimeSec)"))
+        assertTrue(controls.contains("\${uiStrings.sensitivity}: \$sensitivityLevel"))
     }
 
     @Test

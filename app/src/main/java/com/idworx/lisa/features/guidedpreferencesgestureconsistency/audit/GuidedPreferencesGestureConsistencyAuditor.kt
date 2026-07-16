@@ -48,14 +48,28 @@ object GuidedPreferencesGestureConsistencyAuditor {
             GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT,
             draftState, PreferredLanguage.English, uiStrings
         )
-        val saveWorks = saveResult is GuidedSequenceResult.SavePreferencesAdjustment
+        // RC7D.27 — first L1 R1 enters save confirmation; second L1 R1 persists.
+        val saveEntersConfirmation = saveResult is GuidedSequenceResult.Navigate &&
+            saveResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
+        val confirmPersist = if (saveEntersConfirmation) {
+            GuidedNavigationController.processSequence(
+                GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT,
+                (saveResult as GuidedSequenceResult.Navigate).newState,
+                PreferredLanguage.English,
+                uiStrings
+            )
+        } else {
+            null
+        }
+        val saveWorks = confirmPersist is GuidedSequenceResult.SavePreferencesAdjustment
 
         val cancelResult = GuidedNavigationController.processSequence(
             GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT,
             draftState, PreferredLanguage.English, uiStrings
         )
+        // RC7D.27 — Cancel / Back returns to Adjust Settings menu (not full exit).
         val cancelWorks = cancelResult is GuidedSequenceResult.Navigate &&
-            cancelResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
+            cancelResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
 
         val categoriesResult = GuidedNavigationController.processSequence(
             GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT,
@@ -85,33 +99,29 @@ object GuidedPreferencesGestureConsistencyAuditor {
             "GuidedModeNavigation.SELECT_RIGHT",
             "GuidedModeNavigation.BACK_LEFT",
             "GuidedModeNavigation.BACK_RIGHT",
-            "GuidedModeNavigation.CATEGORIES_LEFT",
-            "GuidedModeNavigation.CATEGORIES_RIGHT",
             "EMERGENCY_LEFT_WINKS",
             "EMERGENCY_RIGHT_WINKS"
         )
         val allConstantsReferenced = requiredConstantRefs.all { body.contains(it) }
-        // At least 6 formatWinkSequenceShort( calls: Decrease, Increase, Save, Cancel, Categories, Emergency.
+        // RC7D.27 — Categories card removed from the adjustment content; right-panel Categories remains.
+        // At least Decrease, Increase, Save, Cancel, Emergency formatWinkSequenceShort calls.
         val formatCallCount = Regex("formatWinkSequenceShort\\(").findAll(body).count()
-        return allConstantsReferenced && formatCallCount >= 6
+        return allConstantsReferenced && formatCallCount >= 5
     }
 
     // --- 4. Changing a gesture definition automatically changes the displayed label ------------------
     fun preferencesLabelIsAPureFunctionOfTheSharedConstant(): Boolean {
-        // The exact same constants back every rendering surface (Preferences panel, main
-        // navigation panel, category access row) — a single edit to e.g. CATEGORIES_LEFT/RIGHT
-        // changes formatWinkSequenceShort's output everywhere at once, with no independent copy
-        // anywhere that could fall out of sync.
-        val preferencesCategoriesLabel =
-            formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
         val panelActions = GuidedNavigationPanelSpec.panelActions(uiStrings, GuidedNavigationPanelSpec.PanelContext.Vocabulary)
-        val mainPanelCategoriesLabel = panelActions.first { it.title == uiStrings.guidedCategoriesNavTitle }.sequenceLabel
-
         val preferencesEmergencyLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
         val mainPanelEmergencyLabel = panelActions.first { it.symbol == "🚨" }.sequenceLabel
-
-        return preferencesCategoriesLabel == mainPanelCategoriesLabel &&
-            preferencesEmergencyLabel == mainPanelEmergencyLabel
+        // Categories remains on the right navigation panel (not duplicated in adjustment content).
+        val categoriesAuthority = formatWinkSequenceShort(
+            GuidedModeNavigation.CATEGORIES_LEFT,
+            GuidedModeNavigation.CATEGORIES_RIGHT
+        )
+        val mainPanelCategoriesLabel = panelActions.first { it.title == uiStrings.guidedCategoriesNavTitle }.sequenceLabel
+        return preferencesEmergencyLabel == mainPanelEmergencyLabel &&
+            mainPanelCategoriesLabel == categoriesAuthority
     }
 
     // --- 5. Quick Controls gesture labels match the shared LisaSystemLanguage authority --------------

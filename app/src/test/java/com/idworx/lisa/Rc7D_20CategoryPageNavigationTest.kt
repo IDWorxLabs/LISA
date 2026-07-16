@@ -179,11 +179,11 @@ class Rc7D_20CategoryPageNavigationTest {
     }
 
     @Test // 12
-    fun phraseManagementSelectedAndVisibleAfterNextPage() {
+    fun finalDestinationSelectedAndVisibleAfterNextPage() {
         val result = process(nextPage.first, nextPage.second, menuState(viewportPage = 0)) as GuidedSequenceResult.Navigate
-        // Decorative highlight lands on the final category, and the page-2 anchor reveals the bottom
-        // of the list (maxScroll) where Phrase Management lives.
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, result.newState.categoryMenuSelection)
+        // Decorative highlight lands on the final category (Adjust Settings), and the page-2 anchor
+        // reveals the bottom of the list (maxScroll) where destination 9 lives.
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, result.newState.categoryMenuSelection)
         assertEquals(
             maxScroll,
             CategoryViewportPaging.pageAnchorOffsetPx(result.newState.categoryViewportPage, viewport, maxScroll)
@@ -199,10 +199,13 @@ class Rc7D_20CategoryPageNavigationTest {
     @Test // 14
     fun selectStillRequiredToOpenPhraseManagement() {
         val onPage2 = process(nextPage.first, nextPage.second, menuState(viewportPage = 0)) as GuidedSequenceResult.Navigate
+        val onPhraseManagement = onPage2.newState.copy(
+            categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+        )
         val opened = process(
             GuidedModeNavigation.SELECT_LEFT,
             GuidedModeNavigation.SELECT_RIGHT,
-            onPage2.newState
+            onPhraseManagement
         ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.Vocabulary, opened.newState.screenMode)
         assertEquals(
@@ -356,19 +359,19 @@ class Rc7D_20CategoryPageNavigationTest {
     }
 
     @Test // 30
-    fun category8ReachableItemByItem() {
+    fun finalDestinationReachableItemByItem() {
         var state = menuState(selection = 0)
         repeat(GuidedVocabularyCategory.PAGE_COUNT - 1) {
             state = (process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state)
                 as GuidedSequenceResult.Navigate).newState
         }
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, state.categoryMenuSelection)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, state.categoryMenuSelection)
     }
 
     @Test // 31
-    fun category8ReachableThroughNextPage() {
+    fun finalDestinationReachableThroughNextPage() {
         val result = process(nextPage.first, nextPage.second, menuState(viewportPage = 0)) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, result.newState.categoryMenuSelection)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, result.newState.categoryMenuSelection)
     }
 
     @Test // 32
@@ -407,7 +410,7 @@ class Rc7D_20CategoryPageNavigationTest {
     @Test // 35
     fun totalCategoryCountMatchesCanonicalDestinationCount() {
         assertEquals(GuidedVocabularyCategory.ordered.size, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
     }
 
     @Test // 36
@@ -433,7 +436,10 @@ class Rc7D_20CategoryPageNavigationTest {
     @Test // 38
     fun categoryShortcutsRemainUnchanged() {
         assertEquals(
-            listOf(2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1),
+            listOf(
+                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+            ),
             GuidedCategoryShortcuts.allGestures()
         )
         assertFalse(GuidedCategoryShortcuts.allGestures().contains(prevPage))

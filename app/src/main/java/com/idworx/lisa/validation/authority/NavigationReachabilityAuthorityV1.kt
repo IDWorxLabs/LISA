@@ -333,15 +333,16 @@ object NavigationReachabilityAuthorityV1 {
             }
             val passed = adjustStates.all { ctx ->
                 val result = backResult(ctx, uiStrings, catalogContext)
+                // RC7D.27 — Cancel / Back returns to Adjust Settings menu (draft discarded).
                 result is GuidedSequenceResult.Navigate &&
-                    result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None &&
+                    result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
                     result.newState.categoryIndex == GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
             }
             return check(
                 id = "BACK_REACH_003",
-                description = "Adjustment modes L2 R2 cancel to Preferences without saving",
+                description = "Adjustment modes L2 R2 cancel to Adjust Settings without saving",
                 passed = passed,
-                remediation = "Wire L2 R2 in adjustment modes to cancel and return to Preferences page."
+                remediation = "Wire L2 R2 in adjustment modes to cancel and return to Adjust Settings."
             )
         }
 

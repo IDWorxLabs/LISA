@@ -43,12 +43,14 @@ class Rc7B1CustomCategoryTest {
                 GuidedVocabularyCategory.BasicSystemControls,
                 GuidedVocabularyCategory.Preferences,
                 GuidedVocabularyCategory.Custom,
-                GuidedVocabularyCategory.PhraseManagement
+                GuidedVocabularyCategory.PhraseManagement,
+                GuidedVocabularyCategory.AdjustSettings
             ),
             GuidedVocabularyCategory.ordered
         )
         assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(8, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
     }
 
     @Test
@@ -135,9 +137,9 @@ class Rc7B1CustomCategoryTest {
 
     @Test
     fun communicationPageCountIsSeven() {
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(9, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(9, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
     // 7. Previous/next navigation still reaches all pages.
@@ -256,6 +258,7 @@ class Rc7B1CustomCategoryTest {
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.Family])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.Custom])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
+        assertEquals(0, sizesByCategory[GuidedVocabularyCategory.AdjustSettings])
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
         assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
         val familyPage = pages.first { it.category == GuidedVocabularyCategory.Family }

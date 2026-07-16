@@ -205,19 +205,18 @@ class Rc7D_21CategorySelectionViewportCenteringTest {
         assertTrue(target <= threeRowMaxScroll)
     }
 
-    @Test // B5 — Category 7 preserves maximum preceding context (no blank below)
+    @Test // B5 — near-final categories preserve maximum preceding context (no blank below)
     fun category7PreservesMaximumPrecedingContext() {
-        val cat7 = 6
-        val target = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(cat7, threeRowViewport, threeRowMaxScroll)
-        // Clamped to the content bottom so the maximum number of preceding categories stays visible,
-        // rather than pinning Category 7 needlessly close to the bottom edge with blank space below.
+        val nearEnd = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+        val target = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(nearEnd, threeRowViewport, threeRowMaxScroll)
+        // Clamped to the content bottom so the maximum number of preceding categories stays visible.
         assertEquals(threeRowMaxScroll, target)
     }
 
-    @Test // B6 — Category 8 clamps correctly at the content bottom
+    @Test // B6 — Category 9 (Adjust Settings) clamps correctly at the content bottom
     fun category8ClampsAtContentBottom() {
-        val cat8 = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
-        val target = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(cat8, threeRowViewport, threeRowMaxScroll)
+        val cat9 = GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX
+        val target = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(cat9, threeRowViewport, threeRowMaxScroll)
         assertEquals(threeRowMaxScroll, target)
     }
 
@@ -241,13 +240,21 @@ class Rc7D_21CategorySelectionViewportCenteringTest {
         assertTrue(t7 >= t6)
     }
 
-    @Test // B9 — moving 7 → 8 recalculates positioning (both clamp to bottom, no blank below)
+    @Test // B9 — moving 8 → 9 recalculates positioning (both clamp to bottom, no blank below)
     fun moving7To8RecalculatesPositioning() {
-        val t7 = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(6, threeRowViewport, threeRowMaxScroll)
-        val t8 = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(7, threeRowViewport, threeRowMaxScroll)
-        assertEquals(threeRowMaxScroll, t7)
+        val t8 = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(
+            GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX,
+            threeRowViewport,
+            threeRowMaxScroll
+        )
+        val t9 = GuidedCategoryMenuScroll.centeredScrollOffsetPxForIndex(
+            GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX,
+            threeRowViewport,
+            threeRowMaxScroll
+        )
         assertEquals(threeRowMaxScroll, t8)
-        assertTrue(t8 <= threeRowMaxScroll)
+        assertEquals(threeRowMaxScroll, t9)
+        assertTrue(t9 <= threeRowMaxScroll)
     }
 
     @Test // B10 — moving 8 → 7 recalculates positioning
@@ -443,22 +450,28 @@ class Rc7D_21CategorySelectionViewportCenteringTest {
         ))
     }
 
-    @Test // D4 — Phrase Management remains reachable
+    @Test // D4 — Phrase Management remains reachable; Next Page highlights the final destination
     fun phraseManagementRemainsReachable() {
         assertTrue(CategoryViewportPaging.canGoToNextPage(0, 2))
         val onPage2 = process(nextPage.first, nextPage.second, menuState(selection = 0, viewportPage = 0)) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, onPage2.newState.categoryMenuSelection)
-        val opened = GuidedNavigationController.openSelectedCategory(onPage2.newState)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, onPage2.newState.categoryMenuSelection)
+        val onPhraseManagement = onPage2.newState.copy(
+            categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+        )
+        val opened = GuidedNavigationController.openSelectedCategory(onPhraseManagement)
         assertEquals(
             CategoryAreaDestination.PhraseManagement,
             CategoryAreaDestination.forCategoryIndex(opened.categoryIndex)
         )
     }
 
-    @Test // D5 — category shortcuts remain valid and unchanged
+    @Test // D5 — category shortcuts remain valid (RC7D.26 adds Adjust Settings L5 R5 as destination 9)
     fun categoryShortcutsRemainValid() {
         assertEquals(
-            listOf(2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1),
+            listOf(
+                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+            ),
             GuidedCategoryShortcuts.allGestures()
         )
     }

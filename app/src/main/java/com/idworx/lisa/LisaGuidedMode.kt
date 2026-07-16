@@ -44,6 +44,32 @@ object GuidedModeNavigation {
     const val INCREASE_VALUE_RIGHT = 3
 
     /**
+     * RC7D.25 — Adjust Settings sub-mode entry gesture. This is the single globally-unique command
+     * that opens the blink-accessible "Adjust Settings" sub-mode from the shared top control area.
+     *
+     * Why L5 R5 is safe:
+     *  • Globally unique — no communication phrase, navigation, system, practice, category-shortcut
+     *    or vocabulary slot uses (5,5); the low-left/low-right space is fully occupied but nothing
+     *    exists at 5×5.
+     *  • Emergency-safe — the left count (5) is below Emergency's six, so the sequence can never
+     *    pass through or share Emergency's complete L6 R0 prefix, and Emergency keeps global priority
+     *    (it is matched first, upstream of this controller).
+     *  • Not a prefix of any existing gesture — nothing exists "up and to the right" of (5,5), so it
+     *    can never be shadowed by a longer sequence.
+     *  • Shorter existing sequences ARE prefixes of it, so it is registered for explicit continuation
+     *    protection (see MainActivity.mappingsForSequenceContinuation): the idle finalize gate plus
+     *    the continuation hint keep those shorter prefixes from firing while the user is still
+     *    winking toward the full 5×5 entry.
+     *  • Balanced both-eye use (five left + five right) with only five winks per eye — every count
+     *    is within the ranges the detector already handles for existing gestures.
+     */
+    const val ADJUST_SETTINGS_ENTRY_LEFT = 5
+    const val ADJUST_SETTINGS_ENTRY_RIGHT = 5
+
+    fun isAdjustSettingsEntrySequence(left: Int, right: Int): Boolean =
+        left == ADJUST_SETTINGS_ENTRY_LEFT && right == ADJUST_SETTINGS_ENTRY_RIGHT
+
+    /**
      * Category-page jump shortcuts (RC7D.20) — active only in Category Menu Mode. These move the
      * highlighted category directly between whole category pages, unlike the item-by-item
      * [PREVIOUS_LEFT]/[NEXT_LEFT] scroll gestures which stay one category at a time. Deliberately
@@ -63,6 +89,19 @@ object GuidedModeNavigation {
 
     fun isSelectSequence(left: Int, right: Int): Boolean =
         left == SELECT_LEFT && right == SELECT_RIGHT
+
+    /**
+     * RC7D.27 — L1 R1 confirm (left-then-right order). Counts alone cannot distinguish this from
+     * [isConfirmCancelSequence]; callers must pass [blinkOrder] when both are meaningful.
+     */
+    fun isConfirmSequence(left: Int, right: Int, blinkOrder: List<Boolean>): Boolean =
+        left == SELECT_LEFT && right == SELECT_RIGHT &&
+            com.idworx.lisa.features.brain1interactionstandard.model.BlinkSequenceOrder.isLeftThenRight(blinkOrder)
+
+    /** RC7D.27 — R1 L1 cancel-confirmation (right-then-left order). */
+    fun isConfirmCancelSequence(left: Int, right: Int, blinkOrder: List<Boolean>): Boolean =
+        left == SELECT_LEFT && right == SELECT_RIGHT &&
+            com.idworx.lisa.features.brain1interactionstandard.model.BlinkSequenceOrder.isRightThenLeft(blinkOrder)
 
     fun isBackSequence(left: Int, right: Int): Boolean =
         left == BACK_LEFT && right == BACK_RIGHT
@@ -163,8 +202,16 @@ object GuidedPageSequences {
 object GuidedCategoryShortcuts {
     const val SHORTCUT_COUNT: Int = GuidedVocabularyCategory.PAGE_COUNT
 
-    fun gestureForCategory(categoryIndex: Int): Pair<Int, Int> =
-        GuidedPageSequences.slotAt(categoryIndex.coerceIn(0, SHORTCUT_COUNT - 1))
+    fun gestureForCategory(categoryIndex: Int): Pair<Int, Int> {
+        val index = categoryIndex.coerceIn(0, SHORTCUT_COUNT - 1)
+        // RC7D.26 — Adjust Settings always uses the canonical L5 R5 entry sequence (not the
+        // auto-assigned page slot), so the Category Menu card and the global blink shortcut stay one.
+        if (index == GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX) {
+            return GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+        }
+        return GuidedPageSequences.slotAt(index)
+    }
 
     fun sequenceLabelForCategory(categoryIndex: Int): String {
         val (left, right) = gestureForCategory(categoryIndex)
@@ -196,8 +243,23 @@ enum class GuidedOverlayScreenMode {
 
 enum class GuidedPreferencesAdjustMode {
     None,
+    /** RC7D.25/RC7D.27 — Adjust Settings menu (choose a setting; each choice opens immediately). */
+    SettingsMenu,
     ResponseTime,
-    Sensitivity
+    Sensitivity,
+    /** RC7D.27 — save confirmation for the Sensitivity draft (not yet persisted). */
+    ConfirmSaveSensitivity,
+    /** RC7D.27 — save confirmation for the Response Time draft (not yet persisted). */
+    ConfirmSaveResponseTime
+}
+
+/**
+ * RC7D.25 — which setting the Adjust Settings sub-mode currently highlights and will open. Selection
+ * starts on [Sensitivity]; L2 R0 / L0 R2 move between the two without changing either value.
+ */
+enum class GuidedAdjustmentTarget {
+    Sensitivity,
+    ResponseTime
 }
 
 enum class GuidedVocabularyCategory {
@@ -209,31 +271,40 @@ enum class GuidedVocabularyCategory {
     Preferences,
     Custom,
     /** Management destination — not a communication phrase category. */
-    PhraseManagement;
+    PhraseManagement,
+    /**
+     * RC7D.26 — navigation destination for blink/touch Adjust Settings. Not a phrase category;
+     * never used for saved-phrase assignment or storage keys.
+     */
+    AdjustSettings;
 
     companion object {
         val ordered: List<GuidedVocabularyCategory> = entries.toList()
-        const val PAGE_COUNT: Int = 8
+        const val PAGE_COUNT: Int = 9
         const val STANDARD_ENTRIES_PER_PAGE: Int = 10
         const val PREFERENCES_CATEGORY_INDEX: Int = 5
         const val CUSTOM_CATEGORY_INDEX: Int = 6
         const val PHRASE_MANAGEMENT_INDEX: Int = 7
+        const val ADJUST_SETTINGS_INDEX: Int = 8
     }
 }
 
 /**
  * Categories-area destinations: assignable communication categories vs management entry points.
- * Phrase Management must never be treated as a phrase storage/assignment category.
+ * Phrase Management and Adjust Settings must never be treated as phrase storage/assignment categories.
  */
 sealed class CategoryAreaDestination {
     data class CommunicationCategory(val category: GuidedVocabularyCategory) : CategoryAreaDestination()
     data object CreateCustomPhrase : CategoryAreaDestination()
     data object PhraseManagement : CategoryAreaDestination()
+    /** RC7D.26 — opens the canonical Adjust Settings sub-mode (same as L5 R5). */
+    data object AdjustSettings : CategoryAreaDestination()
 
     companion object {
         fun forCategoryIndex(index: Int): CategoryAreaDestination =
             when (GuidedVocabularyCategory.ordered.getOrNull(index)) {
                 GuidedVocabularyCategory.PhraseManagement -> PhraseManagement
+                GuidedVocabularyCategory.AdjustSettings -> AdjustSettings
                 GuidedVocabularyCategory.Custom -> CreateCustomPhrase
                 null -> CommunicationCategory(GuidedVocabularyCategory.Conversation)
                 else -> CommunicationCategory(GuidedVocabularyCategory.ordered[index])
@@ -242,10 +313,12 @@ sealed class CategoryAreaDestination {
         fun isAssignableCommunicationCategory(category: GuidedVocabularyCategory): Boolean =
             category.toCaregiverCategory() != null &&
                 category != GuidedVocabularyCategory.Custom &&
-                category != GuidedVocabularyCategory.PhraseManagement
+                category != GuidedVocabularyCategory.PhraseManagement &&
+                category != GuidedVocabularyCategory.AdjustSettings
 
         fun isManagementDestination(category: GuidedVocabularyCategory): Boolean =
-            category == GuidedVocabularyCategory.PhraseManagement
+            category == GuidedVocabularyCategory.PhraseManagement ||
+                category == GuidedVocabularyCategory.AdjustSettings
     }
 }
 
@@ -294,6 +367,9 @@ data class GuidedNavigationState(
     val preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None,
     val draftResponseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val draftSensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    /** RC7D.27 — value captured when the current adjustment opened (for confirmation + cancel restore). */
+    val adjustmentOriginalSensitivity: Int = DEFAULT_SENSITIVITY_LEVEL,
+    val adjustmentOriginalResponseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val adjustmentScrollStep: Int = 0,
     // RC7D.22 — explicit category-list VIEWPORT page, independent of which category is selected.
     // The viewport page is what the caregiver perceives as "Page 1 / Page 2" (a scroll window),
@@ -310,6 +386,8 @@ data class GuidedNavigationState(
         phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
         draftResponseTimeSec = SequenceProcessingDelay.coerce(draftResponseTimeSec),
         draftSensitivityLevel = draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+        adjustmentOriginalSensitivity = adjustmentOriginalSensitivity.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+        adjustmentOriginalResponseTimeSec = SequenceProcessingDelay.coerce(adjustmentOriginalResponseTimeSec),
         adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0),
         categoryViewportPageCount = categoryViewportPageCount.coerceAtLeast(1),
         categoryViewportPage = categoryViewportPage.coerceIn(0, (categoryViewportPageCount.coerceAtLeast(1) - 1))
@@ -318,13 +396,31 @@ data class GuidedNavigationState(
     val isPreferencesAdjustmentActive: Boolean
         get() = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
 
+    /** Adjust Settings menu (level 1) — no value changing yet. */
+    val isSettingsMenuActive: Boolean
+        get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
+
+    /** Level 2: a specific setting is open and its draft value is being adjusted. */
+    val isValueAdjustmentActive: Boolean
+        get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity
+
+    /** RC7D.27 — save confirmation is showing (draft not yet persisted). */
+    val isSaveConfirmationActive: Boolean
+        get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
+
     fun displayResponseTimeSec(savedSec: Int): Int = when (preferencesAdjustMode) {
-        GuidedPreferencesAdjustMode.ResponseTime -> SequenceProcessingDelay.coerce(draftResponseTimeSec)
+        GuidedPreferencesAdjustMode.ResponseTime,
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+            SequenceProcessingDelay.coerce(draftResponseTimeSec)
         else -> SequenceProcessingDelay.coerce(savedSec)
     }
 
     fun displaySensitivityLevel(savedLevel: Int): Int = when (preferencesAdjustMode) {
-        GuidedPreferencesAdjustMode.Sensitivity -> draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+        GuidedPreferencesAdjustMode.Sensitivity,
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
+            draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         else -> savedLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
     }
 }
@@ -541,19 +637,35 @@ object PreferenceAdjustmentBarSpec {
 
 object PreferenceAdjustmentController {
 
-    fun openResponseTimeAdjust(state: GuidedNavigationState, currentSec: Int): GuidedNavigationState =
+    /**
+     * Open the Adjust Settings menu. Does not touch stored values. The underlying screen
+     * (Vocabulary / Category Menu) is preserved so backing out of the menu returns there.
+     */
+    fun openSettingsMenu(state: GuidedNavigationState): GuidedNavigationState =
         state.normalized().copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
-            draftResponseTimeSec = SequenceProcessingDelay.coerce(currentSec),
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.SettingsMenu,
             adjustmentScrollStep = 0
         )
 
-    fun openSensitivityAdjust(state: GuidedNavigationState, currentLevel: Int): GuidedNavigationState =
-        state.normalized().copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity,
-            draftSensitivityLevel = currentLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+    fun openResponseTimeAdjust(state: GuidedNavigationState, currentSec: Int): GuidedNavigationState {
+        val coerced = SequenceProcessingDelay.coerce(currentSec)
+        return state.normalized().copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
+            draftResponseTimeSec = coerced,
+            adjustmentOriginalResponseTimeSec = coerced,
             adjustmentScrollStep = 0
         )
+    }
+
+    fun openSensitivityAdjust(state: GuidedNavigationState, currentLevel: Int): GuidedNavigationState {
+        val coerced = currentLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+        return state.normalized().copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity,
+            draftSensitivityLevel = coerced,
+            adjustmentOriginalSensitivity = coerced,
+            adjustmentScrollStep = 0
+        )
+    }
 
     fun decreaseDraft(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
         GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
@@ -563,7 +675,7 @@ object PreferenceAdjustmentController {
             draftSensitivityLevel = (state.draftSensitivityLevel - 1)
                 .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         )
-        GuidedPreferencesAdjustMode.None -> state
+        else -> state
     }
 
     fun increaseDraft(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
@@ -574,25 +686,62 @@ object PreferenceAdjustmentController {
             draftSensitivityLevel = (state.draftSensitivityLevel + 1)
                 .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         )
-        GuidedPreferencesAdjustMode.None -> state
+        else -> state
     }
 
-    fun cancelAdjustment(state: GuidedNavigationState): GuidedNavigationState =
+    /** RC7D.27 — first Save (L1 R1) enters confirmation; draft is not persisted yet. */
+    fun beginSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
+        GuidedPreferencesAdjustMode.Sensitivity -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSensitivity
+        )
+        GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
+        )
+        else -> state
+    }
+
+    /** RC7D.27 — R1 L1 leaves confirmation and returns to editing with the draft intact. */
+    fun cancelSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
+        )
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
+        )
+        else -> state
+    }
+
+    /**
+     * Exit Adjust Settings entirely (Back from the Settings menu).
+     */
+    fun exitSettingsMenu(state: GuidedNavigationState): GuidedNavigationState =
         state.copy(preferencesAdjustMode = GuidedPreferencesAdjustMode.None)
+
+    /**
+     * RC7D.27 — Cancel / Back from an individual adjustment (or from confirmation via L2 R2 is
+     * blocked): discard the draft and return to the Adjust Settings menu.
+     */
+    fun cancelAdjustment(state: GuidedNavigationState): GuidedNavigationState =
+        when (state.preferencesAdjustMode) {
+            GuidedPreferencesAdjustMode.SettingsMenu -> exitSettingsMenu(state)
+            GuidedPreferencesAdjustMode.None -> state
+            else -> openSettingsMenu(state)
+        }
 
     fun saveAdjustment(state: GuidedNavigationState): GuidedSequenceResult.SavePreferencesAdjustment =
         when (state.preferencesAdjustMode) {
-            GuidedPreferencesAdjustMode.ResponseTime -> GuidedSequenceResult.SavePreferencesAdjustment(
-                newState = cancelAdjustment(state),
+            GuidedPreferencesAdjustMode.ResponseTime,
+            GuidedPreferencesAdjustMode.ConfirmSaveResponseTime -> GuidedSequenceResult.SavePreferencesAdjustment(
+                newState = openSettingsMenu(state),
                 responseTimeSec = SequenceProcessingDelay.coerce(state.draftResponseTimeSec)
             )
-            GuidedPreferencesAdjustMode.Sensitivity -> GuidedSequenceResult.SavePreferencesAdjustment(
-                newState = cancelAdjustment(state),
+            GuidedPreferencesAdjustMode.Sensitivity,
+            GuidedPreferencesAdjustMode.ConfirmSaveSensitivity -> GuidedSequenceResult.SavePreferencesAdjustment(
+                newState = openSettingsMenu(state),
                 sensitivityLevel = state.draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
             )
-            GuidedPreferencesAdjustMode.None -> GuidedSequenceResult.SavePreferencesAdjustment(
-                newState = state
-            )
+            GuidedPreferencesAdjustMode.SettingsMenu, GuidedPreferencesAdjustMode.None ->
+                GuidedSequenceResult.SavePreferencesAdjustment(newState = state)
         }
 }
 
@@ -861,7 +1010,7 @@ object GuidedNavigationController {
         )
 
     fun openCategoryMenuEscapingAdjustment(state: GuidedNavigationState): GuidedNavigationState =
-        openCategoryMenu(PreferenceAdjustmentController.cancelAdjustment(state))
+        openCategoryMenu(PreferenceAdjustmentController.exitSettingsMenu(state))
 
     fun scrollAdjustmentContentUp(state: GuidedNavigationState): GuidedNavigationState {
         val normalized = state.normalized()
@@ -901,12 +1050,21 @@ object GuidedNavigationController {
         language: PreferredLanguage,
         uiStrings: LisaUiStrings,
         visibleEntryCap: Int = GuidedVocabularyCatalog.DEFAULT_VISIBLE_ENTRY_CAP,
-        catalogContext: GuidedCatalogContext = GuidedCatalogContext()
+        catalogContext: GuidedCatalogContext = GuidedCatalogContext(),
+        /** RC7D.27 — order of blinks (true=left). Required to distinguish L1 R1 from R1 L1. */
+        blinkOrder: List<Boolean> = emptyList()
     ): GuidedSequenceResult {
         val normalized = state.normalized()
 
         if (normalized.isPreferencesAdjustmentActive) {
-            return processPreferencesAdjustmentGesture(left, right, normalized)
+            return processPreferencesAdjustmentGesture(left, right, normalized, catalogContext, blinkOrder)
+        }
+
+        // RC7D.25 — the single global entry into the Adjust Settings sub-mode. Checked before the
+        // per-screen dispatch so it is reachable from both the Category Menu and any phrase category
+        // page; it matches no category shortcut or vocabulary slot, so nothing is shadowed.
+        if (GuidedModeNavigation.isAdjustSettingsEntrySequence(left, right)) {
+            return GuidedSequenceResult.Navigate(PreferenceAdjustmentController.openSettingsMenu(normalized))
         }
 
         val currentPage = GuidedVocabularyCatalog.categoryAt(
@@ -963,10 +1121,57 @@ object GuidedNavigationController {
         }
     }
 
+    /**
+     * RC7D.25 / RC7D.27 — preference-adjustment gesture routing:
+     *   • SettingsMenu — L2 R0 / L0 R2 open a setting directly; L2 R2 exits the menu.
+     *   • Sensitivity / ResponseTime — decrease / increase / enter save confirmation / cancel to menu.
+     *   • ConfirmSave* — L1 R1 persists; R1 L1 returns to editing; other commands blocked.
+     * Emergency (L6 R0) is matched upstream of this controller and therefore always takes priority.
+     */
     private fun processPreferencesAdjustmentGesture(
         left: Int,
         right: Int,
-        state: GuidedNavigationState
+        state: GuidedNavigationState,
+        catalogContext: GuidedCatalogContext,
+        blinkOrder: List<Boolean>
+    ): GuidedSequenceResult = when (state.preferencesAdjustMode) {
+        GuidedPreferencesAdjustMode.SettingsMenu ->
+            processSettingsMenuGesture(left, right, state, catalogContext)
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity,
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+            processSaveConfirmationGesture(left, right, state, blinkOrder)
+        GuidedPreferencesAdjustMode.Sensitivity,
+        GuidedPreferencesAdjustMode.ResponseTime ->
+            processValueAdjustmentGesture(left, right, state, blinkOrder)
+        GuidedPreferencesAdjustMode.None -> GuidedSequenceResult.Unmatched
+    }
+
+    /** RC7D.27 — Adjust Settings menu: each setting opens immediately on its own sequence. */
+    private fun processSettingsMenuGesture(
+        left: Int,
+        right: Int,
+        state: GuidedNavigationState,
+        catalogContext: GuidedCatalogContext
+    ): GuidedSequenceResult = when {
+        GuidedModeNavigation.isPreviousSequence(left, right) ->
+            GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openSensitivityAdjust(state, catalogContext.sensitivityLevel)
+            )
+        GuidedModeNavigation.isNextSequence(left, right) ->
+            GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openResponseTimeAdjust(state, catalogContext.responseTimeSec)
+            )
+        GuidedModeNavigation.isBackSequence(left, right) ->
+            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.exitSettingsMenu(state))
+        else -> GuidedSequenceResult.Unmatched
+    }
+
+    /** Value-adjustment level — first L1 R1 enters save confirmation (does not persist). */
+    private fun processValueAdjustmentGesture(
+        left: Int,
+        right: Int,
+        state: GuidedNavigationState,
+        blinkOrder: List<Boolean>
     ): GuidedSequenceResult = when {
         GuidedModeNavigation.isPreviousSequence(left, right) ->
             GuidedSequenceResult.Navigate(scrollAdjustmentContentUp(state))
@@ -976,12 +1181,32 @@ object GuidedNavigationController {
             GuidedSequenceResult.Navigate(PreferenceAdjustmentController.decreaseDraft(state))
         GuidedModeNavigation.isIncreaseValueSequence(left, right) ->
             GuidedSequenceResult.Navigate(PreferenceAdjustmentController.increaseDraft(state))
-        GuidedModeNavigation.isSelectSequence(left, right) ->
-            PreferenceAdjustmentController.saveAdjustment(state)
+        // Touch Save uses counts (1,1) without order; blink Save requires L-then-R when order is known.
+        GuidedModeNavigation.isSelectSequence(left, right) &&
+            (blinkOrder.isEmpty() || GuidedModeNavigation.isConfirmSequence(left, right, blinkOrder)) ->
+            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.beginSaveConfirmation(state))
         GuidedModeNavigation.isBackSequence(left, right) ->
             GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelAdjustment(state))
         GuidedModeNavigation.isCategoriesSequence(left, right) ->
             GuidedSequenceResult.Navigate(openCategoryMenuEscapingAdjustment(state))
+        else -> GuidedSequenceResult.Unmatched
+    }
+
+    /**
+     * RC7D.27 — confirmation: L1 R1 (or touch Confirm with empty order) persists;
+     * R1 L1 cancels confirmation and returns to editing with the draft kept.
+     */
+    private fun processSaveConfirmationGesture(
+        left: Int,
+        right: Int,
+        state: GuidedNavigationState,
+        blinkOrder: List<Boolean>
+    ): GuidedSequenceResult = when {
+        GuidedModeNavigation.isConfirmCancelSequence(left, right, blinkOrder) ->
+            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelSaveConfirmation(state))
+        GuidedModeNavigation.isSelectSequence(left, right) &&
+            (blinkOrder.isEmpty() || GuidedModeNavigation.isConfirmSequence(left, right, blinkOrder)) ->
+            PreferenceAdjustmentController.saveAdjustment(state)
         else -> GuidedSequenceResult.Unmatched
     }
 
@@ -1211,6 +1436,11 @@ object GuidedVocabularyCatalog {
         CatalogSpec(
             category = GuidedVocabularyCategory.PhraseManagement,
             entries = emptyList()
+        ),
+        // Adjust Settings: navigation destination only — opens settings sub-mode (RC7D.26).
+        CatalogSpec(
+            category = GuidedVocabularyCategory.AdjustSettings,
+            entries = emptyList()
         )
     )
 
@@ -1231,7 +1461,8 @@ object GuidedVocabularyCatalog {
             }
             val customEntries = if (
                 spec.category == GuidedVocabularyCategory.Custom ||
-                spec.category == GuidedVocabularyCategory.PhraseManagement
+                spec.category == GuidedVocabularyCategory.PhraseManagement ||
+                spec.category == GuidedVocabularyCategory.AdjustSettings
             ) {
                 emptyList()
             } else {
@@ -1617,12 +1848,13 @@ object GuidedVocabularyCatalogValidation {
             page.entries.map { it.left to it.right }.distinct().size == page.entries.size
         }
 
-    /** Pages carrying the standard slot layout — Custom / Phrase Management / Preferences use their own sequences. */
+    /** Pages carrying the standard slot layout — Custom / Phrase Management / Adjust Settings / Preferences use their own sequences. */
     private fun standardSlotPages(): List<GuidedCategoryPage> =
         allPages.filter {
             it.category != GuidedVocabularyCategory.Preferences &&
                 it.category != GuidedVocabularyCategory.Custom &&
-                it.category != GuidedVocabularyCategory.PhraseManagement
+                it.category != GuidedVocabularyCategory.PhraseManagement &&
+                it.category != GuidedVocabularyCategory.AdjustSettings
         }
 
     fun sequencesRepeatAcrossPages(): Boolean {
@@ -1706,7 +1938,12 @@ object GuidedVocabularyCatalogValidation {
             "L3 R2",
             "L2 R3",
             "L3 R3",
-            "L4 R1"
+            "L4 R1",
+            // RC7D.26 — Adjust Settings uses the canonical entry sequence, not the next page slot.
+            formatWinkSequenceShort(
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+            )
         )
         return GuidedVocabularyCategory.PAGE_COUNT == expected.size &&
             (0 until GuidedVocabularyCategory.PAGE_COUNT).all { index ->

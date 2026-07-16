@@ -472,7 +472,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         guidedConfirmedLeft = uiGuidedConfirmedLeft.value,
                         guidedConfirmedRight = uiGuidedConfirmedRight.value,
                         onGuidedNavigateUp = { applyGuidedTouchNavigation(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT) },
-                        onGuidedSelectEnter = { applyGuidedTouchNavigation(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT) },
+                        onGuidedSelectEnter = {
+                            applyGuidedTouchNavigation(
+                                GuidedModeNavigation.SELECT_LEFT,
+                                GuidedModeNavigation.SELECT_RIGHT
+                            )
+                        },
+                        onGuidedCancelSaveConfirmation = {
+                            // RC7D.27 — R1 L1 (right-then-left) cancels save confirmation only.
+                            applyGuidedTouchNavigation(
+                                GuidedModeNavigation.SELECT_LEFT,
+                                GuidedModeNavigation.SELECT_RIGHT,
+                                blinkOrder = listOf(false, true)
+                            )
+                        },
                         onGuidedBack = { applyGuidedTouchNavigation(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT) },
                         onGuidedNavigateDown = { applyGuidedTouchNavigation(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT) },
                         onGuidedEmergency = { triggerGuidedEmergencyTouch() },
@@ -1977,7 +1990,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
 
     private fun mappingsForSequenceContinuation(): List<WinkMapping> =
-        if (guidedOverlayActive()) workspaceContinuationMappings() else mappingsState.toList()
+        if (guidedOverlayActive()) {
+            val base = workspaceContinuationMappings()
+            // RC7D.25 — explicit continuation protection for the L5 R5 Adjust Settings entry. While
+            // the user is still winking toward the full 5×5 sequence (every shorter existing gesture
+            // is a prefix of it), advertising L5 R5 as a longer continuation keeps the partial in a
+            // "keep winking" hint instead of prematurely resolving a shorter prefix. Only advertised
+            // when NOT already adjusting, since the entry gesture is only meaningful from the normal
+            // (non-adjustment) workspace.
+            if (!uiGuidedNavigationState.value.isPreferencesAdjustmentActive) {
+                base + WinkMapping(
+                    GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
+                    GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
+                    "",
+                    isCustom = true,
+                    customPhrase = ""
+                )
+            } else {
+                base
+            }
+        } else {
+            mappingsState.toList()
+        }
 
     private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
         GuidedVocabularyCatalog.categoryAt(
@@ -2014,7 +2048,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
     }
 
-    private fun applyGuidedTouchNavigation(left: Int, right: Int) {
+    private fun applyGuidedTouchNavigation(
+        left: Int,
+        right: Int,
+        blinkOrder: List<Boolean> = emptyList()
+    ) {
         if (trainingSession.isNavigationTrainingActive() &&
             (!acceptedByCurrentNavigationLesson(left, right) || isNavigationLessonOffTargetAttempt(left, right))
         ) {
@@ -2025,7 +2063,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
             verifyTrainingNavigation(NavigationAction.OpenCategories)
         }
-        handleGuidedOverlaySequence(left, right)
+        handleGuidedOverlaySequence(left, right, blinkOrder)
     }
 
     /**
@@ -2056,6 +2094,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             CategoryAreaDestination.PhraseManagement -> {
                 openPhraseManagementFromCategories()
+                verifyTrainingNavigation(NavigationAction.SelectCategory)
+                return
+            }
+            CategoryAreaDestination.AdjustSettings -> {
+                openAdjustSettingsFromCategories()
                 verifyTrainingNavigation(NavigationAction.SelectCategory)
                 return
             }
@@ -2101,6 +2144,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
         uiPanelReturnTarget.value = null
         openPanel(LisaPanel.VocabularyTraining)
+    }
+
+    /** RC7D.26 — Category Menu destination 9 and L5 R5 share this canonical Adjust Settings entry. */
+    private fun openAdjustSettingsFromCategories() {
+        val current = uiGuidedNavigationState.value.copy(
+            screenMode = GuidedOverlayScreenMode.CategoryMenu,
+            categoryMenuSelection = GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX
+        )
+        uiGuidedNavigationState.value = PreferenceAdjustmentController.openSettingsMenu(current)
+        uiGuidedConfirmedPhrase.value = guidedUiStrings().guidedAdjustSettingsTitle
+        uiGuidedConfirmedLeft.value = GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT
+        uiGuidedConfirmedRight.value = GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+        setCommunicationState(LisaCommunicationState.Listening)
+        mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+        mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
     }
 
     /**
@@ -2426,7 +2484,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun handleGuidedOverlaySequence(left: Int, right: Int) {
+    private fun handleGuidedOverlaySequence(
+        left: Int,
+        right: Int,
+        blinkOrderOverride: List<Boolean>? = null
+    ) {
         if (returnToComposerFromCategoryViewIfNeeded(left, right)) {
             resetSequence()
             return
@@ -2439,6 +2501,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         val uiStrings = guidedUiStrings()
         val catalogContext = guidedCatalogContext()
+        // RC7D.25 — the adjustment level active BEFORE this gesture, so Cancel feedback can name the
+        // setting whose changes were discarded even though the result state has already cleared it.
+        val priorAdjustMode = uiGuidedNavigationState.value.preferencesAdjustMode
         val result = GuidedNavigationController.processSequence(
             left = left,
             right = right,
@@ -2446,17 +2511,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             language = activeLanguage(),
             uiStrings = uiStrings,
             visibleEntryCap = guidedVisibleEntryCap(),
-            catalogContext = catalogContext
+            catalogContext = catalogContext,
+            blinkOrder = blinkOrderOverride ?: currentBlinkOrder()
         )
         resetSequence()
-        applyGuidedSequenceResult(result, left, right, uiStrings)
+        applyGuidedSequenceResult(result, left, right, uiStrings, priorAdjustMode)
     }
 
     private fun applyGuidedSequenceResult(
         result: GuidedSequenceResult,
         left: Int,
         right: Int,
-        uiStrings: LisaUiStrings
+        uiStrings: LisaUiStrings,
+        priorAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None
     ) {
         when (result) {
             is GuidedSequenceResult.Navigate -> {
@@ -2464,11 +2531,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val openingManagementDestination =
                     result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
                         (destination is CategoryAreaDestination.CreateCustomPhrase ||
-                            destination is CategoryAreaDestination.PhraseManagement)
+                            destination is CategoryAreaDestination.PhraseManagement ||
+                            destination is CategoryAreaDestination.AdjustSettings)
                 if (openingManagementDestination) {
                     when (destination) {
                         CategoryAreaDestination.CreateCustomPhrase -> openComposeModeFromCustom()
                         CategoryAreaDestination.PhraseManagement -> openPhraseManagementFromCategories()
+                        CategoryAreaDestination.AdjustSettings -> openAdjustSettingsFromCategories()
                         is CategoryAreaDestination.CommunicationCategory -> Unit
                     }
                     uiGuidedConfirmedPhrase.value = null
@@ -2499,9 +2568,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
                     }
                     else -> {
-                        uiGuidedConfirmedPhrase.value = null
-                        uiGuidedConfirmedLeft.value = null
-                        uiGuidedConfirmedRight.value = null
+                        // RC7D.25 — Cancel (Back) out of a value-adjustment restores the original
+                        // value (the draft is simply discarded) and shows a brief cancellation note.
+                        val cancelMessage = when {
+                            GuidedModeNavigation.isBackSequence(left, right) &&
+                                priorAdjustMode == GuidedPreferencesAdjustMode.Sensitivity &&
+                                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu ->
+                                uiStrings.guidedSensitivityChangesCancelled
+                            GuidedModeNavigation.isBackSequence(left, right) &&
+                                priorAdjustMode == GuidedPreferencesAdjustMode.ResponseTime &&
+                                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu ->
+                                uiStrings.guidedResponseTimeChangesCancelled
+                            else -> null
+                        }
+                        if (cancelMessage != null) {
+                            uiGuidedConfirmedPhrase.value = cancelMessage
+                            uiGuidedConfirmedLeft.value = GuidedModeNavigation.BACK_LEFT
+                            uiGuidedConfirmedRight.value = GuidedModeNavigation.BACK_RIGHT
+                            mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                            mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+                        } else {
+                            uiGuidedConfirmedPhrase.value = null
+                            uiGuidedConfirmedLeft.value = null
+                            uiGuidedConfirmedRight.value = null
+                        }
                     }
                     }
                 }
@@ -2533,9 +2623,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             is GuidedSequenceResult.SavePreferencesAdjustment -> {
                 uiGuidedNavigationState.value = result.newState
+                // Save routes through the SAME persistence + runtime-apply authority as the touch
+                // −/+ controls (setSequenceProcessingDelay / applySensitivityLevel), so there is no
+                // duplicate mutation path — blink and touch share one source of truth.
                 result.responseTimeSec?.let { setSequenceProcessingDelay(it) }
                 result.sensitivityLevel?.let { applySensitivityLevel(it) }
-                uiGuidedConfirmedPhrase.value = uiStrings.guidedActionConfirmed
+                uiGuidedConfirmedPhrase.value = when {
+                    result.sensitivityLevel != null -> uiStrings.guidedSensitivitySaved(result.sensitivityLevel)
+                    result.responseTimeSec != null -> uiStrings.guidedResponseTimeSaved(result.responseTimeSec)
+                    else -> uiStrings.guidedActionConfirmed
+                }
                 uiGuidedConfirmedLeft.value = GuidedModeNavigation.SELECT_LEFT
                 uiGuidedConfirmedRight.value = GuidedModeNavigation.SELECT_RIGHT
                 setCommunicationState(LisaCommunicationState.Listening)

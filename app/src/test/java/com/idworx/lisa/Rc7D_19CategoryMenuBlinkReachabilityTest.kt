@@ -59,7 +59,7 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(english)
         assertEquals(GuidedVocabularyCategory.PAGE_COUNT, GuidedVocabularyCategory.ordered.size)
         assertEquals(GuidedVocabularyCategory.PAGE_COUNT, titles.size)
-        assertEquals(8, titles.size)
+        assertEquals(9, titles.size)
         assertEquals("Phrase Management", titles[GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX])
         assertTrue(GuidedCategoryMenuScroll.canReachEveryCategoryByBlink())
     }
@@ -76,9 +76,9 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
             visited.add(state.categoryMenuSelection)
         }
         assertEquals((0 until GuidedVocabularyCategory.PAGE_COUNT).toList(), visited)
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, state.categoryMenuSelection)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, state.categoryMenuSelection)
         assertEquals(
-            GuidedVocabularyCategory.PhraseManagement,
+            GuidedVocabularyCategory.AdjustSettings,
             GuidedVocabularyCategory.ordered[state.categoryMenuSelection]
         )
     }
@@ -87,7 +87,7 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
     fun moveUpReturnsThroughEveryCategoryToFirst() {
         var state = GuidedNavigationState(
             screenMode = GuidedOverlayScreenMode.CategoryMenu,
-            categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+            categoryMenuSelection = GuidedVocabularyCategory.PAGE_COUNT - 1
         )
         val visited = mutableListOf(state.categoryMenuSelection)
         repeat(GuidedVocabularyCategory.PAGE_COUNT - 1) {
@@ -150,12 +150,13 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
 
     @Test
     fun noHardcodedSevenAsNavigationCeiling() {
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
         assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
         assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         val moveDownCap = GuidedVocabularyCategory.PAGE_COUNT - 1
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, moveDownCap)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, moveDownCap)
         assertFalse(moveDownCap == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertFalse(moveDownCap == GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
     }
 
     @Test

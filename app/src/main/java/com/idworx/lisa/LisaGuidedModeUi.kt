@@ -93,6 +93,7 @@ fun GuidedVocabularyOverlay(
     emergencyAwaitingConfirm: Boolean = false,
     onNavigateUp: () -> Unit,
     onSelectEnter: () -> Unit,
+    onCancelSaveConfirmation: () -> Unit = {},
     onBack: () -> Unit,
     onNavigateDown: () -> Unit,
     onEmergency: () -> Unit,
@@ -196,24 +197,49 @@ fun GuidedVocabularyOverlay(
 
                 Spacer(Modifier.height(8.dp))
 
-                when (screenMode) {
+                // RC7D.25 — an active adjustment (either the Adjust Settings selection sub-mode or a
+                // specific value adjustment) overlays the workspace regardless of the underlying
+                // screen mode, so the entry gesture works identically from the Category Menu and any
+                // phrase category page. Backing out restores the untouched underlying screen.
+                if (safeState.isSettingsMenuActive) {
+                    SettingsMenuPanel(
+                        uiStrings = uiStrings,
+                        onOpenSensitivity = onNavigateUp,
+                        onOpenResponseTime = onNavigateDown,
+                        onBack = onBack,
+                        onEmergency = onEmergency,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (safeState.isSaveConfirmationActive) {
+                    SaveConfirmationPanel(
+                        uiStrings = uiStrings,
+                        adjustMode = preferencesAdjustMode,
+                        originalSensitivity = safeState.adjustmentOriginalSensitivity,
+                        originalResponseTimeSec = safeState.adjustmentOriginalResponseTimeSec,
+                        draftSensitivity = safeState.draftSensitivityLevel,
+                        draftResponseTimeSec = safeState.draftResponseTimeSec,
+                        onConfirm = onSelectEnter,
+                        onCancelConfirmation = onCancelSaveConfirmation,
+                        onEmergency = onEmergency,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (safeState.isValueAdjustmentActive) {
+                    PreferencesAdjustmentPanel(
+                        uiStrings = uiStrings,
+                        adjustMode = preferencesAdjustMode,
+                        draftResponseTimeSec = safeState.draftResponseTimeSec,
+                        draftSensitivityLevel = safeState.draftSensitivityLevel,
+                        scrollStep = safeState.adjustmentScrollStep,
+                        onDecrease = onDecreaseValue,
+                        onIncrease = onIncreaseValue,
+                        onSave = onSelectEnter,
+                        onCancel = onBack,
+                        onEmergency = onEmergency,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else when (screenMode) {
                     GuidedOverlayScreenMode.Vocabulary -> {
-                        if (isAdjusting) {
-                            PreferencesAdjustmentPanel(
-                                uiStrings = uiStrings,
-                                adjustMode = preferencesAdjustMode,
-                                draftResponseTimeSec = safeState.draftResponseTimeSec,
-                                draftSensitivityLevel = safeState.draftSensitivityLevel,
-                                scrollStep = safeState.adjustmentScrollStep,
-                                onDecrease = onDecreaseValue,
-                                onIncrease = onIncreaseValue,
-                                onSave = onSelectEnter,
-                                onCancel = onBack,
-                                onCategories = onCategories,
-                                onEmergency = onEmergency,
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else if (categoryPage != null) {
+                        if (categoryPage != null) {
                             Text(
                                 text = categoryPage.title,
                                 fontWeight = FontWeight.Bold,
@@ -464,8 +490,13 @@ private fun GuidedOverlayHeader(
     preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None
 ) {
     val modeLabel = when {
-        preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeTitle
-        preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSensitivityTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu -> uiStrings.guidedAdjustSettingsTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+            uiStrings.guidedResponseTimeAdjustmentTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
+            uiStrings.guidedSensitivityAdjustmentTitle
         screenMode == GuidedOverlayScreenMode.Vocabulary -> uiStrings.guidedVocabularyTitle
         else -> uiStrings.guidedCategoryMenuMode
     }
@@ -474,13 +505,13 @@ private fun GuidedOverlayHeader(
     // only duplicate it, so this small section label is all that shows in that state.
     val isPlainVocabularyBrowsing = screenMode == GuidedOverlayScreenMode.Vocabulary &&
         preferencesAdjustMode == GuidedPreferencesAdjustMode.None
+    val isAdjustingPreferences = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
     // RC7D.23 — the Category Menu renders its own "Choose a Category" heading directly above the
     // category cards, so the header must NOT also print the near-identical "Choose Category" mode
-    // label (that was the duplicated heading). The small Communication context label and the
-    // Category X / Y + Page X / Y indicator card are preserved; suppressing only the redundant mode
-    // label lets the cards move up into the reclaimed space with no leftover gap.
-    val showModeLabel = !isPlainVocabularyBrowsing &&
-        screenMode != GuidedOverlayScreenMode.CategoryMenu
+    // label (that was the duplicated heading). RC7D.26 — while Adjust Settings is open, always
+    // show the settings title even when the underlying screen is still Category Menu.
+    val showModeLabel = isAdjustingPreferences ||
+        (!isPlainVocabularyBrowsing && screenMode != GuidedOverlayScreenMode.CategoryMenu)
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -500,7 +531,10 @@ private fun GuidedOverlayHeader(
                     fontSize = 16.sp,
                     color = LisaWhite
                 )
-                if (screenMode == GuidedOverlayScreenMode.Vocabulary && categoryTitle != null) {
+                if (screenMode == GuidedOverlayScreenMode.Vocabulary &&
+                    categoryTitle != null &&
+                    !isAdjustingPreferences
+                ) {
                     Text(
                         text = categoryTitle,
                         fontSize = 12.sp,
@@ -509,8 +543,10 @@ private fun GuidedOverlayHeader(
                 }
             }
         }
-        when (screenMode) {
-            GuidedOverlayScreenMode.Vocabulary -> Text(
+        when {
+            // RC7D.27 — settings screens do not show phrase-page or Setting 1/2 indicators.
+            isAdjustingPreferences -> Unit
+            screenMode == GuidedOverlayScreenMode.Vocabulary -> Text(
                 text = uiStrings.guidedPhrasePageIndicator(phrasePageIndex + 1, phrasePageCount),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -520,11 +556,11 @@ private fun GuidedOverlayHeader(
                     .background(Color.White.copy(alpha = 0.14f))
                     .padding(horizontal = 10.dp, vertical = 5.dp)
             )
-            // RC7D.22 — two INDEPENDENT indicators. "Category X / 8" tracks the highlighted
+            // RC7D.22 — two INDEPENDENT indicators. "Category X / N" tracks the highlighted
             // selection (canonical ordered destination count). "Page X / Y" reports the current
             // VIEWPORT page — a measured scroll window, not selectionIndex / pageSize — so a
             // partly-visible Category 7 can read Page 1 at the top and Page 2 after a page-down.
-            GuidedOverlayScreenMode.CategoryMenu -> {
+            screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
                 val categoryTotal = GuidedVocabularyCategory.PAGE_COUNT
                 val pageTotal = categoryViewportPageCount.coerceAtLeast(1)
                 val currentPage = (categoryViewportPage + 1).coerceIn(1, pageTotal)
@@ -898,6 +934,139 @@ internal fun GuidedNavigationActionButton(
     }
 }
 
+/**
+ * RC7D.27 — Adjust Settings menu. Each setting opens immediately on touch or its blink sequence.
+ */
+@Composable
+private fun SettingsMenuPanel(
+    uiStrings: LisaUiStrings,
+    onOpenSensitivity: () -> Unit,
+    onOpenResponseTime: () -> Unit,
+    onBack: () -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = uiStrings.guidedAdjustSettingsTitle,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = LisaWhite
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.PREVIOUS_LEFT,
+                GuidedModeNavigation.PREVIOUS_RIGHT
+            ),
+            gestureHint = uiStrings.guidedSelectSensitivitySetting,
+            title = uiStrings.guidedSelectSensitivitySetting,
+            onClick = onOpenSensitivity
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.NEXT_LEFT,
+                GuidedModeNavigation.NEXT_RIGHT
+            ),
+            gestureHint = uiStrings.guidedSelectResponseTimeSetting,
+            title = uiStrings.guidedSelectResponseTimeSetting,
+            onClick = onOpenResponseTime
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
+            gestureHint = uiStrings.guidedBackHint,
+            title = uiStrings.guidedBack,
+            onClick = onBack
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            gestureHint = uiStrings.guidedEmergencyNavTitle,
+            title = uiStrings.guidedEmergencyNavTitle,
+            onClick = onEmergency,
+            emergency = true
+        )
+    }
+}
+
+@Composable
+private fun SaveConfirmationPanel(
+    uiStrings: LisaUiStrings,
+    adjustMode: GuidedPreferencesAdjustMode,
+    originalSensitivity: Int,
+    originalResponseTimeSec: Int,
+    draftSensitivity: Int,
+    draftResponseTimeSec: Int,
+    onConfirm: () -> Unit,
+    onCancelConfirmation: () -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isSensitivity = adjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = if (isSensitivity) {
+                uiStrings.guidedSaveSensitivityConfirmTitle()
+            } else {
+                uiStrings.guidedSaveResponseTimeConfirmTitle()
+            },
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = LisaWhite
+        )
+        Text(
+            text = if (isSensitivity) {
+                uiStrings.guidedSaveConfirmOriginalSensitivity(originalSensitivity)
+            } else {
+                uiStrings.guidedSaveConfirmOriginalResponseTime(originalResponseTimeSec)
+            },
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            color = LisaWhite
+        )
+        Text(
+            text = if (isSensitivity) {
+                uiStrings.guidedSaveConfirmNewSensitivity(draftSensitivity)
+            } else {
+                uiStrings.guidedSaveConfirmNewResponseTime(draftResponseTimeSec)
+            },
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            color = LisaWhite
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT
+            ),
+            gestureHint = uiStrings.guidedSelectEnterHint,
+            title = uiStrings.guidedConfirmSave,
+            onClick = onConfirm
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = uiStrings.guidedConfirmCancelSequenceLabel,
+            gestureHint = uiStrings.guidedCancelSaveConfirmation,
+            title = uiStrings.guidedCancelSaveConfirmation,
+            onClick = onCancelConfirmation
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            gestureHint = uiStrings.guidedEmergencyNavTitle,
+            title = uiStrings.guidedEmergencyNavTitle,
+            onClick = onEmergency,
+            emergency = true
+        )
+    }
+}
+
 @Composable
 private fun PreferencesAdjustmentPanel(
     uiStrings: LisaUiStrings,
@@ -909,7 +1078,6 @@ private fun PreferencesAdjustmentPanel(
     onIncrease: () -> Unit,
     onSave: () -> Unit,
     onCancel: () -> Unit,
-    onCategories: () -> Unit,
     onEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -926,9 +1094,9 @@ private fun PreferencesAdjustmentPanel(
     ) {
         Text(
             text = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeTitle
-                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSensitivityTitle
-                GuidedPreferencesAdjustMode.None -> ""
+                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeAdjustmentTitle
+                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSensitivityAdjustmentTitle
+                else -> ""
             },
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
@@ -937,57 +1105,69 @@ private fun PreferencesAdjustmentPanel(
         Text(
             text = when (adjustMode) {
                 GuidedPreferencesAdjustMode.ResponseTime ->
-                    uiStrings.guidedAdjustmentCurrentValueResponseTime(draftResponseTimeSec)
+                    uiStrings.guidedCurrentResponseTime(draftResponseTimeSec)
                 GuidedPreferencesAdjustMode.Sensitivity ->
-                    uiStrings.guidedAdjustmentCurrentValueSensitivity(draftSensitivityLevel)
-                GuidedPreferencesAdjustMode.None -> ""
+                    uiStrings.guidedCurrentSensitivity(draftSensitivityLevel)
+                else -> ""
             },
             fontWeight = FontWeight.SemiBold,
             fontSize = 16.sp,
             color = LisaWhite
         )
+        if (adjustMode == GuidedPreferencesAdjustMode.ResponseTime) {
+            Text(
+                text = uiStrings.guidedResponseTimeMeterHint,
+                fontSize = 12.sp,
+                color = LisaWhite.copy(alpha = 0.75f)
+            )
+        }
 
         when (adjustMode) {
-            GuidedPreferencesAdjustMode.ResponseTime -> ResponseTimeValueBar(
-                selectedSec = draftResponseTimeSec,
-                onSelect = { }
+            GuidedPreferencesAdjustMode.ResponseTime -> SettingAdjustmentMeter(
+                label = uiStrings.guidedResponseTimeTitle,
+                currentValueLabel = PreferenceAdjustmentBarSpec.formatResponseTimeTick(draftResponseTimeSec),
+                minimumValue = SequenceProcessingDelay.MIN_SECONDS,
+                maximumValue = SequenceProcessingDelay.MAX_SECONDS,
+                currentValue = draftResponseTimeSec,
+                decreaseLabel = uiStrings.guidedDecreaseShort,
+                decreaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.DECREASE_VALUE_LEFT,
+                    GuidedModeNavigation.DECREASE_VALUE_RIGHT
+                ),
+                increaseLabel = uiStrings.guidedIncreaseShort,
+                increaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.INCREASE_VALUE_LEFT,
+                    GuidedModeNavigation.INCREASE_VALUE_RIGHT
+                ),
+                onDecrease = onDecrease,
+                onIncrease = onIncrease
             )
-            GuidedPreferencesAdjustMode.Sensitivity -> SensitivityValueBar(
-                selectedLevel = draftSensitivityLevel,
-                onSelect = { }
+            GuidedPreferencesAdjustMode.Sensitivity -> SettingAdjustmentMeter(
+                label = uiStrings.guidedSensitivityTitle,
+                currentValueLabel = PreferenceAdjustmentBarSpec.formatSensitivityTick(draftSensitivityLevel),
+                minimumValue = MIN_SENSITIVITY_LEVEL,
+                maximumValue = MAX_SENSITIVITY_LEVEL,
+                currentValue = draftSensitivityLevel,
+                decreaseLabel = uiStrings.guidedDecreaseShort,
+                decreaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.DECREASE_VALUE_LEFT,
+                    GuidedModeNavigation.DECREASE_VALUE_RIGHT
+                ),
+                increaseLabel = uiStrings.guidedIncreaseShort,
+                increaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.INCREASE_VALUE_LEFT,
+                    GuidedModeNavigation.INCREASE_VALUE_RIGHT
+                ),
+                onDecrease = onDecrease,
+                onIncrease = onIncrease
             )
-            GuidedPreferencesAdjustMode.None -> Unit
+            else -> Unit
         }
 
         // Every sequenceLabel below is derived from the exact same GuidedModeNavigation/emergency
         // constants processPreferencesAdjustmentGesture checks against — never a separately
         // hardcoded copy — so this panel can never drift out of sync with what a gesture does.
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.DECREASE_VALUE_LEFT,
-                GuidedModeNavigation.DECREASE_VALUE_RIGHT
-            ),
-            gestureHint = uiStrings.guidedDecreaseValue,
-            title = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedDecreaseResponseTime
-                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedDecreaseSensitivity
-                else -> uiStrings.guidedDecreaseValue
-            },
-            onClick = onDecrease
-        )
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.INCREASE_VALUE_LEFT,
-                GuidedModeNavigation.INCREASE_VALUE_RIGHT
-            ),
-            gestureHint = uiStrings.guidedIncreaseValue,
-            title = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedIncreaseResponseTime
-                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedIncreaseSensitivity
-                else -> uiStrings.guidedIncreaseValue
-            },
-            onClick = onIncrease
-        )
+        // RC7D.27 — Categories is intentionally omitted here; it remains on the right nav panel.
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
             gestureHint = uiStrings.guidedSelectEnterHint,
@@ -1001,17 +1181,8 @@ private fun PreferencesAdjustmentPanel(
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
             gestureHint = uiStrings.guidedBackHint,
-            title = uiStrings.guidedCancelToPreferences,
+            title = uiStrings.guidedCancelBack,
             onClick = onCancel
-        )
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.CATEGORIES_LEFT,
-                GuidedModeNavigation.CATEGORIES_RIGHT
-            ),
-            gestureHint = uiStrings.guidedCategoriesNavTitle,
-            title = uiStrings.guidedCategoriesNavTitle,
-            onClick = onCategories
         )
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
@@ -1020,6 +1191,130 @@ private fun PreferencesAdjustmentPanel(
             onClick = onEmergency,
             emergency = true
         )
+    }
+}
+
+/**
+ * RC7D.26 — reusable visual level meter for Sensitivity and Response Time adjustment.
+ * Discrete command control (touch sides / blink sequences), never a drag slider.
+ */
+@Composable
+private fun SettingAdjustmentMeter(
+    label: String,
+    currentValueLabel: String,
+    minimumValue: Int,
+    maximumValue: Int,
+    currentValue: Int,
+    decreaseLabel: String,
+    decreaseSequence: String,
+    increaseLabel: String,
+    increaseSequence: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit
+) {
+    val activeCount = SettingAdjustmentMeterAuthority.activeSegmentCount(
+        value = currentValue,
+        minimum = minimumValue,
+        maximum = maximumValue
+    )
+    val segmentCount = SettingAdjustmentMeterAuthority.SEGMENT_COUNT
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LisaWhite.copy(alpha = 0.10f))
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "$label — $currentValueLabel",
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            color = LisaWhite,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MeterSideControl(
+                symbol = "−",
+                label = decreaseLabel,
+                sequence = decreaseSequence,
+                onClick = onDecrease,
+                modifier = Modifier.widthIn(min = 72.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                repeat(segmentCount) { index ->
+                    val active = index < activeCount
+                    val heightFraction = 0.28f + (index.toFloat() / (segmentCount - 1).coerceAtLeast(1)) * 0.72f
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .height((56.dp * heightFraction))
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(
+                                if (active) LisaBlue.copy(alpha = 0.95f)
+                                else LisaWhite.copy(alpha = 0.22f)
+                            )
+                            .then(
+                                if (active) {
+                                    Modifier.border(
+                                        width = 1.5.dp,
+                                        color = LisaWhite.copy(alpha = 0.55f),
+                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                                    )
+                                } else {
+                                    Modifier.border(
+                                        width = 1.dp,
+                                        color = LisaWhite.copy(alpha = 0.18f),
+                                        shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                                    )
+                                }
+                            )
+                    )
+                }
+            }
+            MeterSideControl(
+                symbol = "+",
+                label = increaseLabel,
+                sequence = increaseSequence,
+                onClick = onIncrease,
+                modifier = Modifier.widthIn(min = 72.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MeterSideControl(
+    symbol: String,
+    label: String,
+    sequence: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .background(EntryBackground)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(text = symbol, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = LisaBlueDark)
+        Text(text = label, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = LisaBlueDark, maxLines = 1)
+        Text(text = sequence, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = LisaBlueDark, maxLines = 1)
     }
 }
 

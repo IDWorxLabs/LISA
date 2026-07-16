@@ -148,6 +148,7 @@ fun LisaRootUI(
     guidedConfirmedRight: Int? = null,
     onGuidedNavigateUp: () -> Unit = {},
     onGuidedSelectEnter: () -> Unit = {},
+    onGuidedCancelSaveConfirmation: () -> Unit = {},
     onGuidedBack: () -> Unit = {},
     onGuidedNavigateDown: () -> Unit = {},
     onGuidedEmergency: () -> Unit = {},
@@ -473,6 +474,7 @@ fun LisaRootUI(
             emergencyAwaitingConfirm = emergencyAwaitingConfirm,
             onNavigateUp = onGuidedNavigateUp,
             onSelectEnter = onGuidedSelectEnter,
+            onCancelSaveConfirmation = onGuidedCancelSaveConfirmation,
             onBack = onGuidedBack,
             onNavigateDown = onGuidedNavigateDown,
             onEmergency = onGuidedEmergency,
@@ -771,14 +773,6 @@ private fun CompactSensitivityControls(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(
-            text = uiStrings.listeningStatusLine(sensitivityLevel, responseTimeSec),
-            color = LisaWhite,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

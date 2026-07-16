@@ -467,10 +467,11 @@ object GuidedNavigationAuthorityV1 {
             )
             val responseResult = process(2, 2, responseState, uiStrings, catalogContext)
             val sensitivityResult = process(2, 2, sensitivityState, uiStrings, catalogContext)
+            // RC7D.27 — Cancel / Back returns to Adjust Settings (discards draft, does not persist).
             val passed = responseResult is GuidedSequenceResult.Navigate &&
                 sensitivityResult is GuidedSequenceResult.Navigate &&
-                responseResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None &&
-                sensitivityResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
+                responseResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
+                sensitivityResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
             return ValidationCheckResult(
                 checkId = "MODE_TX_006",
                 description = "L2 R2 backs/cancels from adjustment modes without saving",
@@ -493,15 +494,23 @@ object GuidedNavigationAuthorityV1 {
                 preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
                 draftResponseTimeSec = 5
             )
-            val saveResult = process(1, 1, adjustState, uiStrings, catalogContext)
+            // RC7D.27 — first L1 R1 enters confirmation; second confirms persistence.
+            val confirmResult = process(1, 1, adjustState, uiStrings, catalogContext)
+            val saveResult = if (confirmResult is GuidedSequenceResult.Navigate) {
+                process(1, 1, confirmResult.newState, uiStrings, catalogContext)
+            } else {
+                confirmResult
+            }
             val passed = menuResult is GuidedSequenceResult.Navigate &&
+                confirmResult is GuidedSequenceResult.Navigate &&
+                confirmResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime &&
                 saveResult is GuidedSequenceResult.SavePreferencesAdjustment
             return ValidationCheckResult(
                 checkId = "MODE_TX_007",
                 description = "L1 R1 selects or saves where applicable in menu and adjustment modes",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Ensure L1 R1 opens selected category and saves adjustment drafts."
+                    "Ensure L1 R1 opens selected category and confirms adjustment saves."
             )
         }
 
@@ -1014,7 +1023,8 @@ object GuidedNavigationAuthorityV1 {
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
             val cancelled = PreferenceAdjustmentController.cancelAdjustment(state)
-            val passed = cancelled.preferencesAdjustMode == GuidedPreferencesAdjustMode.None &&
+            // RC7D.27 — cancel returns to Adjust Settings; draft is discarded for display via saved catalog.
+            val passed = cancelled.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
                 cancelled.displayResponseTimeSec(catalogContext.responseTimeSec) == catalogContext.responseTimeSec
             return ValidationCheckResult(
                 checkId = "RECOV_002",

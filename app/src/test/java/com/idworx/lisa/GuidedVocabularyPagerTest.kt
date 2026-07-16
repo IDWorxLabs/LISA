@@ -114,14 +114,17 @@ class GuidedVocabularyPagerTest {
     fun cancel_restoresSavedHeaderValues() {
         val cancelled = PreferenceAdjustmentController.cancelAdjustment(adjustResponseTimeState(draftSec = 6))
         assertEquals(3, cancelled.displayResponseTimeSec(3))
-        assertEquals(GuidedPreferencesAdjustMode.None, cancelled.preferencesAdjustMode)
+        // RC7D.27 — Cancel / Back returns to Adjust Settings.
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, cancelled.preferencesAdjustMode)
     }
 
     @Test
     fun save_persistsDraftValue() {
-        val result = process(1, 1, adjustResponseTimeState(draftSec = 5)) as GuidedSequenceResult.SavePreferencesAdjustment
+        val confirming = process(1, 1, adjustResponseTimeState(draftSec = 5)) as GuidedSequenceResult.Navigate
+        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveResponseTime, confirming.newState.preferencesAdjustMode)
+        val result = process(1, 1, confirming.newState) as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(5, result.responseTimeSec)
-        assertEquals(GuidedPreferencesAdjustMode.None, result.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, result.newState.preferencesAdjustMode)
     }
 
     @Test
@@ -152,14 +155,16 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun responseTime_L1R1_savesValue() {
-        val result = process(1, 1, adjustResponseTimeState(draftSec = 5)) as GuidedSequenceResult.SavePreferencesAdjustment
+        val confirming = process(1, 1, adjustResponseTimeState(draftSec = 5)) as GuidedSequenceResult.Navigate
+        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveResponseTime, confirming.newState.preferencesAdjustMode)
+        val result = process(1, 1, confirming.newState) as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(5, result.responseTimeSec)
     }
 
     @Test
     fun responseTime_L2R2_cancelsWithoutSaving() {
         val result = process(2, 2, adjustResponseTimeState(draftSec = 6)) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedPreferencesAdjustMode.None, result.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, result.newState.preferencesAdjustMode)
     }
 
     @Test
@@ -184,14 +189,16 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun sensitivity_L1R1_savesValue() {
-        val result = process(1, 1, adjustSensitivityState(draftLevel = 7)) as GuidedSequenceResult.SavePreferencesAdjustment
+        val confirming = process(1, 1, adjustSensitivityState(draftLevel = 7)) as GuidedSequenceResult.Navigate
+        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, confirming.newState.preferencesAdjustMode)
+        val result = process(1, 1, confirming.newState) as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(7, result.sensitivityLevel)
     }
 
     @Test
     fun sensitivity_L2R2_cancelsWithoutSaving() {
         val result = process(2, 2, adjustSensitivityState(draftLevel = 8)) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedPreferencesAdjustMode.None, result.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, result.newState.preferencesAdjustMode)
     }
 
     @Test

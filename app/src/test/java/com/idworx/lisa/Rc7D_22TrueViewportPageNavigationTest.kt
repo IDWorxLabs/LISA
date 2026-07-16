@@ -442,7 +442,10 @@ class Rc7D_22TrueViewportPageNavigationTest {
         assertEquals(0 to 4, nextPage)
         assertEquals(6 to 0, EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS)
         assertEquals(
-            listOf(2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1),
+            listOf(
+                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+            ),
             GuidedCategoryShortcuts.allGestures()
         )
     }
@@ -468,15 +471,21 @@ class Rc7D_22TrueViewportPageNavigationTest {
         )
     }
 
-    @Test // F4 — Category 8 Phrase Management remains reachable
+    @Test // F4 — Category 8 Phrase Management remains reachable; page-down highlights last destination
     fun phraseManagementRemainsReachable() {
+        // Next Page highlights the final destination (now Adjust Settings at index 8).
         val onPage2 = process(nextPage.first, nextPage.second, menuState(viewportPage = 0)) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX, onPage2.newState.categoryMenuSelection)
-        val opened = GuidedNavigationController.openSelectedCategory(onPage2.newState)
+        assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, onPage2.newState.categoryMenuSelection)
+        // Phrase Management remains destination 8 and opens via its own selection index.
+        val onPhraseManagement = onPage2.newState.copy(
+            categoryMenuSelection = GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX
+        )
+        val opened = GuidedNavigationController.openSelectedCategory(onPhraseManagement)
         assertEquals(
             CategoryAreaDestination.PhraseManagement,
             CategoryAreaDestination.forCategoryIndex(opened.categoryIndex)
         )
+        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
     }
 
     @Test // F5 — Open Selected Category still requires L1 R1
