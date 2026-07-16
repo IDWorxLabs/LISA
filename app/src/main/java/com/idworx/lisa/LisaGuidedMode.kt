@@ -70,6 +70,26 @@ object GuidedModeNavigation {
         left == ADJUST_SETTINGS_ENTRY_LEFT && right == ADJUST_SETTINGS_ENTRY_RIGHT
 
     /**
+     * RC7D.28 — Open Communication workspace Menu (LisaPanel.Menu). Chosen after a full registry
+     * audit: every both-eye sequence with total wink count ≤ 8 is already reserved, and every
+     * shorter free option either collides or crosses Emergency's L6 R0 corridor. L4 R6 is the
+     * shortest practical globally-unique both-eye sequence that:
+     *  • collides with no nav / slot / vocabulary / system / composer / practice gesture
+     *  • keeps left count (4) below Emergency (6)
+     *  • is not dominated by a longer reserved sequence
+     *  • needs continuation protection because shorter L4 R* prefixes exist (same pattern as L5 R5)
+     *
+     * Constants also alias [OPEN_MAIN_MENU_LEFT_WINKS] / [OPEN_MAIN_MENU_RIGHT_WINKS].
+     */
+    const val OPEN_MAIN_MENU_LEFT = 4
+    const val OPEN_MAIN_MENU_RIGHT = 6
+    const val OPEN_MAIN_MENU_LEFT_WINKS = OPEN_MAIN_MENU_LEFT
+    const val OPEN_MAIN_MENU_RIGHT_WINKS = OPEN_MAIN_MENU_RIGHT
+
+    fun isOpenMainMenuSequence(left: Int, right: Int): Boolean =
+        left == OPEN_MAIN_MENU_LEFT && right == OPEN_MAIN_MENU_RIGHT
+
+    /**
      * Category-page jump shortcuts (RC7D.20) — active only in Category Menu Mode. These move the
      * highlighted category directly between whole category pages, unlike the item-by-item
      * [PREVIOUS_LEFT]/[NEXT_LEFT] scroll gestures which stay one category at a time. Deliberately
@@ -194,6 +214,8 @@ object GuidedPageSequences {
         GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
         GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT,
         GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT,
+        GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
+        GuidedModeNavigation.OPEN_MAIN_MENU_LEFT to GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT,
         EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS
     )
 }

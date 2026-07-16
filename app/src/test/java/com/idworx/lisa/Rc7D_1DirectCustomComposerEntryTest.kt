@@ -171,7 +171,7 @@ class Rc7D_1DirectCustomComposerEntryTest {
     fun fullScreenComposeHidesCommunicationWorkspace() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(ui.contains("phraseComposerActive"))
-        assertTrue(ui.contains("if (!phraseComposerActive)"))
+        assertTrue(ui.contains("showWorkspaceBottomChrome(phraseComposerActive)"))
         assertTrue(ui.contains("EyeControlledPhraseComposerOverlay"))
         val composerUi = readSource("app/src/main/java/com/idworx/lisa/PhraseComposerUi.kt")
         assertTrue(composerUi.contains("BottomAlignedEyeKeyboard"))

@@ -164,6 +164,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiDeveloperMode = mutableStateOf(false)
     private val uiActivePanel = mutableStateOf(LisaPanel.None)
     private val uiPanelReturnTarget = mutableStateOf<LisaPanel?>(null)
+    /** RC7D.28 — blink selection / paging state while LisaPanel.Menu is open. */
+    private val uiMainMenuState = mutableStateOf(MainMenuNavigationState())
+    private val uiMainMenuViewportHeightPx = mutableStateOf(0)
+    private val uiMainMenuMaxScrollPx = mutableStateOf(0)
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
@@ -340,6 +344,71 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onSelectPanel = { panel -> openPanel(panel) },
                         onClosePanel = { closeAllPanels() },
                         onBackToMenu = { backFromActivePanel() },
+                        mainMenuState = uiMainMenuState.value,
+                        onMainMenuMoveUp = {
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.Navigate(
+                                    MainMenuController.moveSelectionUp(uiMainMenuState.value)
+                                )
+                            )
+                        },
+                        onMainMenuMoveDown = {
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.Navigate(
+                                    MainMenuController.moveSelectionDown(uiMainMenuState.value)
+                                )
+                            )
+                        },
+                        onMainMenuPreviousPage = {
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.Navigate(
+                                    MainMenuController.previousPage(
+                                        uiMainMenuState.value,
+                                        uiMainMenuViewportHeightPx.value,
+                                        uiMainMenuMaxScrollPx.value
+                                    )
+                                )
+                            )
+                        },
+                        onMainMenuNextPage = {
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.Navigate(
+                                    MainMenuController.nextPage(
+                                        uiMainMenuState.value,
+                                        uiMainMenuViewportHeightPx.value,
+                                        uiMainMenuMaxScrollPx.value
+                                    )
+                                )
+                            )
+                        },
+                        onMainMenuSelect = {
+                            val state = uiMainMenuState.value.normalized()
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.OpenDestination(
+                                    state.selectedDestination,
+                                    MainMenuController.close(state)
+                                )
+                            )
+                        },
+                        onMainMenuSelectDestination = { destination ->
+                            applyMainMenuResult(
+                                MainMenuSequenceResult.OpenDestination(
+                                    destination,
+                                    MainMenuController.close(uiMainMenuState.value)
+                                )
+                            )
+                        },
+                        onMainMenuViewportMetrics = { viewportHeightPx, maxScrollPx, scrollPx ->
+                            uiMainMenuViewportHeightPx.value = viewportHeightPx
+                            uiMainMenuMaxScrollPx.value = maxScrollPx
+                            uiMainMenuState.value = MainMenuController.syncViewportMetrics(
+                                uiMainMenuState.value,
+                                viewportHeightPx,
+                                maxScrollPx,
+                                scrollPx
+                            ).copy(revealSelection = false, scrollRequestPx = null)
+                        },
+                        onMainMenuEmergency = { triggerGuidedEmergencyTouch() },
                         customPhrases = customPhrases,
                         phraseManagementState = phraseManagementState,
                         onSelectCustomPhrase = { identity -> openPhraseManagementDetails(identity) },
@@ -1057,11 +1126,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         uiActivePanel.value = panel
         when (panel) {
-            LisaPanel.Menu -> verifyTrainingNavigation(NavigationAction.OpenMenu)
+            LisaPanel.Menu -> {
+                uiMainMenuState.value = MainMenuController.open()
+                verifyTrainingNavigation(NavigationAction.OpenMenu)
+            }
             LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
             LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
             LisaPanel.VocabularyTraining -> resetPhraseManagementState()
-            else -> Unit
+            else -> {
+                if (panel != LisaPanel.None) {
+                    uiMainMenuState.value = MainMenuController.close()
+                }
+            }
         }
         if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
             refreshVoiceSettingsState()
@@ -1080,19 +1156,58 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         uiPanelReturnTarget.value = null
         uiActivePanel.value = LisaPanel.None
+        uiMainMenuState.value = MainMenuController.close()
         uiPhraseComposerState.value = PhraseComposerController.initialState()
     }
 
-    private fun toggleMenuPanel() {
-        val wasMenu = uiActivePanel.value == LisaPanel.Menu
-        uiActivePanel.value = when (uiActivePanel.value) {
-            LisaPanel.Menu -> LisaPanel.None
-            else -> LisaPanel.Menu
+    /** RC7D.28 — canonical open for touch Menu button and blink L4 R6. */
+    private fun openMainMenu() {
+        if (uiActivePanel.value == LisaPanel.Menu) return
+        openPanel(LisaPanel.Menu)
+    }
+
+    private fun applyMainMenuResult(result: MainMenuSequenceResult) {
+        when (result) {
+            is MainMenuSequenceResult.Navigate -> uiMainMenuState.value = result.newState
+            is MainMenuSequenceResult.CloseMenu -> {
+                uiMainMenuState.value = result.newState
+                closeAllPanels()
+            }
+            is MainMenuSequenceResult.OpenDestination -> {
+                uiMainMenuState.value = result.newState
+                openPanel(result.destination.panel)
+            }
+            MainMenuSequenceResult.Unmatched -> Unit
         }
-        if (wasMenu) {
-            verifyTrainingNavigation(NavigationAction.CloseMenu)
+    }
+
+    private fun handleMainMenuSequence(left: Int, right: Int) {
+        if (GuidedModeNavigation.isOpenMainMenuSequence(left, right) &&
+            uiActivePanel.value != LisaPanel.Menu
+        ) {
+            openMainMenu()
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+        if (uiActivePanel.value != LisaPanel.Menu) return
+        val result = MainMenuController.processSequence(
+            left = left,
+            right = right,
+            state = uiMainMenuState.value,
+            viewportHeightPx = uiMainMenuViewportHeightPx.value,
+            maxScrollPx = uiMainMenuMaxScrollPx.value
+        )
+        applyMainMenuResult(result)
+        resetSequence()
+        setCommunicationState(LisaCommunicationState.Listening)
+    }
+
+    private fun toggleMenuPanel() {
+        if (uiActivePanel.value == LisaPanel.Menu) {
+            closeAllPanels()
         } else {
-            verifyTrainingNavigation(NavigationAction.OpenMenu)
+            openMainMenu()
         }
     }
 
@@ -1991,7 +2106,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun mappingsForSequenceContinuation(): List<WinkMapping> =
         if (guidedOverlayActive()) {
-            val base = workspaceContinuationMappings()
+            var base = workspaceContinuationMappings()
             // RC7D.25 — explicit continuation protection for the L5 R5 Adjust Settings entry. While
             // the user is still winking toward the full 5×5 sequence (every shorter existing gesture
             // is a prefix of it), advertising L5 R5 as a longer continuation keeps the partial in a
@@ -1999,9 +2114,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             // when NOT already adjusting, since the entry gesture is only meaningful from the normal
             // (non-adjustment) workspace.
             if (!uiGuidedNavigationState.value.isPreferencesAdjustmentActive) {
-                base + WinkMapping(
+                base = base + WinkMapping(
                     GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
                     GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
+                    "",
+                    isCustom = true,
+                    customPhrase = ""
+                )
+            }
+            // RC7D.28 — L4 R6 Open Menu continuation protection (shorter L4 R* prefixes exist).
+            if (uiActivePanel.value != LisaPanel.Menu) {
+                base = base + WinkMapping(
+                    GuidedModeNavigation.OPEN_MAIN_MENU_LEFT,
+                    GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT,
+                    "",
+                    isCustom = true,
+                    customPhrase = ""
+                )
+            }
+            base
+        } else {
+            val base = mappingsState.toList()
+            if (uiActivePanel.value != LisaPanel.Menu) {
+                base + WinkMapping(
+                    GuidedModeNavigation.OPEN_MAIN_MENU_LEFT,
+                    GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT,
                     "",
                     isCustom = true,
                     customPhrase = ""
@@ -2009,8 +2146,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } else {
                 base
             }
-        } else {
-            mappingsState.toList()
         }
 
     private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
@@ -3292,6 +3427,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 backFromActivePanel()
                 resetSequence()
                 setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
+            GestureRoutingTarget.MainMenu -> {
+                handleMainMenuSequence(capturedLeft, capturedRight)
                 return
             }
             GestureRoutingTarget.GuidedOverlay -> {

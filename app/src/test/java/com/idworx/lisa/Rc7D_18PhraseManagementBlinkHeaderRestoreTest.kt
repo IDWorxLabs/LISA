@@ -36,7 +36,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
     private fun sharedHeaderSlice(): String {
         val ui = accessibilityUi()
         val start = ui.indexOf("if (showSharedBlinkStatusHeader)")
-        val end = ui.indexOf("showGuidedVocabularyOverlayAlongsideManagement", start)
+        val end = ui.indexOf("MainMenuProductionUiAuthority.showGuidedVocabularyOverlay", start)
         assertTrue("shared blink header host missing", start >= 0 && end > start)
         return ui.substring(start, end)
     }

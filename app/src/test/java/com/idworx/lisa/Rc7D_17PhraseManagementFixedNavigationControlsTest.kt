@@ -73,7 +73,7 @@ class Rc7D_17PhraseManagementFixedNavigationControlsTest {
         val phraseHost = ui.indexOf("if (phraseManagementActive)")
         val panelCall = ui.indexOf("VocabularyManagementPanel(", phraseHost)
         val composer = ui.indexOf("EyeControlledPhraseComposerOverlay(", phraseHost)
-        val bottomMenus = ui.indexOf("if (activePanel != LisaPanel.None && !phraseManagementActive)")
+        val bottomMenus = ui.indexOf("if (activePanel != LisaPanel.None && !phraseManagementActive && !mainMenuActive)")
         assertTrue(phraseHost >= 0)
         assertTrue(panelCall > phraseHost)
         assertTrue(composer > panelCall)
@@ -99,7 +99,9 @@ class Rc7D_17PhraseManagementFixedNavigationControlsTest {
         )
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(ui.contains("showSharedBlinkStatusHeader"))
-        assertTrue(ui.contains("showGuidedVocabularyOverlayAlongsideManagement"))
+        assertTrue(ui.contains("MainMenuProductionUiAuthority.showGuidedVocabularyOverlay"))
+        val authority = readSource("app/src/main/java/com/idworx/lisa/MainMenuNavigation.kt")
+        assertTrue(authority.contains("showGuidedVocabularyOverlayAlongsideManagement"))
     }
 
     @Test

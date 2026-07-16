@@ -652,6 +652,24 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val menuSectionApplication: String get() = t("Application", "Program", "Uhlelo")
     val menuSectionSupport: String get() = t("Support", "Ondersteuning", "Ukusekela")
 
+    // RC7D.28 — eye-controlled Main Menu
+    fun mainMenuItemIndicator(current: Int, total: Int): String =
+        t("Item $current / $total", "Item $current / $total", "Into $current / $total")
+    fun mainMenuPageIndicator(current: Int, total: Int): String =
+        t("Page $current / $total", "Bladsy $current / $total", "Ikhasi $current / $total")
+    fun mainMenuItemAccessibility(title: String, current: Int, total: Int): String =
+        t("$title, item $current of $total", "$title, item $current van $total", "$title, into $current kweye-$total")
+    val mainMenuMoveUp: String get() = t("Move Up", "Beweeg Op", "Hambisa Phezulu")
+    val mainMenuMoveDown: String get() = t("Move Down", "Beweeg Af", "Hambisa Phansi")
+    val mainMenuPreviousPage: String get() = t("Previous Page", "Vorige Bladsy", "Ikhasi Elingaphambili")
+    val mainMenuNextPage: String get() = t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
+    val mainMenuOpenSelected: String get() = t("Open Selected Item", "Open Gekose Item", "Vula Into Ekhethiwe")
+    val mainMenuClose: String get() = t("Close Menu / Back", "Sluit Kieslys / Terug", "Vala Imenyu / Emuva")
+    fun menuButtonLabelWithSequence(sequenceLabel: String): String =
+        t("Menu\n$sequenceLabel", "Kieslys\n$sequenceLabel", "Imenyu\n$sequenceLabel")
+    fun closeMenuButtonLabelWithSequence(sequenceLabel: String): String =
+        t("Close\n$sequenceLabel", "Sluit\n$sequenceLabel", "Vala\n$sequenceLabel")
+
     // RC2 — page purpose lines (one short sentence each)
     val communicationProfilePurpose: String get() = t(
         "Manage your communication preferences.",

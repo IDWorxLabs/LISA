@@ -19,18 +19,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
@@ -76,6 +81,15 @@ fun LisaRootUI(
     onSelectPanel: (LisaPanel) -> Unit,
     onClosePanel: () -> Unit,
     onBackToMenu: () -> Unit,
+    mainMenuState: MainMenuNavigationState = MainMenuNavigationState(),
+    onMainMenuMoveUp: () -> Unit = {},
+    onMainMenuMoveDown: () -> Unit = {},
+    onMainMenuPreviousPage: () -> Unit = {},
+    onMainMenuNextPage: () -> Unit = {},
+    onMainMenuSelect: () -> Unit = {},
+    onMainMenuSelectDestination: (MainMenuDestination) -> Unit = {},
+    onMainMenuViewportMetrics: (viewportHeightPx: Int, maxScrollPx: Int, scrollPx: Int) -> Unit = { _, _, _ -> },
+    onMainMenuEmergency: () -> Unit = {},
     onOpenCreatePhrase: () -> Unit = {},
     onOpenPhraseEditor: () -> Unit = {},
     onPreviewCaregiverPhrase: (String) -> Unit = {},
@@ -268,6 +282,9 @@ fun LisaRootUI(
     // Hosting it under Menu/Reset (after GuidedVocabularyOverlay weight(1f)) clipped the
     // fixed Scroll/Back/Emergency controls off the physical-device screen.
     val phraseManagementActive = PhraseManagementController.occupiesMainContentSlot(activePanel)
+    // RC7D.29 — Main Menu occupies the same central content slot; never leave the guided
+    // workspace painted behind a partial bottom sheet.
+    val mainMenuActive = MainMenuProductionUiAuthority.occupiesMainContentSlot(activePanel)
     val showSharedBlinkStatusHeader =
         PhraseManagementController.showSharedBlinkStatusHeader(phraseComposerActive)
     val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
@@ -277,7 +294,8 @@ fun LisaRootUI(
         practiceModeOpen = practiceModeOpen,
         quickControlsOpen = quickControlsOpen,
         guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
-    ) && PhraseManagementController.showGuidedVocabularyOverlayAlongsideManagement(
+    ) && MainMenuProductionUiAuthority.showGuidedVocabularyOverlay(
+        activePanel = activePanel,
         phraseComposerActive = phraseComposerActive,
         phraseManagementActive = phraseManagementActive
     )
@@ -457,7 +475,8 @@ fun LisaRootUI(
         }
         }
 
-        if (PhraseManagementController.showGuidedVocabularyOverlayAlongsideManagement(
+        if (MainMenuProductionUiAuthority.showGuidedVocabularyOverlay(
+                activePanel = activePanel,
                 phraseComposerActive = phraseComposerActive,
                 phraseManagementActive = phraseManagementActive
             )
@@ -496,6 +515,31 @@ fun LisaRootUI(
                 .weight(1f)
                 .fillMaxWidth()
         )
+        }
+
+        // RC7D.29 — Main Menu replaces the workspace content region (full-screen below header).
+        if (mainMenuActive) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                MenuPanel(
+                    uiStrings = uiStrings,
+                    mainMenuState = mainMenuState,
+                    onMoveUp = onMainMenuMoveUp,
+                    onMoveDown = onMainMenuMoveDown,
+                    onPreviousPage = onMainMenuPreviousPage,
+                    onNextPage = onMainMenuNextPage,
+                    onSelect = onMainMenuSelect,
+                    onSelectDestination = onMainMenuSelectDestination,
+                    onViewportMetrics = onMainMenuViewportMetrics,
+                    onEmergency = onMainMenuEmergency,
+                    onClose = onClosePanel,
+                    fillWorkspace = true
+                )
+            }
         }
 
         if (phraseManagementActive) {
@@ -547,7 +591,7 @@ fun LisaRootUI(
                 .fillMaxWidth()
         )
 
-        if (!phraseComposerActive) {
+        if (MainMenuProductionUiAuthority.showWorkspaceBottomChrome(phraseComposerActive)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -558,37 +602,46 @@ fun LisaRootUI(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                LisaActionButton(
-                    text = if (activePanel.isOpen()) uiStrings.close else uiStrings.menu,
-                    modifier = Modifier.weight(1f),
-                    filled = !activePanel.isOpen(),
-                    onClick = onMenuClick
-                )
-                LisaActionButton(
-                    text = uiStrings.reset,
-                    modifier = Modifier.weight(1f),
-                    filled = false,
-                    danger = emergencyActive,
-                    onClick = onReset
-                )
-                if (canRepeat) {
+                if (mainMenuActive) {
                     LisaActionButton(
-                        text = uiStrings.repeat,
+                        text = uiStrings.close,
+                        subtitle = MainMenuProductionUiAuthority.closeMenuSequenceLabel(),
                         modifier = Modifier.weight(1f),
                         filled = false,
-                        onClick = onRepeat
+                        onClick = onClosePanel
                     )
+                } else {
+                    LisaActionButton(
+                        text = uiStrings.menu,
+                        subtitle = MainMenuProductionUiAuthority.openMenuSequenceLabel(),
+                        modifier = Modifier.weight(1f),
+                        filled = true,
+                        onClick = onMenuClick
+                    )
+                    if (MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(activePanel)) {
+                        LisaActionButton(
+                            text = uiStrings.reset,
+                            modifier = Modifier.weight(1f),
+                            filled = false,
+                            danger = emergencyActive,
+                            onClick = onReset
+                        )
+                        if (canRepeat) {
+                            LisaActionButton(
+                                text = uiStrings.repeat,
+                                modifier = Modifier.weight(1f),
+                                filled = false,
+                                onClick = onRepeat
+                            )
+                        }
+                    }
                 }
             }
 
-            if (activePanel != LisaPanel.None && !phraseManagementActive) {
+            if (activePanel != LisaPanel.None && !phraseManagementActive && !mainMenuActive) {
                 Spacer(Modifier.height(10.dp))
                 when (activePanel) {
-                    LisaPanel.Menu -> MenuPanel(
-                        uiStrings = uiStrings,
-                        onSelectPanel = onSelectPanel,
-                        onClose = onClosePanel
-                    )
+                    LisaPanel.Menu -> Unit
                     LisaPanel.MyCommunication -> MyCommunicationPanel(
                         uiStrings = uiStrings,
                         profiles = profiles,
@@ -1136,46 +1189,371 @@ internal fun PanelPurposeLine(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-private data class MenuSection(val title: String, val panels: List<LisaPanel>)
 
 @Composable
 private fun MenuPanel(
     uiStrings: LisaUiStrings,
-    onSelectPanel: (LisaPanel) -> Unit,
-    onClose: () -> Unit
+    mainMenuState: MainMenuNavigationState,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+    onSelect: () -> Unit,
+    onSelectDestination: (MainMenuDestination) -> Unit,
+    onViewportMetrics: (viewportHeightPx: Int, maxScrollPx: Int, scrollPx: Int) -> Unit,
+    onEmergency: () -> Unit,
+    onClose: () -> Unit,
+    fillWorkspace: Boolean = false
 ) {
-    val sections = listOf(
-        MenuSection(uiStrings.menuSectionCommunication, listOf(
-            LisaPanel.MyCommunication,
-            LisaPanel.VocabularyTraining,
-            LisaPanel.Voice
-        )),
-        MenuSection(uiStrings.menuSectionApplication, listOf(
-            LisaPanel.Settings,
-            LisaPanel.AboutLisa,
-            LisaPanel.PrivacyPolicy
-        )),
-        MenuSection(uiStrings.menuSectionSupport, listOf(
-            LisaPanel.Feedback,
-            LisaPanel.ReleaseNotes
-        ))
-    )
+    val normalized = mainMenuState.normalized()
+    val destinationCount = MainMenuCatalog.destinationCount
+    val entries = remember { MainMenuCatalog.listEntries() }
+    val menuScrollState = rememberScrollState()
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
+    var selectedItemTopPx by remember { mutableIntStateOf(0) }
+    var selectedItemHeightPx by remember { mutableIntStateOf(0) }
+    val maxScrollPx = menuScrollState.maxValue
 
-    LisaPanelShell(title = uiStrings.menu, onBack = onClose, backLabel = uiStrings.close) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 360.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+    LaunchedEffect(
+        normalized.selectionIndex,
+        normalized.revealSelection,
+        normalized.scrollRequestPx,
+        selectedItemTopPx,
+        selectedItemHeightPx,
+        viewportHeightPx,
+        maxScrollPx
+    ) {
+        if (viewportHeightPx <= 0) return@LaunchedEffect
+        val target: Int? = when {
+            normalized.scrollRequestPx != null && maxScrollPx > 0 ->
+                normalized.scrollRequestPx.coerceIn(0, maxScrollPx)
+            normalized.revealSelection && selectedItemHeightPx > 0 && maxScrollPx > 0 ->
+                GuidedCategoryMenuScroll.centeredScrollOffsetPx(
+                    selectedItemTopPx = selectedItemTopPx,
+                    selectedItemHeightPx = selectedItemHeightPx,
+                    viewportHeightPx = viewportHeightPx,
+                    maxScrollPx = maxScrollPx
+                )
+            else -> null
+        }
+        if (target != null &&
+            GuidedCategoryMenuScroll.shouldAnimateTo(
+                current = menuScrollState.value,
+                target = target
+            )
         ) {
-            sections.forEach { section ->
-                MenuSectionHeader(title = section.title)
-                section.panels.forEach { panel ->
-                    MenuRow(label = uiStrings.menuLabel(panel), onClick = { onSelectPanel(panel) })
-                }
+            menuScrollState.animateScrollTo(target)
+        }
+    }
+
+    LaunchedEffect(viewportHeightPx, maxScrollPx) {
+        if (viewportHeightPx <= 0) return@LaunchedEffect
+        snapshotFlow {
+            menuScrollState.isScrollInProgress to menuScrollState.value
+        }.collect { (inProgress, scrollPx) ->
+            if (!inProgress) {
+                onViewportMetrics(viewportHeightPx, maxScrollPx, scrollPx)
             }
         }
+    }
+
+    val canMoveUp = normalized.selectionIndex > 0
+    val canMoveDown = normalized.selectionIndex < destinationCount - 1
+    val canGoPreviousPage = CategoryViewportPaging.canGoToPreviousPage(normalized.viewportPage)
+    val canGoNextPage = CategoryViewportPaging.canGoToNextPage(
+        normalized.viewportPage,
+        normalized.viewportPageCount
+    )
+
+    val menuBody: @Composable () -> Unit = {
+        Column(
+            modifier = if (fillWorkspace) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = uiStrings.menu,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = LisaBlueDark
+                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = uiStrings.mainMenuItemIndicator(
+                            normalized.selectionIndex + 1,
+                            destinationCount
+                        ),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlueDark.copy(alpha = 0.75f)
+                    )
+                    Text(
+                        text = uiStrings.mainMenuPageIndicator(
+                            normalized.viewportPage + 1,
+                            normalized.viewportPageCount
+                        ),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlueDark.copy(alpha = 0.75f)
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = if (fillWorkspace) {
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                } else {
+                    Modifier.fillMaxWidth()
+                },
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(
+                            if (fillWorkspace) {
+                                Modifier.fillMaxHeight()
+                            } else {
+                                Modifier.heightIn(max = 280.dp)
+                            }
+                        )
+                        .onGloballyPositioned { viewportHeightPx = it.size.height }
+                        .verticalScroll(menuScrollState),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    entries.forEach { entry ->
+                        when (entry) {
+                            is MainMenuListEntry.SectionHeader -> {
+                                MenuSectionHeader(
+                                    title = when (entry.section) {
+                                        MainMenuSection.Communication -> uiStrings.menuSectionCommunication
+                                        MainMenuSection.Application -> uiStrings.menuSectionApplication
+                                        MainMenuSection.Support -> uiStrings.menuSectionSupport
+                                    }
+                                )
+                            }
+                            is MainMenuListEntry.Destination -> {
+                                val isSelected =
+                                    entry.destination == normalized.selectedDestination
+                                MainMenuDestinationRow(
+                                    label = MainMenuCatalog.title(entry.destination, uiStrings),
+                                    number = entry.selectionIndex,
+                                    selected = isSelected,
+                                    onClick = { onSelectDestination(entry.destination) },
+                                    modifier = if (isSelected) {
+                                        Modifier.onGloballyPositioned { coords ->
+                                            selectedItemTopPx = coords.positionInParent().y.roundToInt()
+                                            selectedItemHeightPx = coords.size.height
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                MainMenuNavigationControls(
+                    uiStrings = uiStrings,
+                    canMoveUp = canMoveUp,
+                    canMoveDown = canMoveDown,
+                    canGoPreviousPage = canGoPreviousPage,
+                    canGoNextPage = canGoNextPage,
+                    onMoveUp = onMoveUp,
+                    onMoveDown = onMoveDown,
+                    onPreviousPage = onPreviousPage,
+                    onNextPage = onNextPage,
+                    onSelect = onSelect,
+                    onClose = onClose,
+                    onEmergency = onEmergency,
+                    navPanelWidth = if (fillWorkspace) 118.dp else 108.dp
+                )
+            }
+            if (!fillWorkspace) {
+                Spacer(Modifier.height(8.dp))
+                MainMenuCloseRow(
+                    uiStrings = uiStrings,
+                    onClose = onClose
+                )
+            }
+        }
+    }
+
+    if (fillWorkspace) {
+        menuBody()
+    } else {
+        LisaPanelShell(title = "", onBack = null) {
+            menuBody()
+        }
+    }
+}
+
+@Composable
+private fun MainMenuNavigationControls(
+    uiStrings: LisaUiStrings,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    canGoPreviousPage: Boolean,
+    canGoNextPage: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+    onSelect: () -> Unit,
+    onClose: () -> Unit,
+    onEmergency: () -> Unit,
+    navPanelWidth: Dp = 108.dp
+) {
+    Column(
+        modifier = Modifier.width(navPanelWidth),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuMoveUp,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.PREVIOUS_LEFT,
+                GuidedModeNavigation.PREVIOUS_RIGHT
+            ),
+            enabled = canMoveUp,
+            onClick = onMoveUp
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuMoveDown,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.NEXT_LEFT,
+                GuidedModeNavigation.NEXT_RIGHT
+            ),
+            enabled = canMoveDown,
+            onClick = onMoveDown
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuPreviousPage,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+            ),
+            enabled = canGoPreviousPage,
+            onClick = onPreviousPage
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuNextPage,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+            ),
+            enabled = canGoNextPage,
+            onClick = onNextPage
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuOpenSelected,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT
+            ),
+            enabled = true,
+            onClick = onSelect
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.mainMenuClose,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.BACK_LEFT,
+                GuidedModeNavigation.BACK_RIGHT
+            ),
+            enabled = true,
+            onClick = onClose
+        )
+        MainMenuNavControlRow(
+            title = uiStrings.emergency,
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            enabled = true,
+            emergency = true,
+            onClick = onEmergency
+        )
+    }
+}
+
+@Composable
+private fun MainMenuNavControlRow(
+    title: String,
+    sequenceLabel: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    emergency: Boolean = false
+) {
+    val contentColor = when {
+        emergency -> LisaEmergencyRed
+        enabled -> LisaBlueDark
+        else -> LisaGray
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .background(
+                when {
+                    emergency -> LisaEmergencyRed.copy(alpha = 0.12f)
+                    enabled -> LisaWhite
+                    else -> LisaWhite.copy(alpha = 0.55f)
+                }
+            )
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 8.sp,
+            color = contentColor,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            lineHeight = 10.sp
+        )
+        Text(
+            text = sequenceLabel,
+            fontWeight = FontWeight.Bold,
+            fontSize = 9.sp,
+            color = contentColor,
+            lineHeight = 11.sp
+        )
+    }
+}
+
+@Composable
+private fun MainMenuCloseRow(
+    uiStrings: LisaUiStrings,
+    onClose: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(LisaBlue)
+            .clickable(onClick = onClose)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = uiStrings.close,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaWhite
+        )
+        Text(
+            text = formatWinkSequenceShort(
+                GuidedModeNavigation.BACK_LEFT,
+                GuidedModeNavigation.BACK_RIGHT
+            ),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaWhite
+        )
     }
 }
 
@@ -1192,27 +1570,29 @@ private fun MenuSectionHeader(title: String) {
 }
 
 @Composable
-private fun MenuRow(label: String, onClick: () -> Unit) {
+private fun MainMenuDestinationRow(
+    label: String,
+    number: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(LisaWhite)
+            .background(if (selected) LisaBlue else LisaWhite)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = label,
+            text = "$number. $label",
             fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = LisaBlueDark
-        )
-        Text(
-            text = "›",
-            fontSize = 20.sp,
-            color = LisaGray
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) LisaWhite else LisaBlueDark,
+            lineHeight = 20.sp,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -1839,30 +2219,63 @@ private fun LisaActionButton(
     modifier: Modifier = Modifier,
     filled: Boolean,
     danger: Boolean = false,
+    subtitle: String? = null,
+    multiline: Boolean = false,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
+    val twoLine = multiline || subtitle != null || text.contains('\n')
+    val buttonHeight = if (twoLine) 52.dp else 44.dp
+    val label: @Composable () -> Unit = {
+        if (subtitle != null) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+        } else {
+            Text(
+                text = text,
+                fontSize = 13.sp,
+                fontWeight = if (filled) FontWeight.SemiBold else FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = if (twoLine) 2 else 1,
+                lineHeight = if (twoLine) 15.sp else 13.sp
+            )
+        }
+    }
     if (filled) {
         Button(
             onClick = onClick,
-            modifier = modifier.height(44.dp),
+            modifier = modifier.height(buttonHeight),
             shape = shape,
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
             colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
         ) {
-            Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            label()
         }
     } else {
         OutlinedButton(
             onClick = onClick,
-            modifier = modifier.height(44.dp),
+            modifier = modifier.height(buttonHeight),
             shape = shape,
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = if (danger) LisaEmergencyRed else LisaBlueDark,
                 containerColor = LisaWhite.copy(alpha = 0.92f)
             )
         ) {
-            Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            label()
         }
     }
 }

@@ -35,7 +35,8 @@ class Rc6ProductionMenuCleanupTest {
         assertTrue(menuPanel.contains("menuSectionCommunication"))
         assertTrue(menuPanel.contains("menuSectionApplication"))
         assertTrue(menuPanel.contains("menuSectionSupport"))
-        assertTrue(menuPanel.contains("LisaPanel.ReleaseNotes"))
+        assertTrue(menuPanel.contains("MainMenuCatalog"))
+        assertEquals(MainMenuDestination.ReleaseNotes, MainMenuCatalog.destinations.last())
     }
 
     @Test

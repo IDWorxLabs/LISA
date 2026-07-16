@@ -11,6 +11,7 @@ enum class LisaInteractionMode {
     CommunicationVocabulary,
     CommunicationCategoryMenu,
     CommunicationAdjustment,
+    MainMenu,
     PhraseComposerKeyboard,
     PhraseComposerDestinationCategory,
     PhraseComposerSaveConfirmation,
@@ -31,6 +32,7 @@ enum class GestureRoutingTarget {
     PhraseComposer,
     PhraseManagement,
     SettingsPanelBack,
+    MainMenu,
     GuidedOverlay,
     SystemCommand,
     CommunicationPhrasePath
@@ -45,7 +47,8 @@ enum class GlobalGestureId {
     Select,
     FinishTraining,
     DecreaseValue,
-    IncreaseValue
+    IncreaseValue,
+    OpenMainMenu
 }
 
 enum class ModeGestureTier {
@@ -84,7 +87,8 @@ object ModeScopedGestureAuthority {
         GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT to GlobalGestureId.Select,
         GuidedModeNavigation.FINISH_TRAINING_LEFT to GuidedModeNavigation.FINISH_TRAINING_RIGHT to GlobalGestureId.FinishTraining,
         GuidedModeNavigation.DECREASE_VALUE_LEFT to GuidedModeNavigation.DECREASE_VALUE_RIGHT to GlobalGestureId.DecreaseValue,
-        GuidedModeNavigation.INCREASE_VALUE_LEFT to GuidedModeNavigation.INCREASE_VALUE_RIGHT to GlobalGestureId.IncreaseValue
+        GuidedModeNavigation.INCREASE_VALUE_LEFT to GuidedModeNavigation.INCREASE_VALUE_RIGHT to GlobalGestureId.IncreaseValue,
+        GuidedModeNavigation.OPEN_MAIN_MENU_LEFT to GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT to GlobalGestureId.OpenMainMenu
     )
 
     /** Keyboard composer command namespace (RC7D navigation panel). */
@@ -122,6 +126,7 @@ object ModeScopedGestureAuthority {
             null -> LisaInteractionMode.PhraseComposerDestinationCategory
         }
         context.activePanel == LisaPanel.VocabularyTraining -> LisaInteractionMode.PhraseManagement
+        context.activePanel == LisaPanel.Menu -> LisaInteractionMode.MainMenu
         context.activePanel != LisaPanel.None -> LisaInteractionMode.SettingsPanel
         context.confirmationActive -> LisaInteractionMode.Confirmation
         context.guidedOverlayActive -> when {
@@ -146,6 +151,17 @@ object ModeScopedGestureAuthority {
         if (GuidedModeNavigation.isFinishTrainingSequence(left, right)) return GestureRoutingTarget.FinishTraining
         if (context.emergencyModalActive) return GestureRoutingTarget.Emergency
 
+        // RC7D.28 — Open Menu is globally available when the Menu is closed; must beat GuidedOverlay.
+        // Suppressed during composer, phrase management, and preference adjustment (mode-scoped).
+        if (GuidedModeNavigation.isOpenMainMenuSequence(left, right) &&
+            context.activePanel != LisaPanel.Menu &&
+            context.activePanel != LisaPanel.PhraseEditor &&
+            context.activePanel != LisaPanel.VocabularyTraining &&
+            !context.isAdjustingPreference
+        ) {
+            return GestureRoutingTarget.MainMenu
+        }
+
         when (activeMode(context)) {
             LisaInteractionMode.EmergencyModal -> return GestureRoutingTarget.Emergency
             LisaInteractionMode.PhraseComposerKeyboard,
@@ -156,6 +172,8 @@ object ModeScopedGestureAuthority {
             LisaInteractionMode.PhraseComposerSuccess -> return GestureRoutingTarget.PhraseComposer
 
             LisaInteractionMode.PhraseManagement -> return GestureRoutingTarget.PhraseManagement
+
+            LisaInteractionMode.MainMenu -> return GestureRoutingTarget.MainMenu
 
             LisaInteractionMode.SettingsPanel -> {
                 if (GuidedModeNavigation.isBackSequence(left, right)) {
@@ -369,6 +387,52 @@ object ModeScopedGestureAuthority {
         }
     }
 
+    /** RC7D.28 — Main Menu owns Move Up/Down, page jumps, Select, Back (Emergency is global). */
+    fun mainMenuBindings(): List<ModeGestureBinding> = listOf(
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.PREVIOUS_LEFT,
+            right = GuidedModeNavigation.PREVIOUS_RIGHT,
+            label = "move_up",
+            tier = ModeGestureTier.Command
+        ),
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.NEXT_LEFT,
+            right = GuidedModeNavigation.NEXT_RIGHT,
+            label = "move_down",
+            tier = ModeGestureTier.Command
+        ),
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+            right = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+            label = "previous_page",
+            tier = ModeGestureTier.Command
+        ),
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+            right = GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
+            label = "next_page",
+            tier = ModeGestureTier.Command
+        ),
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.SELECT_LEFT,
+            right = GuidedModeNavigation.SELECT_RIGHT,
+            label = "open_selected",
+            tier = ModeGestureTier.Command
+        ),
+        ModeGestureBinding(
+            mode = LisaInteractionMode.MainMenu,
+            left = GuidedModeNavigation.BACK_LEFT,
+            right = GuidedModeNavigation.BACK_RIGHT,
+            label = "close_menu",
+            tier = ModeGestureTier.Command
+        )
+    )
+
     /** Settings panels inherit global Back only — no mode-local phrase slots. */
     fun settingsPanelBindings(): List<ModeGestureBinding> = emptyList()
 
@@ -376,6 +440,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.CommunicationVocabulary -> communicationVocabularyBindings()
         LisaInteractionMode.CommunicationCategoryMenu -> communicationCategoryMenuBindings()
         LisaInteractionMode.CommunicationAdjustment -> emptyList()
+        LisaInteractionMode.MainMenu -> mainMenuBindings()
         LisaInteractionMode.PhraseComposerKeyboard -> phraseComposerKeyboardCommandBindings()
         LisaInteractionMode.PhraseComposerDestinationCategory -> phraseComposerDestinationBindings()
         LisaInteractionMode.PhraseComposerSaveConfirmation -> phraseComposerSaveConfirmationBindings()
@@ -393,6 +458,7 @@ object ModeScopedGestureAuthority {
         LisaInteractionMode.CommunicationVocabulary,
         LisaInteractionMode.CommunicationCategoryMenu,
         LisaInteractionMode.CommunicationAdjustment,
+        LisaInteractionMode.MainMenu,
         LisaInteractionMode.PhraseComposerKeyboard,
         LisaInteractionMode.PhraseComposerDestinationCategory,
         LisaInteractionMode.PhraseComposerSaveConfirmation,
