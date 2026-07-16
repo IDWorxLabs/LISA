@@ -233,8 +233,10 @@ class Rc7D_7CaregiverTouchTypingAndCleanEmergencyStateTest {
     fun activeEmergencyDoesNotRenderMenuClearRepeat() {
         val root = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(root.contains("uiStrings.menu"))
-        assertTrue(root.contains("uiStrings.reset"))
+        assertTrue(root.contains("WorkspaceFullWidthActionButton"))
         assertTrue(root.contains("if (!emergencyActive)"))
+        // RC7D.30 — Clear is no longer in the Communication bottom bar; reset authority remains.
+        assertTrue(readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt").contains("performReset()"))
     }
 
     @Test

@@ -261,19 +261,27 @@ object MainMenuProductionUiAuthority {
                 phraseManagementActive = phraseManagementActive
             )
 
-    /** Clear / Repeat apply to communication content — hide while Menu is open. */
-    fun showCommunicationClearAndRepeat(activePanel: LisaPanel): Boolean =
-        !occupiesMainContentSlot(activePanel)
+    /** Clear / Repeat no longer appear in the Communication workspace bottom bar (RC7D.30). */
+    @Suppress("UNUSED_PARAMETER")
+    fun showCommunicationClearAndRepeat(activePanel: LisaPanel): Boolean = false
 
     /**
-     * Workspace Menu/Clear/Repeat chrome: shown when composer is closed.
-     * While Menu is open, only the Close control remains (no Clear/Repeat).
+     * Workspace bottom chrome: shown when composer is closed.
+     * Communication mode: full-width Menu only.
+     * Menu mode: full-width Close only.
      */
     fun showWorkspaceBottomChrome(phraseComposerActive: Boolean): Boolean =
         !phraseComposerActive
 
     fun showBottomCloseOnly(activePanel: LisaPanel): Boolean =
         occupiesMainContentSlot(activePanel)
+
+    /** Solid dark workspace panel — never alpha, never transparent. */
+    fun solidWorkspaceBackground(): androidx.compose.ui.graphics.Color =
+        com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle.SolidPanelBackground
+
+    fun isOpaqueWorkspaceBackground(color: androidx.compose.ui.graphics.Color): Boolean =
+        color.alpha >= 1f && color == solidWorkspaceBackground()
 
     fun openMenuSequenceLabel(): String =
         formatWinkSequenceShort(

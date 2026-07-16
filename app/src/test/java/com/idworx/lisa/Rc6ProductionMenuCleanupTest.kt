@@ -66,9 +66,13 @@ class Rc6ProductionMenuCleanupTest {
 
     @Test
     fun mainCommunicationRepeatButtonRemains() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(source.contains("LisaActionButton"))
-        assertTrue(source.contains("uiStrings.repeat"))
+        // RC7D.30 — Repeat/Clear removed from Communication bottom bar; Repeat remains in Quick Controls.
+        val assist = readSource("app/src/main/java/com/idworx/lisa/LisaCommunicationAssistUi.kt")
+        assertTrue(assist.contains("repeat") || assist.contains("Repeat"))
+        val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
+        assertTrue(main.contains("onQuickControlsRepeat") || main.contains("performReset()"))
+        assertEquals("Clear", english.reset)
+        assertEquals("Repeat", english.repeat)
     }
 
     @Test

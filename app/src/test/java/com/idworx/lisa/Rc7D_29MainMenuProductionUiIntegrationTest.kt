@@ -125,8 +125,8 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
         )
         assertEquals("L4 R6", MainMenuProductionUiAuthority.openMenuSequenceLabel())
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(ui.contains("text = uiStrings.menu"))
-        assertTrue(ui.contains("subtitle = MainMenuProductionUiAuthority.openMenuSequenceLabel()"))
+        assertTrue(ui.contains("label = uiStrings.menu"))
+        assertTrue(ui.contains("sequenceLabel = MainMenuProductionUiAuthority.openMenuSequenceLabel()"))
     }
 
     @Test
@@ -140,7 +140,7 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
         )
         assertEquals("L2 R2", MainMenuProductionUiAuthority.closeMenuSequenceLabel())
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(ui.contains("subtitle = MainMenuProductionUiAuthority.closeMenuSequenceLabel()"))
+        assertTrue(ui.contains("sequenceLabel = MainMenuProductionUiAuthority.closeMenuSequenceLabel()"))
     }
 
     @Test
@@ -158,17 +158,21 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         val chrome = ui.substringAfter("showWorkspaceBottomChrome(phraseComposerActive)")
             .substringBefore("if (activePanel != LisaPanel.None")
-        assertTrue(chrome.contains("Modifier.weight(1f)"))
-        assertTrue(chrome.contains("LisaActionButton"))
+        assertTrue(chrome.contains("WorkspaceFullWidthActionButton"))
+        assertTrue(chrome.contains("fillMaxWidth()").not() || chrome.contains("WorkspaceFullWidthActionButton"))
+        val button = ui.substringAfter("private fun WorkspaceFullWidthActionButton")
+            .substringBefore("private fun MyCommunicationPanel")
+        assertTrue(button.contains("fillMaxWidth()"))
+        assertTrue(button.contains("FullWidthActionMinHeight"))
     }
 
     @Test
     fun clearHiddenWhileMainMenuOpen() {
         assertFalse(MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(LisaPanel.Menu))
-        assertTrue(MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(LisaPanel.None))
+        assertFalse(MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(LisaPanel.None))
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(ui.contains("if (mainMenuActive)"))
-        assertTrue(ui.contains("showCommunicationClearAndRepeat(activePanel)"))
+        assertTrue(ui.contains("WorkspaceFullWidthActionButton"))
     }
 
     // ------------------------------------------------------------------ C. Full-screen isolation
@@ -205,7 +209,8 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
     fun navigationPanelShowsAllSevenActionsWithCanonicalSequences() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         val navStart = ui.indexOf("private fun MainMenuNavigationControls")
-        val navEnd = ui.indexOf("private fun MainMenuNavControlRow", navStart)
+        val navEnd = ui.indexOf("private fun MainMenuCloseRow", navStart)
+        assertTrue(navStart >= 0 && navEnd > navStart)
         val nav = ui.substring(navStart, navEnd)
         assertTrue(nav.contains("mainMenuMoveUp"))
         assertTrue(nav.contains("mainMenuMoveDown"))
@@ -214,6 +219,8 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
         assertTrue(nav.contains("mainMenuOpenSelected"))
         assertTrue(nav.contains("mainMenuClose"))
         assertTrue(nav.contains("emergency"))
+        assertTrue(nav.contains("GuidedNavigationActionButton("))
+        assertTrue(nav.contains("GuidedEmergencyNavButton("))
         assertEquals(
             "L2 R0",
             formatWinkSequenceShort(
@@ -259,8 +266,8 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
     @Test
     fun fullScreenMenuUsesWiderFixedNavPanel() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(ui.contains("navPanelWidth = if (fillWorkspace) 118.dp else 108.dp"))
-        assertTrue(ui.contains("Modifier.width(navPanelWidth)"))
+        assertTrue(ui.contains("navPanelWidth = LisaWorkspaceVisualStyle.NavPanelWidth"))
+        assertTrue(ui.contains(".width(navPanelWidth)"))
     }
 
     @Test

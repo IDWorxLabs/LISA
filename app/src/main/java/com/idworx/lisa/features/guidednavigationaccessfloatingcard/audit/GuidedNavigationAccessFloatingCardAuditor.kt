@@ -121,7 +121,7 @@ object GuidedNavigationAccessFloatingCardAuditor {
         val workspaceCallUnchanged = ui.contains("GuidedVocabularyOverlay(") &&
             ui.contains(".weight(1f)") &&
             ui.contains("uiStrings.menu") &&
-            ui.contains("uiStrings.reset")
+            ui.contains("WorkspaceFullWidthActionButton")
         return overlayStructureIntact && workspaceCallUnchanged
     }
 

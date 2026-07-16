@@ -88,7 +88,7 @@ class Rc7D_28EyeControlledMainMenuTest {
         )
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(ui.contains("MainMenuProductionUiAuthority.openMenuSequenceLabel()"))
-        assertTrue(ui.contains("subtitle = MainMenuProductionUiAuthority.openMenuSequenceLabel()"))
+        assertTrue(ui.contains("sequenceLabel = MainMenuProductionUiAuthority.openMenuSequenceLabel()"))
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
         assertTrue(main.contains("openMainMenu()"))
         assertTrue(main.contains("onMenuClick = { toggleMenuPanel() }"))
@@ -327,15 +327,14 @@ class Rc7D_28EyeControlledMainMenuTest {
     }
 
     @Test
-    fun menuButtonRemainsBesideClearOutsideMenuMode() {
+    fun menuButtonIsSoleCommunicationBottomAction() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        assertTrue(ui.contains("MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(activePanel)"))
-        assertTrue(ui.contains("showCommunicationClearAndRepeat"))
+        assertFalse(MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(LisaPanel.None))
         val chromeStart = ui.indexOf("showWorkspaceBottomChrome(phraseComposerActive)")
-        val chromeBlock = ui.substring(chromeStart, chromeStart + 2500)
+        val chromeBlock = ui.substring(chromeStart, chromeStart + 1800)
+        assertTrue(chromeBlock.contains("WorkspaceFullWidthActionButton"))
         assertTrue(chromeBlock.contains("onMenuClick"))
-        assertTrue(chromeBlock.contains("uiStrings.reset"))
-        assertTrue(chromeBlock.contains("mainMenuActive"))
+        assertFalse(chromeBlock.contains("uiStrings.reset"))
     }
 
     // ------------------------------------------------------------------ H. Regression

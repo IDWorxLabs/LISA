@@ -276,9 +276,11 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         val pmEnd = ui.indexOf("EyeControlledPhraseComposerOverlay(")
         val bottom = ui.substring(pmEnd)
         assertTrue(bottom.contains("uiStrings.close"))
-        assertTrue(bottom.contains("uiStrings.reset"))
+        assertTrue(bottom.contains("WorkspaceFullWidthActionButton"))
         assertTrue(bottom.contains("onMenuClick"))
-        assertTrue(bottom.contains("onReset"))
+        // RC7D.30 — Clear removed from Communication workspace bottom bar; performReset remains.
+        assertFalse(bottom.contains("onClick = onReset"))
+        assertTrue(readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt").contains("performReset()"))
     }
 
     @Test

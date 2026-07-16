@@ -48,15 +48,16 @@ import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceHighlightTarget
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 
 private val OverlayScrim = Color.Black.copy(alpha = 0.48f)
-private val PanelBackground = Color(0xFF0D1B2A).copy(alpha = 0.72f)
-private val EntryBackground = LisaWhite.copy(alpha = 0.90f)
+private val PanelBackground = LisaWorkspaceVisualStyle.OverlayPanelBackground
+private val EntryBackground = LisaWorkspaceVisualStyle.CardBackground
 private val EntryHighlight = LisaBlue.copy(alpha = 0.22f)
-private val NavBackground = LisaWhite.copy(alpha = 0.88f)
-private val CategoryMenuHighlight = LisaBlue.copy(alpha = 0.30f)
+private val NavBackground = LisaWorkspaceVisualStyle.NavPanelBackground
+private val CategoryMenuHighlight = LisaWorkspaceVisualStyle.CardSelectedBackground
 
 /** Subtle blue outline + soft glow used to spotlight the real control a Guided Training lesson is teaching. */
 private val TrainingHighlightGlow = LisaBlue.copy(alpha = 0.18f)

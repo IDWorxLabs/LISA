@@ -27,6 +27,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalConfiguration
@@ -58,6 +60,7 @@ import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
 import java.util.Locale
 
 @Composable
@@ -272,7 +275,6 @@ fun LisaRootUI(
         return
     }
 
-    val canRepeat = lastSpoken.isNotBlank()
     val density = LocalDensity.current
     // Guided Training Mode — navigation lessons teach the real Communication Workspace, so the
     // workspace overlay must be visible even though onboarding has not finished yet.
@@ -523,7 +525,12 @@ fun LisaRootUI(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .padding(
+                        horizontal = LisaWorkspaceVisualStyle.FullWidthChromeHorizontalPadding,
+                        vertical = 6.dp
+                    )
+                    .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.PanelCornerRadius))
+                    .background(MainMenuProductionUiAuthority.solidWorkspaceBackground())
             ) {
                 MenuPanel(
                     uiStrings = uiStrings,
@@ -595,47 +602,24 @@ fun LisaRootUI(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(
+                    horizontal = LisaWorkspaceVisualStyle.FullWidthChromeHorizontalPadding,
+                    vertical = 10.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (mainMenuActive) {
-                    LisaActionButton(
-                        text = uiStrings.close,
-                        subtitle = MainMenuProductionUiAuthority.closeMenuSequenceLabel(),
-                        modifier = Modifier.weight(1f),
-                        filled = false,
-                        onClick = onClosePanel
-                    )
-                } else {
-                    LisaActionButton(
-                        text = uiStrings.menu,
-                        subtitle = MainMenuProductionUiAuthority.openMenuSequenceLabel(),
-                        modifier = Modifier.weight(1f),
-                        filled = true,
-                        onClick = onMenuClick
-                    )
-                    if (MainMenuProductionUiAuthority.showCommunicationClearAndRepeat(activePanel)) {
-                        LisaActionButton(
-                            text = uiStrings.reset,
-                            modifier = Modifier.weight(1f),
-                            filled = false,
-                            danger = emergencyActive,
-                            onClick = onReset
-                        )
-                        if (canRepeat) {
-                            LisaActionButton(
-                                text = uiStrings.repeat,
-                                modifier = Modifier.weight(1f),
-                                filled = false,
-                                onClick = onRepeat
-                            )
-                        }
-                    }
-                }
+            if (mainMenuActive) {
+                WorkspaceFullWidthActionButton(
+                    label = uiStrings.close,
+                    sequenceLabel = MainMenuProductionUiAuthority.closeMenuSequenceLabel(),
+                    onClick = onClosePanel
+                )
+            } else {
+                WorkspaceFullWidthActionButton(
+                    label = uiStrings.menu,
+                    sequenceLabel = MainMenuProductionUiAuthority.openMenuSequenceLabel(),
+                    onClick = onMenuClick
+                )
             }
 
             if (activePanel != LisaPanel.None && !phraseManagementActive && !mainMenuActive) {
@@ -1267,7 +1251,17 @@ private fun MenuPanel(
 
     val menuBody: @Composable () -> Unit = {
         Column(
-            modifier = if (fillWorkspace) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+            modifier = Modifier
+                .then(
+                    if (fillWorkspace) {
+                        Modifier
+                            .fillMaxSize()
+                            .background(MainMenuProductionUiAuthority.solidWorkspaceBackground())
+                            .padding(LisaWorkspaceVisualStyle.PanelContentPadding)
+                    } else {
+                        Modifier.fillMaxWidth()
+                    }
+                )
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1277,27 +1271,36 @@ private fun MenuPanel(
                 Text(
                     text = uiStrings.menu,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = LisaBlueDark
+                    fontSize = LisaWorkspaceVisualStyle.MenuTitleSize,
+                    color = if (fillWorkspace) LisaWhite else LisaBlueDark
                 )
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (fillWorkspace) Color.White.copy(alpha = 0.14f)
+                            else LisaSoftGray
+                        )
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
                     Text(
                         text = uiStrings.mainMenuItemIndicator(
                             normalized.selectionIndex + 1,
                             destinationCount
                         ),
-                        fontSize = 12.sp,
+                        fontSize = LisaWorkspaceVisualStyle.IndicatorSize,
                         fontWeight = FontWeight.SemiBold,
-                        color = LisaBlueDark.copy(alpha = 0.75f)
+                        color = if (fillWorkspace) LisaWhite.copy(alpha = 0.9f) else LisaBlueDark.copy(alpha = 0.75f)
                     )
                     Text(
                         text = uiStrings.mainMenuPageIndicator(
                             normalized.viewportPage + 1,
                             normalized.viewportPageCount
                         ),
-                        fontSize = 12.sp,
+                        fontSize = LisaWorkspaceVisualStyle.IndicatorSize,
                         fontWeight = FontWeight.SemiBold,
-                        color = LisaBlueDark.copy(alpha = 0.75f)
+                        color = if (fillWorkspace) LisaWhite.copy(alpha = 0.9f) else LisaBlueDark.copy(alpha = 0.75f)
                     )
                 }
             }
@@ -1324,7 +1327,7 @@ private fun MenuPanel(
                         )
                         .onGloballyPositioned { viewportHeightPx = it.size.height }
                         .verticalScroll(menuScrollState),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     entries.forEach { entry ->
                         when (entry) {
@@ -1334,7 +1337,8 @@ private fun MenuPanel(
                                         MainMenuSection.Communication -> uiStrings.menuSectionCommunication
                                         MainMenuSection.Application -> uiStrings.menuSectionApplication
                                         MainMenuSection.Support -> uiStrings.menuSectionSupport
-                                    }
+                                    },
+                                    onDarkWorkspace = fillWorkspace
                                 )
                             }
                             is MainMenuListEntry.Destination -> {
@@ -1371,7 +1375,7 @@ private fun MenuPanel(
                     onSelect = onSelect,
                     onClose = onClose,
                     onEmergency = onEmergency,
-                    navPanelWidth = if (fillWorkspace) 118.dp else 108.dp
+                    navPanelWidth = LisaWorkspaceVisualStyle.NavPanelWidth
                 )
             }
             if (!fillWorkspace) {
@@ -1407,119 +1411,97 @@ private fun MainMenuNavigationControls(
     onSelect: () -> Unit,
     onClose: () -> Unit,
     onEmergency: () -> Unit,
-    navPanelWidth: Dp = 108.dp
+    navPanelWidth: Dp = LisaWorkspaceVisualStyle.NavPanelWidth
 ) {
     Column(
-        modifier = Modifier.width(navPanelWidth),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier
+            .width(navPanelWidth)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.NavPanelCornerRadius))
+            .background(LisaWorkspaceVisualStyle.NavPanelBackground)
+            .padding(6.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        MainMenuNavControlRow(
+        // Reuse Category Menu guided control component for identical typography / sizing (RC7D.30).
+        GuidedNavigationActionButton(
+            symbol = "↑↑",
             title = uiStrings.mainMenuMoveUp,
+            gestureHint = uiStrings.guidedScrollUpHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.PREVIOUS_LEFT,
                 GuidedModeNavigation.PREVIOUS_RIGHT
             ),
             enabled = canMoveUp,
+            compact = true,
             onClick = onMoveUp
         )
-        MainMenuNavControlRow(
+        GuidedNavigationActionButton(
+            symbol = "↓↓",
             title = uiStrings.mainMenuMoveDown,
+            gestureHint = uiStrings.guidedScrollDownHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.NEXT_LEFT,
                 GuidedModeNavigation.NEXT_RIGHT
             ),
             enabled = canMoveDown,
+            compact = true,
             onClick = onMoveDown
         )
-        MainMenuNavControlRow(
+        GuidedNavigationActionButton(
+            symbol = "⏮",
             title = uiStrings.mainMenuPreviousPage,
+            gestureHint = uiStrings.guidedPreviousCategoryPageHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
                 GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
             ),
             enabled = canGoPreviousPage,
+            compact = true,
             onClick = onPreviousPage
         )
-        MainMenuNavControlRow(
+        GuidedNavigationActionButton(
+            symbol = "⏭",
             title = uiStrings.mainMenuNextPage,
+            gestureHint = uiStrings.guidedNextCategoryPageHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
                 GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
             ),
             enabled = canGoNextPage,
+            compact = true,
             onClick = onNextPage
         )
-        MainMenuNavControlRow(
+        GuidedNavigationActionButton(
+            symbol = "✅",
             title = uiStrings.mainMenuOpenSelected,
+            gestureHint = uiStrings.guidedSelectEnterHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.SELECT_LEFT,
                 GuidedModeNavigation.SELECT_RIGHT
             ),
             enabled = true,
+            compact = true,
             onClick = onSelect
         )
-        MainMenuNavControlRow(
+        GuidedNavigationActionButton(
+            symbol = "↩",
             title = uiStrings.mainMenuClose,
+            gestureHint = uiStrings.guidedBackHint,
             sequenceLabel = formatWinkSequenceShort(
                 GuidedModeNavigation.BACK_LEFT,
                 GuidedModeNavigation.BACK_RIGHT
             ),
             enabled = true,
+            compact = true,
             onClick = onClose
         )
-        MainMenuNavControlRow(
+        GuidedEmergencyNavButton(
+            symbol = "🚨",
             title = uiStrings.emergency,
+            gestureHint = uiStrings.guidedEmergencyNavHint,
             sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
-            enabled = true,
-            emergency = true,
+            compact = true,
             onClick = onEmergency
-        )
-    }
-}
-
-@Composable
-private fun MainMenuNavControlRow(
-    title: String,
-    sequenceLabel: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    emergency: Boolean = false
-) {
-    val contentColor = when {
-        emergency -> LisaEmergencyRed
-        enabled -> LisaBlueDark
-        else -> LisaGray
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .background(
-                when {
-                    emergency -> LisaEmergencyRed.copy(alpha = 0.12f)
-                    enabled -> LisaWhite
-                    else -> LisaWhite.copy(alpha = 0.55f)
-                }
-            )
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = title,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 8.sp,
-            color = contentColor,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            lineHeight = 10.sp
-        )
-        Text(
-            text = sequenceLabel,
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.sp,
-            color = contentColor,
-            lineHeight = 11.sp
         )
     }
 }
@@ -1558,12 +1540,16 @@ private fun MainMenuCloseRow(
 }
 
 @Composable
-private fun MenuSectionHeader(title: String) {
+private fun MenuSectionHeader(title: String, onDarkWorkspace: Boolean = false) {
     Text(
         text = title.uppercase(Locale.getDefault()),
-        fontSize = 11.sp,
+        fontSize = LisaWorkspaceVisualStyle.SectionHeadingSize,
         fontWeight = FontWeight.Bold,
-        color = LisaBlueDark.copy(alpha = 0.55f),
+        color = if (onDarkWorkspace) {
+            LisaWhite.copy(alpha = 0.75f)
+        } else {
+            LisaBlueDark.copy(alpha = 0.70f)
+        },
         letterSpacing = 0.5.sp,
         modifier = Modifier.padding(start = 2.dp, top = 8.dp, bottom = 4.dp)
     )
@@ -1580,19 +1566,76 @@ private fun MainMenuDestinationRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) LisaBlue else LisaWhite)
+            .defaultMinSize(minHeight = 52.dp)
+            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius))
+            .background(
+                if (selected) {
+                    LisaWorkspaceVisualStyle.CardSelectedBackground
+                } else {
+                    LisaWorkspaceVisualStyle.CardBackground
+                }
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .semantics { this.selected = selected }
+            .padding(
+                horizontal = LisaWorkspaceVisualStyle.CardHorizontalPadding,
+                vertical = LisaWorkspaceVisualStyle.CardVerticalPadding
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "$number.",
+            fontWeight = FontWeight.Bold,
+            fontSize = LisaWorkspaceVisualStyle.CardNumberSize,
+            color = LisaBlueDark
+        )
+        Text(
+            text = label,
+            fontSize = LisaWorkspaceVisualStyle.CardTitleSize,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            color = LisaBlueDark,
+            lineHeight = LisaWorkspaceVisualStyle.CardTitleLineHeight,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/**
+ * RC7D.30 — full-width blue action matching the EverydayCommunicationPanel banner width/margins.
+ * Label and sequence sit on one horizontal line (Menu L4 R6 / Close L2 R2).
+ */
+@Composable
+private fun WorkspaceFullWidthActionButton(
+    label: String,
+    sequenceLabel: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = LisaWorkspaceVisualStyle.FullWidthActionMinHeight)
+            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.FullWidthActionCornerRadius))
+            .background(LisaBlue)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "$number. $label",
-            fontSize = 15.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) LisaWhite else LisaBlueDark,
-            lineHeight = 20.sp,
-            modifier = Modifier.fillMaxWidth()
+            text = label,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaWhite,
+            maxLines = 1
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = sequenceLabel,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaWhite,
+            maxLines = 1
         )
     }
 }
