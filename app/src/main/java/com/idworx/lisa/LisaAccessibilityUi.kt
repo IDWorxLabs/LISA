@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
@@ -93,6 +94,9 @@ fun LisaRootUI(
     onMainMenuSelectDestination: (MainMenuDestination) -> Unit = {},
     onMainMenuViewportMetrics: (viewportHeightPx: Int, maxScrollPx: Int, scrollPx: Int) -> Unit = { _, _, _ -> },
     onMainMenuEmergency: () -> Unit = {},
+    menuDestinationBinding: MenuDestinationUiBinding? = null,
+    feedbackDraft: MenuFeedbackDraft = MenuFeedbackDraft(),
+    onFeedbackDraftChange: (MenuFeedbackDraft) -> Unit = {},
     onOpenCreatePhrase: () -> Unit = {},
     onOpenPhraseEditor: () -> Unit = {},
     onPreviewCaregiverPhrase: (String) -> Unit = {},
@@ -287,6 +291,8 @@ fun LisaRootUI(
     // RC7D.29 — Main Menu occupies the same central content slot; never leave the guided
     // workspace painted behind a partial bottom sheet.
     val mainMenuActive = MainMenuProductionUiAuthority.occupiesMainContentSlot(activePanel)
+    val menuDestinationActive =
+        MenuDestinationProductionUiAuthority.occupiesMainContentSlot(activePanel)
     val showSharedBlinkStatusHeader =
         PhraseManagementController.showSharedBlinkStatusHeader(phraseComposerActive)
     val showGuidedVocabularyOverlay = GuidedVocabularyOverlayVisibility.shouldShowOverlay(
@@ -296,7 +302,7 @@ fun LisaRootUI(
         practiceModeOpen = practiceModeOpen,
         quickControlsOpen = quickControlsOpen,
         guidedWorkspaceTrainingActive = guidedWorkspaceTrainingActive
-    ) && MainMenuProductionUiAuthority.showGuidedVocabularyOverlay(
+    ) && !menuDestinationActive && MainMenuProductionUiAuthority.showGuidedVocabularyOverlay(
         activePanel = activePanel,
         phraseComposerActive = phraseComposerActive,
         phraseManagementActive = phraseManagementActive
@@ -402,7 +408,9 @@ fun LisaRootUI(
                         text = uiStrings.listeningPaused,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = LisaBlueDark
+                        color = LisaBlueDark,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -477,12 +485,7 @@ fun LisaRootUI(
         }
         }
 
-        if (MainMenuProductionUiAuthority.showGuidedVocabularyOverlay(
-                activePanel = activePanel,
-                phraseComposerActive = phraseComposerActive,
-                phraseManagementActive = phraseManagementActive
-            )
-        ) {
+        if (showGuidedVocabularyOverlay) {
         GuidedVocabularyOverlay(
             uiStrings = uiStrings,
             navigationState = guidedNavigationState,
@@ -549,6 +552,118 @@ fun LisaRootUI(
             }
         }
 
+        if (menuDestinationActive && menuDestinationBinding != null) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = LisaWorkspaceVisualStyle.FullWidthChromeHorizontalPadding,
+                        vertical = 6.dp
+                    )
+            ) {
+                MenuDestinationWorkspace(
+                    uiStrings = uiStrings,
+                    binding = menuDestinationBinding
+                ) {
+                    when (activePanel) {
+                        LisaPanel.MyCommunication -> MyCommunicationPanel(
+                            uiStrings = uiStrings,
+                            profiles = profiles,
+                            activeProfileId = activeProfileId,
+                            onCreateProfile = onCreateProfile,
+                            onSelectProfile = onSelectProfile,
+                            onUpdateProfile = onUpdateProfile,
+                            onDeleteProfile = onDeleteProfile,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.Voice -> VoiceHomePanel(
+                            uiStrings = uiStrings,
+                            onOpenDeviceVoice = { onSelectPanel(LisaPanel.VoiceDevice) },
+                            onOpenPremiumVoices = { onSelectPanel(LisaPanel.VoicePremium) },
+                            onOpenMyVoice = { onSelectPanel(LisaPanel.VoiceMyVoice) },
+                            onOpenFamilyVoice = { onSelectPanel(LisaPanel.VoiceFamily) },
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.VoiceDevice -> DeviceVoicePanel(
+                            uiStrings = uiStrings,
+                            state = voiceSettingsState,
+                            onSelectVoice = onSelectTtsVoice,
+                            onTestVoice = onTestTtsVoice,
+                            onInstallVoiceData = onInstallTtsVoiceData,
+                            onOpenTtsSettings = onOpenTtsSettings,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.VoicePremium -> PremiumVoicesPanel(
+                            uiStrings = uiStrings,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.VoiceMyVoice -> MyVoicePanel(
+                            uiStrings = uiStrings,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.VoiceFamily -> FamilyVoicePanel(
+                            uiStrings = uiStrings,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.Settings -> SettingsPanel(
+                            uiStrings = uiStrings,
+                            settingsState = settingsState,
+                            trainingPreferences = guidedTrainingState.progress.preferences,
+                            learningProgress = guidedTrainingState.progress,
+                            onDeveloperModeChange = onDeveloperModeChange,
+                            onSensitivityDecrease = onSensitivityDecrease,
+                            onSensitivityIncrease = onSensitivityIncrease,
+                            onPlaceholderChange = onSettingsPlaceholderChange,
+                            onTrainingReplayTutorial = onTrainingReplayTutorial,
+                            onTrainingPracticeCommunication = onTrainingPracticeCommunication,
+                            onTrainingPracticeNavigation = onTrainingPracticeNavigation,
+                            onTrainingResetProgress = onTrainingResetProgress,
+                            onTrainingPreferencesChange = onTrainingPreferencesChange,
+                            onOpenDeviceCheck = onOpenDeviceCheck,
+                            onOpenDeveloperTools = onOpenDeveloperTools,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.DeveloperTools -> DeveloperToolsPanel(
+                            uiStrings = uiStrings,
+                            developerMode = developerMode,
+                            onDeveloperModeChange = onDeveloperModeChange,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.AboutLisa -> AboutLisaPanel(
+                            uiStrings = uiStrings,
+                            appVersionInfo = appVersionInfo,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.PrivacyPolicy -> PrivacyPolicyPanel(
+                            uiStrings = uiStrings,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.Feedback -> FeedbackPanel(
+                            uiStrings = uiStrings,
+                            savedCount = feedbackSavedCount,
+                            draft = feedbackDraft,
+                            onDraftChange = onFeedbackDraftChange,
+                            onSaveFeedback = onSaveFeedback,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.TestingChecklist -> TestingChecklistPanel(
+                            uiStrings = uiStrings,
+                            checklist = testingChecklist,
+                            onToggleItem = onToggleChecklistItem,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.ReleaseNotes -> ReleaseNotesPanel(
+                            uiStrings = uiStrings,
+                            appVersionInfo = appVersionInfo,
+                            onBack = onBackToMenu
+                        )
+                        else -> Unit
+                    }
+                }
+            }
+        }
+
         if (phraseManagementActive) {
             Box(
                 modifier = Modifier
@@ -598,7 +713,9 @@ fun LisaRootUI(
                 .fillMaxWidth()
         )
 
-        if (MainMenuProductionUiAuthority.showWorkspaceBottomChrome(phraseComposerActive)) {
+        if (MainMenuProductionUiAuthority.showWorkspaceBottomChrome(phraseComposerActive) &&
+            !menuDestinationActive
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -626,16 +743,7 @@ fun LisaRootUI(
                 Spacer(Modifier.height(10.dp))
                 when (activePanel) {
                     LisaPanel.Menu -> Unit
-                    LisaPanel.MyCommunication -> MyCommunicationPanel(
-                        uiStrings = uiStrings,
-                        profiles = profiles,
-                        activeProfileId = activeProfileId,
-                        onCreateProfile = onCreateProfile,
-                        onSelectProfile = onSelectProfile,
-                        onUpdateProfile = onUpdateProfile,
-                        onDeleteProfile = onDeleteProfile,
-                        onBack = onBackToMenu
-                    )
+                    LisaPanel.MyCommunication -> Unit
                     LisaPanel.VocabularyTraining -> Unit
                     LisaPanel.CreatePhrase -> CreatePhrasePanel(
                         uiStrings = uiStrings,
@@ -643,82 +751,18 @@ fun LisaRootUI(
                         onBack = onBackToMenu
                     )
                     LisaPanel.PhraseEditor -> Unit
-                    LisaPanel.Voice -> VoiceHomePanel(
-                        uiStrings = uiStrings,
-                        onOpenDeviceVoice = { onSelectPanel(LisaPanel.VoiceDevice) },
-                        onOpenPremiumVoices = { onSelectPanel(LisaPanel.VoicePremium) },
-                        onOpenMyVoice = { onSelectPanel(LisaPanel.VoiceMyVoice) },
-                        onOpenFamilyVoice = { onSelectPanel(LisaPanel.VoiceFamily) },
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.VoiceDevice -> DeviceVoicePanel(
-                        uiStrings = uiStrings,
-                        state = voiceSettingsState,
-                        onSelectVoice = onSelectTtsVoice,
-                        onTestVoice = onTestTtsVoice,
-                        onInstallVoiceData = onInstallTtsVoiceData,
-                        onOpenTtsSettings = onOpenTtsSettings,
-                        onBack = { onSelectPanel(LisaPanel.Voice) }
-                    )
-                    LisaPanel.VoicePremium -> PremiumVoicesPanel(
-                        uiStrings = uiStrings,
-                        onBack = { onSelectPanel(LisaPanel.Voice) }
-                    )
-                    LisaPanel.VoiceMyVoice -> MyVoicePanel(
-                        uiStrings = uiStrings,
-                        onBack = { onSelectPanel(LisaPanel.Voice) }
-                    )
-                    LisaPanel.VoiceFamily -> FamilyVoicePanel(
-                        uiStrings = uiStrings,
-                        onBack = { onSelectPanel(LisaPanel.Voice) }
-                    )
-                    LisaPanel.Settings -> SettingsPanel(
-                        uiStrings = uiStrings,
-                        settingsState = settingsState,
-                        trainingPreferences = guidedTrainingState.progress.preferences,
-                        learningProgress = guidedTrainingState.progress,
-                        onDeveloperModeChange = onDeveloperModeChange,
-                        onSensitivityDecrease = onSensitivityDecrease,
-                        onSensitivityIncrease = onSensitivityIncrease,
-                        onPlaceholderChange = onSettingsPlaceholderChange,
-                        onTrainingReplayTutorial = onTrainingReplayTutorial,
-                        onTrainingPracticeCommunication = onTrainingPracticeCommunication,
-                        onTrainingPracticeNavigation = onTrainingPracticeNavigation,
-                        onTrainingResetProgress = onTrainingResetProgress,
-                        onTrainingPreferencesChange = onTrainingPreferencesChange,
-                        onOpenDeviceCheck = onOpenDeviceCheck,
-                        onOpenDeveloperTools = onOpenDeveloperTools,
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.DeveloperTools -> DeveloperToolsPanel(
-                        uiStrings = uiStrings,
-                        developerMode = developerMode,
-                        onDeveloperModeChange = onDeveloperModeChange,
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.AboutLisa -> AboutLisaPanel(
-                        uiStrings = uiStrings,
-                        appVersionInfo = appVersionInfo,
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.PrivacyPolicy -> PrivacyPolicyPanel(uiStrings = uiStrings, onBack = onBackToMenu)
-                    LisaPanel.Feedback -> FeedbackPanel(
-                        uiStrings = uiStrings,
-                        savedCount = feedbackSavedCount,
-                        onSaveFeedback = onSaveFeedback,
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.TestingChecklist -> TestingChecklistPanel(
-                        uiStrings = uiStrings,
-                        checklist = testingChecklist,
-                        onToggleItem = onToggleChecklistItem,
-                        onBack = onBackToMenu
-                    )
-                    LisaPanel.ReleaseNotes -> ReleaseNotesPanel(
-                        uiStrings = uiStrings,
-                        appVersionInfo = appVersionInfo,
-                        onBack = onBackToMenu
-                    )
+                    LisaPanel.Voice,
+                    LisaPanel.VoiceDevice,
+                    LisaPanel.VoicePremium,
+                    LisaPanel.VoiceMyVoice,
+                    LisaPanel.VoiceFamily,
+                    LisaPanel.Settings,
+                    LisaPanel.DeveloperTools,
+                    LisaPanel.AboutLisa,
+                    LisaPanel.PrivacyPolicy,
+                    LisaPanel.Feedback,
+                    LisaPanel.TestingChecklist,
+                    LisaPanel.ReleaseNotes -> Unit
                     LisaPanel.None -> Unit
                 }
             }
@@ -1126,8 +1170,11 @@ internal fun LisaPanelShell(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val fillDestinationPane = LocalMenuDestinationScrollState.current != null
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (fillDestinationPane) Modifier.fillMaxHeight() else Modifier),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = LisaBlueLight),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1135,6 +1182,7 @@ internal fun LisaPanelShell(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(if (fillDestinationPane) Modifier.fillMaxHeight() else Modifier)
                 .padding(16.dp)
         ) {
             Row(
@@ -1147,17 +1195,38 @@ internal fun LisaPanelShell(
                         text = title,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = LisaBlueDark
+                        color = LisaBlueDark,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 if (onBack != null) {
-                    TextButton(onClick = onBack) {
-                        Text(backLabel, color = LisaBlueDark, fontWeight = FontWeight.SemiBold)
+                    TextButton(
+                        onClick = onBack,
+                        modifier = Modifier.widthIn(min = 76.dp)
+                    ) {
+                        Text(
+                            backLabel,
+                            color = LisaBlueDark,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
-            content()
+            if (fillDestinationPane) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    content = content
+                )
+            } else {
+                content()
+            }
         }
     }
 }
@@ -1652,18 +1721,14 @@ private fun MyCommunicationPanel(
     onBack: () -> Unit
 ) {
     val activeProfile = profiles.find { it.id == activeProfileId } ?: profiles.firstOrNull()
-    var editingName by remember(activeProfileId) { mutableStateOf(activeProfile?.name ?: "") }
-
-    LaunchedEffect(activeProfile?.name) {
-        editingName = activeProfile?.name ?: ""
-    }
+    val activateDestinationAction = LocalMenuDestinationActivateAction.current
+    val selectedDestinationAction = LocalMenuDestinationSelectedAction.current
 
     LisaPanelShell(title = uiStrings.myCommunication, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 380.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             PanelPurposeLine(uiStrings.communicationProfilePurpose)
@@ -1686,33 +1751,51 @@ private fun MyCommunicationPanel(
                     Text(
                         text = "${activeProfile.preferredLanguage.label} · ${activeProfile.communicationLevel.label}",
                         fontSize = 12.sp,
-                        color = LisaBlueDark.copy(alpha = 0.7f)
+                        color = LisaBlueDark.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 SettingsSectionLabel(uiStrings.profileNameSection)
-                OutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = editingName,
-                    onValueChange = { editingName = it },
-                    label = { Text(uiStrings.nameLabel) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    trailingIcon = {
-                        if (editingName != activeProfile.name && editingName.isNotBlank()) {
-                            TextButton(onClick = {
-                                onUpdateProfile(activeProfile.copy(name = editingName.trim()))
-                            }) {
-                                Text(uiStrings.saveLabel, fontSize = 12.sp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (selectedDestinationAction == MenuDestinationActionId.ProfileName) {
+                                LisaBlue.copy(alpha = 0.30f)
+                            } else {
+                                LisaWhite
                             }
+                        )
+                        .clickable {
+                            activateDestinationAction(MenuDestinationActionId.ProfileName)
                         }
-                    }
-                )
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        uiStrings.nameLabel,
+                        fontSize = 12.sp,
+                        color = LisaBlueDark.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        activeProfile.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlueDark,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 SettingsSectionLabel(uiStrings.preferredLanguageSection)
                 ProfileOptionGroup(
                     options = PreferredLanguage.selectable.map { it.label },
                     selected = activeProfile.preferredLanguage.label,
+                    idFor = { MenuDestinationActionId.language(it) },
                     onSelect = { label ->
                         val language = PreferredLanguage.fromStored(label)
                         onUpdateProfile(activeProfile.copy(preferredLanguage = language))
@@ -1723,6 +1806,7 @@ private fun MyCommunicationPanel(
                 ProfileOptionGroup(
                     options = CommunicationLevel.entries.map { it.label },
                     selected = activeProfile.communicationLevel.label,
+                    idFor = { MenuDestinationActionId.communicationLevel(it) },
                     onSelect = { label ->
                         val level = CommunicationLevel.fromStored(label)
                         onUpdateProfile(activeProfile.withCommunicationLevel(level))
@@ -1733,12 +1817,19 @@ private fun MyCommunicationPanel(
             SettingsSectionLabel(uiStrings.savedProfilesSection)
             profiles.forEach { profile ->
                 val isActive = profile.id == activeProfileId
+                val actionId = MenuDestinationActionId.savedProfile(profile.id)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isActive) LisaBlueLight.copy(alpha = 0.35f) else LisaWhite)
-                        .clickable { if (!isActive) onSelectProfile(profile.id) }
+                        .background(
+                            if (selectedDestinationAction == actionId || isActive) {
+                                LisaBlueLight.copy(alpha = 0.55f)
+                            } else {
+                                LisaWhite
+                            }
+                        )
+                        .clickable { activateDestinationAction(actionId) }
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -1748,12 +1839,16 @@ private fun MyCommunicationPanel(
                             text = profile.name,
                             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = LisaBlueDark
+                            color = LisaBlueDark,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = profile.communicationLevel.label,
                             fontSize = 11.sp,
-                            color = LisaBlueDark.copy(alpha = 0.65f)
+                            color = LisaBlueDark.copy(alpha = 0.65f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (isActive) {
@@ -1761,7 +1856,9 @@ private fun MyCommunicationPanel(
                             text = uiStrings.activeLabel,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = LisaBlue
+                            color = LisaBlue,
+                            maxLines = 1,
+                            modifier = Modifier.widthIn(min = 48.dp)
                         )
                     } else {
                         Text(text = "›", fontSize = 18.sp, color = LisaGray)
@@ -1770,19 +1867,31 @@ private fun MyCommunicationPanel(
             }
 
             OutlinedButton(
-                onClick = onCreateProfile,
+                onClick = {
+                    activateDestinationAction(MenuDestinationActionId.ProfileNew)
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(uiStrings.createNewProfile)
+                Text(
+                    uiStrings.createNewProfile,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             if (profiles.size > 1 && activeProfile != null) {
                 OutlinedButton(
-                    onClick = { onDeleteProfile(activeProfile.id) },
+                    onClick = {
+                        activateDestinationAction(MenuDestinationActionId.ProfileDelete)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaEmergencyRed)
                 ) {
-                    Text(uiStrings.deleteActiveProfile)
+                    Text(
+                        uiStrings.deleteActiveProfile,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -1793,16 +1902,26 @@ private fun MyCommunicationPanel(
 private fun ProfileOptionGroup(
     options: List<String>,
     selected: String,
+    idFor: (String) -> MenuDestinationActionId,
     onSelect: (String) -> Unit
 ) {
+    val selectedDestinationAction = LocalMenuDestinationSelectedAction.current
+    val activateDestinationAction = LocalMenuDestinationActivateAction.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { option ->
+            val actionId = idFor(option)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (option == selected) LisaBlueLight.copy(alpha = 0.35f) else LisaWhite)
-                    .clickable { onSelect(option) }
+                    .background(
+                        if (option == selected || selectedDestinationAction == actionId) {
+                            LisaBlueLight.copy(alpha = 0.55f)
+                        } else {
+                            LisaWhite
+                        }
+                    )
+                    .clickable { activateDestinationAction(actionId) }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -1811,7 +1930,10 @@ private fun ProfileOptionGroup(
                     text = option,
                     fontWeight = if (option == selected) FontWeight.SemiBold else FontWeight.Medium,
                     fontSize = 14.sp,
-                    color = LisaBlueDark
+                    color = LisaBlueDark,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
                 if (option == selected) {
                     Text(text = "✓", fontSize = 14.sp, color = LisaBlue, fontWeight = FontWeight.Bold)
@@ -1909,41 +2031,19 @@ private fun SettingsPanel(
     LisaPanelShell(title = uiStrings.settings, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 360.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             PanelPurposeLine(uiStrings.settingsPurpose)
             SettingsSectionLabel(uiStrings.settingsSectionDetection)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(LisaWhite)
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(uiStrings.sensitivity, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
-                    Text("Level ${settingsState.sensitivityLevel}", fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = onSensitivityDecrease,
-                        enabled = settingsState.sensitivityLevel > MIN_SENSITIVITY_LEVEL,
-                        modifier = Modifier.height(34.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) { Text("−", fontSize = 16.sp) }
-                    OutlinedButton(
-                        onClick = onSensitivityIncrease,
-                        enabled = settingsState.sensitivityLevel < MAX_SENSITIVITY_LEVEL,
-                        modifier = Modifier.height(34.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp)
-                    ) { Text("+", fontSize = 16.sp) }
-                }
-            }
+            PanelPurposeLine(
+                uiStrings.t(
+                    "Sensitivity and response time remain in Adjust Settings.",
+                    "Sensitiwiteit en reaksietyd bly in Verstel Instellings.",
+                    "Ukuzwela nesikhathi sokuphendula kuhlala ku-Lungisa Izilungiselelo."
+                )
+            )
 
             SettingsToggleRow(
                 title = uiStrings.calibrationTitle,
@@ -1963,12 +2063,6 @@ private fun SettingsPanel(
                     onPlaceholderChange(settingsState.copy(countdownDurationSec = it.toInt()))
                 }
             )
-            ResponseSpeedPicker(
-                uiStrings = uiStrings,
-                selected = settingsState.responseSpeed,
-                onSelect = { speed -> onPlaceholderChange(settingsState.copy(responseSpeed = speed)) }
-            )
-
             SettingsSectionLabel(uiStrings.settingsSectionDisplay)
             SettingsSliderRow(
                 title = uiStrings.textSize,

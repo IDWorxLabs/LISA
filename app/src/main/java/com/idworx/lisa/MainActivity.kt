@@ -168,6 +168,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiMainMenuState = mutableStateOf(MainMenuNavigationState())
     private val uiMainMenuViewportHeightPx = mutableStateOf(0)
     private val uiMainMenuMaxScrollPx = mutableStateOf(0)
+    /** RC7D.31 — shared state for all full-screen Main Menu destinations. */
+    private val uiMenuDestinationState = mutableStateOf(
+        MenuDestinationNavigationState(MainMenuDestination.CommunicationProfile)
+    )
+    private val uiMenuDestinationViewportHeightPx = mutableStateOf(0)
+    private val uiMenuDestinationMaxScrollPx = mutableStateOf(0)
+    private val uiMenuFeedbackDraft = mutableStateOf(MenuFeedbackDraft())
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
@@ -209,6 +216,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var composeOpenedFromCategoryMenu = false
     /** True when Phrase Management was opened from the Categories menu (Back returns there). */
     private var phraseManagementOpenedFromCategories = false
+    /** RC7D.31 — Main Menu ownership changes only the List-level return destination. */
+    private var phraseManagementOpenedFromMainMenu = false
     /** When set, guided Back from the viewed category restores this Success (or similar) composer state. */
     private var composerReturnAfterCategoryView: PhraseComposerState? = null
 
@@ -308,6 +317,45 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         rightWinkDots = uiDiagRightCount.value,
                         eyeTrackingBanner = eyeTrackingBannerContext()
                     )
+                    val destinationMode =
+                        MenuDestinationScreenMode.fromPanel(uiActivePanel.value)
+                    val destinationActions = if (destinationMode != null) {
+                        menuDestinationActions(uiActivePanel.value, uiStrings)
+                    } else {
+                        emptyList()
+                    }
+                    val destinationBinding = destinationMode?.let { mode ->
+                        MenuDestinationUiBinding(
+                            state = MenuDestinationNavigationController.updateActions(
+                                uiMenuDestinationState.value,
+                                destinationActions
+                            ),
+                            actions = destinationActions,
+                            capabilities =
+                                MenuDestinationNavigationController.capabilities(mode),
+                            onCommand = ::handleMenuDestinationCommand,
+                            onActivate = ::activateMenuDestinationAction,
+                            onKeyboardKey = { row, col ->
+                                uiMenuDestinationState.value =
+                                    MenuDestinationNavigationController.touchTextKey(
+                                        uiMenuDestinationState.value,
+                                        row,
+                                        col
+                                    )
+                            },
+                            onViewportMetrics = { viewportHeightPx, maxScrollPx, scrollPx ->
+                                uiMenuDestinationViewportHeightPx.value = viewportHeightPx
+                                uiMenuDestinationMaxScrollPx.value = maxScrollPx
+                                uiMenuDestinationState.value =
+                                    MenuDestinationNavigationController.syncViewportMetrics(
+                                        uiMenuDestinationState.value,
+                                        viewportHeightPx,
+                                        maxScrollPx,
+                                        scrollPx
+                                    ).copy(revealSelection = false)
+                            }
+                        )
+                    }
                     LisaRootUI(
                         uiStrings = uiStrings,
                         appVersionInfo = appVersionInfo,
@@ -409,6 +457,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             ).copy(revealSelection = false, scrollRequestPx = null)
                         },
                         onMainMenuEmergency = { triggerGuidedEmergencyTouch() },
+                        menuDestinationBinding = destinationBinding,
+                        feedbackDraft = uiMenuFeedbackDraft.value,
+                        onFeedbackDraftChange = { uiMenuFeedbackDraft.value = it },
                         customPhrases = customPhrases,
                         phraseManagementState = phraseManagementState,
                         onSelectCustomPhrase = { identity -> openPhraseManagementDetails(identity) },
@@ -1121,18 +1172,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openPanel(panel: LisaPanel, returnTo: LisaPanel? = null) {
+        val previousPanel = uiActivePanel.value
         if (returnTo != null) {
             uiPanelReturnTarget.value = returnTo
         }
         uiActivePanel.value = panel
         when (panel) {
             LisaPanel.Menu -> {
-                uiMainMenuState.value = MainMenuController.open()
+                // A fresh Menu layer must never inherit a nested Settings/Voice return target.
+                uiPanelReturnTarget.value = null
+                uiMainMenuState.value = MainMenuController.open(uiMainMenuState.value)
                 verifyTrainingNavigation(NavigationAction.OpenMenu)
             }
             LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
             LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
-            LisaPanel.VocabularyTraining -> resetPhraseManagementState()
+            LisaPanel.VocabularyTraining -> {
+                phraseManagementOpenedFromMainMenu = previousPanel == LisaPanel.Menu
+                resetPhraseManagementState()
+            }
             else -> {
                 if (panel != LisaPanel.None) {
                     uiMainMenuState.value = MainMenuController.close()
@@ -1141,6 +1198,30 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         if (panel == LisaPanel.Voice || panel == LisaPanel.VoiceDevice) {
             refreshVoiceSettingsState()
+        }
+        MenuDestinationProductionUiAuthority.destinationForPanel(panel)?.let { destination ->
+            val actions = menuDestinationActions(panel, LisaUiStrings.forLanguage(uiActiveLanguage.value))
+            val current = uiMenuDestinationState.value
+            uiMenuDestinationState.value = if (
+                current.isActive && current.destination == destination
+            ) {
+                MenuDestinationNavigationController.updateActions(
+                    current.copy(
+                        panel = panel,
+                        interactionStage = if (current.panel != panel) {
+                            MenuDestinationInteractionStage.Nested(
+                                panel = panel,
+                                parentPanel = current.panel
+                            )
+                        } else {
+                            current.interactionStage
+                        }
+                    ),
+                    actions
+                )
+            } else {
+                MenuDestinationNavigationController.open(destination, panel, actions)
+            }
         }
     }
 
@@ -1179,6 +1260,664 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             MainMenuSequenceResult.Unmatched -> Unit
         }
+    }
+
+    private fun menuDestinationActions(
+        panel: LisaPanel = uiActivePanel.value,
+        uiStrings: LisaUiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
+    ): List<MenuDestinationAction> = when (panel) {
+        LisaPanel.MyCommunication -> buildList {
+            val active = activeProfile()
+            add(
+                MenuDestinationAction(
+                    MenuDestinationActionId.ProfileName,
+                    uiStrings.nameLabel,
+                    MenuDestinationActionType.TextField
+                )
+            )
+            PreferredLanguage.selectable.forEach { language ->
+                add(
+                    MenuDestinationAction(
+                        MenuDestinationActionId.language(language.label),
+                        language.label,
+                        MenuDestinationActionType.Choice,
+                        selected = active?.preferredLanguage == language,
+                        sectionId = "language"
+                    )
+                )
+            }
+            CommunicationLevel.entries.forEach { level ->
+                add(
+                    MenuDestinationAction(
+                        MenuDestinationActionId.communicationLevel(level.label),
+                        level.label,
+                        MenuDestinationActionType.Choice,
+                        selected = active?.communicationLevel == level,
+                        sectionId = "communication_level"
+                    )
+                )
+            }
+            uiProfiles.forEach { profile ->
+                add(
+                    MenuDestinationAction(
+                        MenuDestinationActionId.savedProfile(profile.id),
+                        profile.name,
+                        MenuDestinationActionType.Choice,
+                        selected = profile.id == uiActiveProfileId.value,
+                        sectionId = "saved_profiles"
+                    )
+                )
+            }
+            add(
+                MenuDestinationAction(
+                    MenuDestinationActionId.ProfileNew,
+                    uiStrings.createNewProfile,
+                    MenuDestinationActionType.Navigation
+                )
+            )
+            if (uiProfiles.size > 1) {
+                add(
+                    MenuDestinationAction(
+                        MenuDestinationActionId.ProfileDelete,
+                        uiStrings.deleteActiveProfile,
+                        MenuDestinationActionType.Button
+                    )
+                )
+            }
+        }
+        LisaPanel.Voice -> listOf(
+            MenuDestinationAction(
+                MenuDestinationActionId.VoiceDevice,
+                uiStrings.deviceVoiceTitle,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.VoicePremium,
+                uiStrings.premiumVoicesTitle,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.VoiceMyVoice,
+                uiStrings.myVoiceTitle,
+                MenuDestinationActionType.Navigation,
+                isEnabled = false
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.VoiceFamily,
+                uiStrings.familyVoiceTitle,
+                MenuDestinationActionType.Navigation,
+                isEnabled = false
+            )
+        )
+        LisaPanel.VoiceDevice -> buildList {
+            uiVoiceSettingsState.value.availableVoices.forEach { voice ->
+                add(
+                    MenuDestinationAction(
+                        MenuDestinationActionId.installedVoice(voice.name),
+                        voice.displayLabel,
+                        MenuDestinationActionType.Choice,
+                        selected = voice.name == uiVoiceSettingsState.value.selectedVoiceName
+                    )
+                )
+            }
+            add(
+                MenuDestinationAction(
+                    MenuDestinationActionId.VoiceTest,
+                    uiStrings.testVoice,
+                    MenuDestinationActionType.Button,
+                    isEnabled = uiVoiceSettingsState.value.ttsReady
+                )
+            )
+            add(
+                MenuDestinationAction(
+                    MenuDestinationActionId.VoiceInstallData,
+                    uiStrings.installVoiceData,
+                    MenuDestinationActionType.Navigation
+                )
+            )
+            add(
+                MenuDestinationAction(
+                    MenuDestinationActionId.VoiceSystemSettings,
+                    uiStrings.openTtsSettings,
+                    MenuDestinationActionType.Navigation
+                )
+            )
+        }
+        LisaPanel.VoicePremium,
+        LisaPanel.VoiceMyVoice,
+        LisaPanel.VoiceFamily -> emptyList()
+        LisaPanel.AboutLisa -> listOf(
+            uiStrings.aboutWhatIsLisaTitle,
+            uiStrings.aboutWhoIsLisaForTitle,
+            uiStrings.aboutHowLisaWorksTitle,
+            uiStrings.aboutPrivacySummaryTitle,
+            uiStrings.aboutSafetyTitle,
+            uiStrings.aboutVersionTitle,
+            uiStrings.aboutCreatorTitle,
+            uiStrings.aboutCopyrightTitle
+        ).mapIndexed { index, label ->
+            MenuDestinationAction(
+                MenuDestinationActionId.section("about.$index"),
+                label,
+                MenuDestinationActionType.ScrollAnchor
+            )
+        }
+        LisaPanel.PrivacyPolicy -> listOf(
+            uiStrings.privacyIntroTitle,
+            uiStrings.privacyCameraTitle,
+            uiStrings.privacyOnDeviceTitle,
+            uiStrings.privacyNoSellingTitle,
+            uiStrings.privacyYourInfoTitle,
+            uiStrings.privacyControlTitle,
+            uiStrings.privacyQuestionsTitle
+        ).mapIndexed { index, label ->
+            MenuDestinationAction(
+                MenuDestinationActionId.section("privacy.$index"),
+                label,
+                MenuDestinationActionType.ScrollAnchor
+            )
+        }
+        LisaPanel.Feedback -> listOf(
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackWorkedWell,
+                "What worked well?",
+                MenuDestinationActionType.TextField
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackConfusing,
+                "What was confusing?",
+                MenuDestinationActionType.TextField
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackWinks,
+                "Did LISA detect your winks correctly?",
+                MenuDestinationActionType.TextField
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackSpeech,
+                "Did speech happen at the right time?",
+                MenuDestinationActionType.TextField
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackSave,
+                uiStrings.saveFeedback,
+                MenuDestinationActionType.Save,
+                isEnabled = uiMenuFeedbackDraft.value.hasContent
+            )
+        )
+        LisaPanel.ReleaseNotes -> listOf(
+            MenuDestinationAction(
+                MenuDestinationActionId.section("release.current"),
+                uiStrings.releaseNotesVersionTitle,
+                MenuDestinationActionType.ScrollAnchor
+            )
+        )
+        LisaPanel.Settings -> listOf(
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("calibration"),
+                uiStrings.calibrationTitle,
+                MenuDestinationActionType.Toggle
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("countdown"),
+                uiStrings.confirmationCountdownTitle,
+                MenuDestinationActionType.Choice
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("text_size"),
+                uiStrings.textSize,
+                MenuDestinationActionType.Choice
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("emergency_volume"),
+                uiStrings.emergencyAlarmVolumeTitle,
+                MenuDestinationActionType.Choice
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("replay_learning"),
+                uiStrings.replayLearningJourney,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("practice_communication"),
+                uiStrings.practiceCommunication,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("practice_navigation"),
+                uiStrings.practiceNavigation,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("reset_learning"),
+                uiStrings.clearLearningProgress,
+                MenuDestinationActionType.Button
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("narration"),
+                uiStrings.narrationTitle,
+                MenuDestinationActionType.Toggle
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("narration_speed"),
+                uiStrings.voiceSpeedTitle,
+                MenuDestinationActionType.Choice
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("narration_volume"),
+                uiStrings.voiceVolumeTitle,
+                MenuDestinationActionType.Choice
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("device_check"),
+                uiStrings.runDeviceCheckTitle,
+                MenuDestinationActionType.Navigation
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("developer_mode"),
+                uiStrings.developerModeTitle,
+                MenuDestinationActionType.Toggle
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("developer_tools"),
+                uiStrings.developerTools,
+                MenuDestinationActionType.Navigation,
+                isEnabled = BuildConfig.DEBUG
+            )
+        )
+        LisaPanel.DeveloperTools -> listOf(
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("developer_mode"),
+                uiStrings.developerModeTitle,
+                MenuDestinationActionType.Toggle
+            )
+        )
+        LisaPanel.TestingChecklist -> TestingChecklistItem.entries.map { item ->
+            MenuDestinationAction(
+                MenuDestinationActionId.setting("checklist.${item.key}"),
+                item.key,
+                MenuDestinationActionType.Toggle
+            )
+        }
+        else -> emptyList()
+    }
+
+    private fun activateMenuDestinationAction(actionId: MenuDestinationActionId) {
+        val panel = uiActivePanel.value
+        val actions = menuDestinationActions(panel)
+        val focusable = actions.filter { it.canReceiveFocus }
+        val index = focusable.indexOfFirst { it.id == actionId }
+        if (index >= 0) {
+            uiMenuDestinationState.value = uiMenuDestinationState.value.copy(
+                selectedActionId = actionId,
+                selectedIndex = index,
+                revealSelection = true
+            )
+        }
+        when {
+            actionId == MenuDestinationActionId.ProfileName -> {
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.beginTextEditing(
+                        uiMenuDestinationState.value,
+                        actionId,
+                        activeProfile()?.name.orEmpty()
+                    )
+            }
+            actionId.value.startsWith("profile.language.") -> {
+                val label = actionId.value.removePrefix("profile.language.")
+                updateActiveProfile {
+                    it.copy(preferredLanguage = PreferredLanguage.fromStored(label))
+                }
+            }
+            actionId.value.startsWith("profile.level.") -> {
+                val label = actionId.value.removePrefix("profile.level.")
+                updateActiveProfile {
+                    it.withCommunicationLevel(CommunicationLevel.fromStored(label))
+                }
+            }
+            actionId.value.startsWith("profile.saved.") ->
+                switchToProfile(actionId.value.removePrefix("profile.saved."))
+            actionId == MenuDestinationActionId.ProfileNew -> createNewProfile()
+            actionId == MenuDestinationActionId.ProfileDelete ->
+                activeProfile()?.let { deleteProfile(it.id) }
+            actionId == MenuDestinationActionId.VoiceDevice -> openPanel(LisaPanel.VoiceDevice)
+            actionId == MenuDestinationActionId.VoicePremium -> openPanel(LisaPanel.VoicePremium)
+            actionId == MenuDestinationActionId.VoiceMyVoice ||
+                actionId == MenuDestinationActionId.VoiceFamily -> Unit
+            actionId.value.startsWith("voice.installed.") ->
+                selectTtsVoice(actionId.value.removePrefix("voice.installed."))
+            actionId == MenuDestinationActionId.VoiceTest -> testTtsVoice()
+            actionId == MenuDestinationActionId.VoiceInstallData -> installTtsVoiceData()
+            actionId == MenuDestinationActionId.VoiceSystemSettings -> openTtsSettings()
+            actionId.value.startsWith("feedback.") &&
+                actionId != MenuDestinationActionId.FeedbackSave -> {
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.beginTextEditing(
+                        uiMenuDestinationState.value,
+                        actionId,
+                        uiMenuFeedbackDraft.value.valueFor(actionId),
+                        requiresReview = true
+                    )
+            }
+            actionId == MenuDestinationActionId.FeedbackSave &&
+                uiMenuFeedbackDraft.value.hasContent -> {
+                val draft = uiMenuFeedbackDraft.value
+                saveFeedbackEntry(
+                    draft.workedWell,
+                    draft.confusing,
+                    draft.winkDetection,
+                    draft.speechTiming
+                )
+                uiMenuFeedbackDraft.value = MenuFeedbackDraft()
+            }
+            actionId == MenuDestinationActionId.setting("calibration") ->
+                updateActiveProfile {
+                    it.withUpdatedSettings(
+                        uiSettingsState.value.copy(
+                            calibrationEnabled = !uiSettingsState.value.calibrationEnabled
+                        )
+                    )
+                }
+            actionId == MenuDestinationActionId.setting("device_check") ->
+                openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings)
+            actionId == MenuDestinationActionId.setting("developer_mode") ->
+                updateActiveProfile { it.copy(developerMode = !uiDeveloperMode.value) }
+            actionId == MenuDestinationActionId.setting("developer_tools") &&
+                BuildConfig.DEBUG -> openPanel(LisaPanel.DeveloperTools, LisaPanel.Settings)
+            actionId == MenuDestinationActionId.setting("replay_learning") -> {
+                closeAllPanels()
+                trainingSession.beginAwaitingBrain1Decision(
+                    com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ReplayLearning
+                )
+                refreshTrainingActiveState()
+            }
+            actionId == MenuDestinationActionId.setting("practice_communication") -> {
+                closeAllPanels()
+                handleTrainingEvent(TrainingEvent.PracticeCommunication)
+            }
+            actionId == MenuDestinationActionId.setting("practice_navigation") -> {
+                closeAllPanels()
+                handleTrainingEvent(TrainingEvent.PracticeNavigation)
+            }
+            actionId == MenuDestinationActionId.setting("reset_learning") -> {
+                trainingSession.beginAwaitingBrain1Decision(
+                    com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ResetLearningProgress
+                )
+                refreshTrainingActiveState()
+            }
+            actionId == MenuDestinationActionId.setting("narration") ->
+                trainingSession.updatePreferences {
+                    it.copy(narrationEnabled = !it.narrationEnabled)
+                }
+            actionId.value.startsWith("settings.checklist.") -> {
+                val key = actionId.value.removePrefix("settings.checklist.")
+                toggleChecklistItem(key, uiTestingChecklist.value[key] != true)
+            }
+        }
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationController.updateActions(
+                uiMenuDestinationState.value,
+                menuDestinationActions(uiActivePanel.value)
+            )
+    }
+
+    private fun moveMenuDestinationHorizontal(direction: Int) {
+        when (uiMenuDestinationState.value.selectedActionId) {
+            MenuDestinationActionId.setting("countdown") ->
+                updateActiveProfile {
+                    it.withUpdatedSettings(
+                        uiSettingsState.value.copy(
+                            countdownDurationSec =
+                                (uiSettingsState.value.countdownDurationSec + direction)
+                                    .coerceIn(2, 5)
+                        )
+                    )
+                }
+            MenuDestinationActionId.setting("text_size") ->
+                updateActiveProfile {
+                    it.withUpdatedSettings(
+                        uiSettingsState.value.copy(
+                            textSizeScale =
+                                (uiSettingsState.value.textSizeScale + direction * 0.1f)
+                                    .coerceIn(0.8f, 1.4f)
+                        )
+                    )
+                }
+            MenuDestinationActionId.setting("emergency_volume") ->
+                updateActiveProfile {
+                    it.withUpdatedSettings(
+                        uiSettingsState.value.copy(
+                            emergencyAlarmVolume =
+                                (uiSettingsState.value.emergencyAlarmVolume + direction * 0.1f)
+                                    .coerceIn(0.5f, 1f)
+                        )
+                    )
+                }
+            MenuDestinationActionId.setting("narration_speed") ->
+                trainingSession.updatePreferences {
+                    it.copy(
+                        narrationSpeed =
+                            (it.narrationSpeed + direction * 0.1f).coerceIn(0.5f, 1.5f)
+                    )
+                }
+            MenuDestinationActionId.setting("narration_volume") ->
+                trainingSession.updatePreferences {
+                    it.copy(
+                        narrationVolume =
+                            (it.narrationVolume + direction * 0.1f).coerceIn(0.5f, 1f)
+                    )
+                }
+            else -> Unit
+        }
+    }
+
+    private fun confirmMenuDestinationTextEditing() {
+        val stage = uiMenuDestinationState.value.interactionStage as?
+            MenuDestinationInteractionStage.TextEditing ?: return
+        if (stage.actionId == MenuDestinationActionId.ProfileName) {
+            if (stage.draftText.isBlank()) return
+            updateActiveProfile { it.copy(name = stage.draftText.trim()) }
+        } else {
+            uiMenuFeedbackDraft.value =
+                uiMenuFeedbackDraft.value.withValue(stage.actionId, stage.draftText)
+        }
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationController.confirmTextEditing(
+                uiMenuDestinationState.value
+            )
+    }
+
+    private fun finishMenuDestinationKeyboardEditing() {
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationController.finishKeyboardEditing(
+                uiMenuDestinationState.value
+            )
+    }
+
+    private fun handleMenuDestinationCommand(command: MenuDestinationPanelCommand) {
+        val state = uiMenuDestinationState.value
+        val textStage =
+            state.interactionStage as? MenuDestinationInteractionStage.TextEditing
+        if (textStage != null) {
+            val reviewing =
+                textStage.fieldEditingStage == FeedbackFieldEditingStage.Review
+            when (command) {
+                MenuDestinationPanelCommand.MoveUp ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.moveTextCursor(
+                            state,
+                            PhraseComposerActionId.MoveUp
+                        )
+                MenuDestinationPanelCommand.MoveDown ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.moveTextCursor(
+                            state,
+                            PhraseComposerActionId.MoveDown
+                        )
+                MenuDestinationPanelCommand.MoveLeft ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.moveTextCursor(
+                            state,
+                            PhraseComposerActionId.MoveLeft
+                        )
+                MenuDestinationPanelCommand.MoveRight ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.moveTextCursor(
+                            state,
+                            PhraseComposerActionId.MoveRight
+                        )
+                MenuDestinationPanelCommand.Select ->
+                    if (reviewing) {
+                        confirmMenuDestinationTextEditing()
+                    } else {
+                        uiMenuDestinationState.value =
+                            MenuDestinationNavigationController.selectTextKey(state)
+                    }
+                MenuDestinationPanelCommand.DoneEditing ->
+                    finishMenuDestinationKeyboardEditing()
+                MenuDestinationPanelCommand.ContinueEditing ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.continueKeyboardEditing(state)
+                MenuDestinationPanelCommand.Save -> confirmMenuDestinationTextEditing()
+                MenuDestinationPanelCommand.Back,
+                MenuDestinationPanelCommand.Cancel -> backFromMenuDestination()
+                MenuDestinationPanelCommand.Emergency -> triggerGuidedEmergencyTouch()
+                MenuDestinationPanelCommand.PreviousPage,
+                MenuDestinationPanelCommand.NextPage -> Unit
+            }
+            return
+        }
+        val actions = menuDestinationActions()
+        when (command) {
+            MenuDestinationPanelCommand.MoveUp ->
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.move(state, actions, -1)
+            MenuDestinationPanelCommand.MoveDown ->
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.move(state, actions, 1)
+            MenuDestinationPanelCommand.PreviousPage ->
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.previousPage(
+                        state,
+                        uiMenuDestinationViewportHeightPx.value,
+                        uiMenuDestinationMaxScrollPx.value
+                    )
+            MenuDestinationPanelCommand.NextPage ->
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.nextPage(
+                        state,
+                        uiMenuDestinationViewportHeightPx.value,
+                        uiMenuDestinationMaxScrollPx.value
+                    )
+            MenuDestinationPanelCommand.MoveLeft -> moveMenuDestinationHorizontal(-1)
+            MenuDestinationPanelCommand.MoveRight -> moveMenuDestinationHorizontal(1)
+            MenuDestinationPanelCommand.Select ->
+                state.selectedActionId?.let(::activateMenuDestinationAction)
+            MenuDestinationPanelCommand.DoneEditing,
+            MenuDestinationPanelCommand.ContinueEditing -> Unit
+            MenuDestinationPanelCommand.Save -> confirmMenuDestinationTextEditing()
+            MenuDestinationPanelCommand.Cancel,
+            MenuDestinationPanelCommand.Back -> backFromMenuDestination()
+            MenuDestinationPanelCommand.Emergency -> triggerGuidedEmergencyTouch()
+        }
+    }
+
+    private fun backFromMenuDestination() {
+        val state = uiMenuDestinationState.value
+        when (val stage = state.interactionStage) {
+            is MenuDestinationInteractionStage.TextEditing,
+            is MenuDestinationInteractionStage.Confirmation -> {
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.cancelCurrentStage(state)
+            }
+            is MenuDestinationInteractionStage.Nested -> {
+                uiMenuDestinationState.value = state.copy(
+                    panel = stage.parentPanel,
+                    interactionStage = MenuDestinationInteractionStage.Browsing
+                )
+                openPanel(stage.parentPanel)
+            }
+            MenuDestinationInteractionStage.Browsing -> {
+                uiMenuDestinationState.value = state.copy(isActive = false)
+                openPanel(LisaPanel.Menu)
+            }
+        }
+    }
+
+    private fun handleMenuDestinationSequence(left: Int, right: Int) {
+        val state = uiMenuDestinationState.value
+        val textStage = state.interactionStage as?
+            MenuDestinationInteractionStage.TextEditing
+        if (textStage != null) {
+            val composerSequences = ModeScopedGestureAuthority.phraseComposerCommandSequences
+            val reviewing =
+                textStage.fieldEditingStage == FeedbackFieldEditingStage.Review
+            val direction = when (left to right) {
+                composerSequences.getValue(PhraseComposerActionId.MoveUp) ->
+                    PhraseComposerActionId.MoveUp
+                composerSequences.getValue(PhraseComposerActionId.MoveDown) ->
+                    PhraseComposerActionId.MoveDown
+                composerSequences.getValue(PhraseComposerActionId.MoveLeft) ->
+                    PhraseComposerActionId.MoveLeft
+                composerSequences.getValue(PhraseComposerActionId.MoveRight) ->
+                    PhraseComposerActionId.MoveRight
+                else -> null
+            }
+            when {
+                reviewing && GuidedModeNavigation.isSelectSequence(left, right) ->
+                    confirmMenuDestinationTextEditing()
+                reviewing && GuidedModeNavigation.isIncreaseValueSequence(left, right) ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.continueKeyboardEditing(state)
+                reviewing && GuidedModeNavigation.isBackSequence(left, right) ->
+                    backFromMenuDestination()
+                !reviewing && direction != null ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.moveTextCursor(state, direction)
+                !reviewing &&
+                    left to right == composerSequences.getValue(PhraseComposerActionId.SelectKey) ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.selectTextKey(state)
+                !reviewing &&
+                    left to right == composerSequences.getValue(PhraseComposerActionId.Backspace) ->
+                    uiMenuDestinationState.value =
+                        MenuDestinationNavigationController.updateTextDraft(
+                            state,
+                            KeyboardNavigator.backspace(textStage.draftText)
+                        )
+                !reviewing &&
+                    left to right == composerSequences.getValue(PhraseComposerActionId.Save) ->
+                    finishMenuDestinationKeyboardEditing()
+                GuidedModeNavigation.isBackSequence(left, right) ->
+                    backFromMenuDestination()
+            }
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
+        val mode = MenuDestinationScreenMode.fromPanel(uiActivePanel.value) ?: return
+        when (
+            val result = MenuDestinationNavigationController.processSequence(
+                left = left,
+                right = right,
+                state = state,
+                actions = menuDestinationActions(),
+                capabilities = MenuDestinationNavigationController.capabilities(mode),
+                viewportHeightPx = uiMenuDestinationViewportHeightPx.value,
+                maxScrollPx = uiMenuDestinationMaxScrollPx.value
+            )
+        ) {
+            is MenuDestinationSequenceResult.Navigate ->
+                uiMenuDestinationState.value = result.state
+            is MenuDestinationSequenceResult.Activate ->
+                activateMenuDestinationAction(result.actionId)
+            is MenuDestinationSequenceResult.MoveHorizontal ->
+                moveMenuDestinationHorizontal(result.direction)
+            is MenuDestinationSequenceResult.Back -> backFromMenuDestination()
+            MenuDestinationSequenceResult.Unmatched -> Unit
+        }
+        resetSequence()
+        setCommunicationState(LisaCommunicationState.Listening)
     }
 
     private fun handleMainMenuSequence(left: Int, right: Int) {
@@ -1844,9 +2583,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         when (state.screen) {
             PhraseManagementScreen.List -> {
                 if (GuidedModeNavigation.isBackSequence(left, right)) {
-                    exitPhraseManagement(
-                        PhraseManagementController.PhraseManagementExitDestination.CommunicationWorkspace
-                    )
+                    exitPhraseManagementToOwner()
                     resetSequence()
                     setCommunicationState(LisaCommunicationState.Listening)
                     return
@@ -2320,11 +3057,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun backFromActivePanel() {
-        if (uiActivePanel.value == LisaPanel.VocabularyTraining) {
+    private fun exitPhraseManagementToOwner() {
+        if (phraseManagementOpenedFromMainMenu) {
+            phraseManagementOpenedFromMainMenu = false
+            phraseManagementOpenedFromCategories = false
+            resetPhraseManagementState()
+            openPanel(LisaPanel.Menu)
+        } else {
             exitPhraseManagement(
                 PhraseManagementController.PhraseManagementExitDestination.CommunicationWorkspace
             )
+        }
+    }
+
+    private fun backFromActivePanel() {
+        if (uiActivePanel.value == LisaPanel.VocabularyTraining) {
+            exitPhraseManagementToOwner()
+            return
+        }
+        if (MenuDestinationProductionUiAuthority.occupiesMainContentSlot(uiActivePanel.value)) {
+            backFromMenuDestination()
             return
         }
         navigateBackFromPanel()
@@ -3431,6 +4183,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             GestureRoutingTarget.MainMenu -> {
                 handleMainMenuSequence(capturedLeft, capturedRight)
+                return
+            }
+            GestureRoutingTarget.MainMenuDestination -> {
+                handleMenuDestinationSequence(capturedLeft, capturedRight)
                 return
             }
             GestureRoutingTarget.GuidedOverlay -> {

@@ -136,6 +136,7 @@ private fun EyeControlledKeyboardGrid(
                             keyHeight = keyHeight,
                             keyFontSp = keyFontSp,
                             bottomAnchored = bottomAnchored,
+                            spreadHorizontally = bottomAnchored,
                             inputSuspended = inputSuspended,
                             onKeyTouched = onKeyTouched
                         )

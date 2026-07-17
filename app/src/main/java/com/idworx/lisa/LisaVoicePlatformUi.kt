@@ -8,12 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlue
@@ -86,6 +87,7 @@ fun DeviceVoicePanel(
     onOpenTtsSettings: () -> Unit,
     onBack: () -> Unit
 ) {
+    val activate = LocalMenuDestinationActivateAction.current
     LisaPanelShell(title = uiStrings.deviceVoiceTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             VoiceInfoCard(uiStrings.currentLanguage, state.language.label)
@@ -133,17 +135,23 @@ fun DeviceVoicePanel(
             }
 
             Button(
-                onClick = onTestVoice,
+                onClick = { activate(MenuDestinationActionId.VoiceTest) },
                 enabled = state.ttsReady,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = LisaBlueDark)
             ) {
                 Text(uiStrings.testVoice)
             }
-            OutlinedButton(onClick = onInstallVoiceData, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { activate(MenuDestinationActionId.VoiceInstallData) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(uiStrings.installVoiceData)
             }
-            OutlinedButton(onClick = onOpenTtsSettings, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { activate(MenuDestinationActionId.VoiceSystemSettings) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text(uiStrings.openTtsSettings)
             }
         }
@@ -243,9 +251,8 @@ fun FamilyVoicePanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
 private fun VoiceScrollColumn(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 460.dp)
-            .verticalScroll(rememberScrollState()),
+            .fillMaxSize()
+            .verticalScroll(rememberDestinationScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
         content = content
     )
@@ -276,12 +283,22 @@ private fun VoiceCategoryCard(
     pack: VoicePack,
     onOpen: () -> Unit
 ) {
+    val actionId = when (pack.category) {
+        VoiceCategory.Device -> MenuDestinationActionId.VoiceDevice
+        VoiceCategory.Premium -> MenuDestinationActionId.VoicePremium
+        VoiceCategory.MyVoice -> MenuDestinationActionId.VoiceMyVoice
+        VoiceCategory.Family -> MenuDestinationActionId.VoiceFamily
+    }
+    val activate = LocalMenuDestinationActivateAction.current
+    val focused = LocalMenuDestinationSelectedAction.current == actionId
+    val available = pack.category == VoiceCategory.Device ||
+        pack.category == VoiceCategory.Premium
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(LisaWhite)
-            .clickable(onClick = onOpen)
+            .background(if (focused) LisaBlue.copy(alpha = 0.30f) else LisaWhite)
+            .clickable(enabled = available) { activate(actionId) }
             .padding(14.dp)
     ) {
         Row(
@@ -291,19 +308,17 @@ private fun VoiceCategoryCard(
         ) {
             VoiceCategoryIcon(category = pack.category)
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = pack.title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = LisaBlueDark
-                    )
-                    VoiceStatusBadge(status = pack.status, uiStrings = uiStrings)
-                }
+                Text(
+                    text = pack.title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = LisaBlueDark,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(5.dp))
+                VoiceStatusBadge(status = pack.status, uiStrings = uiStrings)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = pack.description,
@@ -344,11 +359,16 @@ private fun VoiceCategoryCard(
                 if (pack.status == VoiceStatus.Active && pack.actionLabel != null) {
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
-                        onClick = onOpen,
+                        onClick = { activate(actionId) },
                         modifier = Modifier.height(36.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp)
                     ) {
-                        Text(pack.actionLabel, fontSize = 13.sp)
+                        Text(
+                            pack.actionLabel,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -389,7 +409,10 @@ private fun VoiceStatusBadge(status: VoiceStatus, uiStrings: LisaUiStrings) {
         fontWeight = FontWeight.Bold,
         color = color,
         letterSpacing = 0.6.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
+            .widthIn(min = 96.dp, max = 140.dp)
             .clip(RoundedCornerShape(6.dp))
             .background(color.copy(alpha = 0.12f))
             .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -533,14 +556,18 @@ private fun DeviceVoiceRow(
     selected: Boolean,
     onSelect: () -> Unit
 ) {
+    val actionId = MenuDestinationActionId.installedVoice(voice.name)
+    val activate = LocalMenuDestinationActivateAction.current
+    val focused = LocalMenuDestinationSelectedAction.current == actionId
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect)
+            .background(if (focused) LisaBlue.copy(alpha = 0.22f) else LisaWhite)
+            .clickable { activate(actionId) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onSelect)
+        RadioButton(selected = selected, onClick = { activate(actionId) })
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = voice.displayLabel,

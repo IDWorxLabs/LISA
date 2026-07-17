@@ -1,6 +1,7 @@
 package com.idworx.lisa
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -276,6 +277,8 @@ fun CameraPermissionScreen(
 fun FeedbackPanel(
     uiStrings: LisaUiStrings,
     savedCount: Int,
+    draft: MenuFeedbackDraft = MenuFeedbackDraft(),
+    onDraftChange: (MenuFeedbackDraft) -> Unit = {},
     onSaveFeedback: (
         whatWorkedWell: String,
         whatWasConfusing: String,
@@ -284,11 +287,6 @@ fun FeedbackPanel(
     ) -> Unit,
     onBack: () -> Unit
 ) {
-    var workedWell by remember { mutableStateOf("") }
-    var confusing by remember { mutableStateOf("") }
-    var winkDetection by remember { mutableStateOf("") }
-    var speechTiming by remember { mutableStateOf("") }
-
     val q1 = uiStrings.t("What worked well?", "Wat het goed gewerk?", "Yini eyasebenza kahle?")
     val q2 = uiStrings.t("What was confusing?", "Wat was verwarrend?", "Yini eyedidezelayo?")
     val q3 = uiStrings.t("Did LISA detect your winks correctly?", "Het LISA jou knippe korrek opgespoor?", "Ingabe i-LISA ithole ama-wink akho ngokulungile?")
@@ -297,9 +295,8 @@ fun FeedbackPanel(
     LisaPanelShell(title = uiStrings.feedback, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 420.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             PanelPurposeLine(uiStrings.feedbackPurpose)
@@ -309,23 +306,40 @@ fun FeedbackPanel(
                 color = LisaGray,
                 lineHeight = 15.sp
             )
-            FeedbackField(q1, workedWell) { workedWell = it }
-            FeedbackField(q2, confusing) { confusing = it }
-            FeedbackField(q3, winkDetection) { winkDetection = it }
-            FeedbackField(q4, speechTiming) { speechTiming = it }
+            FeedbackField(
+                q1,
+                draft.workedWell,
+                MenuDestinationActionId.FeedbackWorkedWell
+            )
+            FeedbackField(
+                q2,
+                draft.confusing,
+                MenuDestinationActionId.FeedbackConfusing
+            )
+            FeedbackField(
+                q3,
+                draft.winkDetection,
+                MenuDestinationActionId.FeedbackWinks
+            )
+            FeedbackField(
+                q4,
+                draft.speechTiming,
+                MenuDestinationActionId.FeedbackSpeech
+            )
             Button(
                 onClick = {
-                    onSaveFeedback(workedWell, confusing, winkDetection, speechTiming)
-                    workedWell = ""
-                    confusing = ""
-                    winkDetection = ""
-                    speechTiming = ""
+                    onSaveFeedback(
+                        draft.workedWell,
+                        draft.confusing,
+                        draft.winkDetection,
+                        draft.speechTiming
+                    )
+                    onDraftChange(MenuFeedbackDraft())
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = LisaBlue),
-                enabled = workedWell.isNotBlank() || confusing.isNotBlank() ||
-                    winkDetection.isNotBlank() || speechTiming.isNotBlank()
+                enabled = draft.hasContent
             ) {
                 Text(uiStrings.saveFeedback)
             }
@@ -334,15 +348,29 @@ fun FeedbackPanel(
 }
 
 @Composable
-private fun FeedbackField(label: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, fontSize = 13.sp) },
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 2,
-        shape = RoundedCornerShape(12.dp)
-    )
+private fun FeedbackField(
+    label: String,
+    value: String,
+    actionId: MenuDestinationActionId
+) {
+    val activate = LocalMenuDestinationActivateAction.current
+    val selected = LocalMenuDestinationSelectedAction.current == actionId
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) LisaBlue.copy(alpha = 0.30f) else LisaWhite)
+            .clickable { activate(actionId) }
+            .padding(12.dp)
+    ) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            value.ifBlank { "Select to enter feedback" },
+            fontSize = 13.sp,
+            color = if (value.isBlank()) LisaGray else LisaBlueDark
+        )
+    }
 }
 
 @Composable
@@ -355,9 +383,8 @@ fun TestingChecklistPanel(
     LisaPanelShell(title = uiStrings.testingChecklist, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 420.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             PanelPurposeLine(uiStrings.deviceChecklistPurpose)
@@ -408,9 +435,8 @@ fun ReleaseNotesPanel(
     LisaPanelShell(title = uiStrings.releaseNotes, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 420.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             PanelPurposeLine(uiStrings.releaseNotesPurpose)

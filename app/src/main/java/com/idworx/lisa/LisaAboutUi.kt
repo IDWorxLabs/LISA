@@ -3,7 +3,6 @@ package com.idworx.lisa
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -29,9 +28,8 @@ fun AboutLisaPanel(
     LisaPanelShell(title = uiStrings.aboutLisa, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 420.dp)
-                .verticalScroll(rememberScrollState()),
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             PanelPurposeLine(uiStrings.aboutLisaPurpose)

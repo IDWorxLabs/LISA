@@ -129,16 +129,20 @@ sealed class MainMenuSequenceResult {
 
 object MainMenuController {
 
-    fun open(): MainMenuNavigationState = MainMenuNavigationState(
+    fun open(
+        state: MainMenuNavigationState = MainMenuNavigationState()
+    ): MainMenuNavigationState = state.normalized().copy(
         isOpen = true,
-        selectionIndex = 0,
-        viewportPage = 0,
-        viewportPageCount = 1,
-        revealSelection = true
+        revealSelection = true,
+        scrollRequestPx = null
     )
 
     fun close(state: MainMenuNavigationState = MainMenuNavigationState()): MainMenuNavigationState =
-        MainMenuNavigationState(isOpen = false)
+        state.normalized().copy(
+            isOpen = false,
+            revealSelection = false,
+            scrollRequestPx = null
+        )
 
     fun selectDestination(state: MainMenuNavigationState, index: Int): MainMenuNavigationState =
         state.normalized().copy(
