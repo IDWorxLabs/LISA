@@ -1,5 +1,6 @@
 package com.idworx.lisa
 
+import com.idworx.lisa.features.intelligentstartup.model.ProfileEyeCalibration
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -46,6 +47,8 @@ data class LisaUserProfile(
     val emergencyVolume: Float = 1.0f,
     val developerMode: Boolean = false,
     val selectedTtsVoiceName: String? = null,
+    /** RC7D.34 — local per-profile Quick Eye Calibration payload. */
+    val eyeCalibration: ProfileEyeCalibration? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -102,6 +105,22 @@ data class LisaUserProfile(
         if (selectedTtsVoiceName != null) {
             put("selectedTtsVoiceName", selectedTtsVoiceName)
         }
+        eyeCalibration?.let { cal ->
+            put(
+                "eyeCalibration",
+                JSONObject().apply {
+                    put("leftClosedEyeThreshold", cal.leftClosedEyeThreshold.toDouble())
+                    put("rightClosedEyeThreshold", cal.rightClosedEyeThreshold.toDouble())
+                    put("openEyeThreshold", cal.openEyeThreshold.toDouble())
+                    put("blinkDurationMs", cal.blinkDurationMs)
+                    put("requiredWinkFrames", cal.requiredWinkFrames)
+                    put("eyeOpennessBaseline", cal.eyeOpennessBaseline.toDouble())
+                    put("faceDistanceProxy", cal.faceDistanceProxy.toDouble())
+                    put("confidence", cal.confidence.toDouble())
+                    put("calibratedAtMs", cal.calibratedAtMs)
+                }
+            )
+        }
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }
@@ -137,6 +156,19 @@ data class LisaUserProfile(
             emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
             developerMode = obj.optBoolean("developerMode", false),
             selectedTtsVoiceName = obj.optString("selectedTtsVoiceName").takeIf { it.isNotBlank() },
+            eyeCalibration = obj.optJSONObject("eyeCalibration")?.let { cal ->
+                ProfileEyeCalibration(
+                    leftClosedEyeThreshold = cal.optDouble("leftClosedEyeThreshold", 0.25).toFloat(),
+                    rightClosedEyeThreshold = cal.optDouble("rightClosedEyeThreshold", 0.25).toFloat(),
+                    openEyeThreshold = cal.optDouble("openEyeThreshold", 0.75).toFloat(),
+                    blinkDurationMs = cal.optLong("blinkDurationMs", 160L),
+                    requiredWinkFrames = cal.optInt("requiredWinkFrames", 2),
+                    eyeOpennessBaseline = cal.optDouble("eyeOpennessBaseline", 0.8).toFloat(),
+                    faceDistanceProxy = cal.optDouble("faceDistanceProxy", 0.35).toFloat(),
+                    confidence = cal.optDouble("confidence", 0.0).toFloat(),
+                    calibratedAtMs = cal.optLong("calibratedAtMs", 0L)
+                )
+            },
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )
@@ -147,6 +179,7 @@ data class LisaUserProfile(
                 template.copy(
                     id = UUID.randomUUID().toString(),
                     name = name,
+                    eyeCalibration = null,
                     createdAt = now,
                     updatedAt = now
                 )

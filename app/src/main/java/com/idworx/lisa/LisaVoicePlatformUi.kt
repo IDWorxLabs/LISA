@@ -87,7 +87,6 @@ fun DeviceVoicePanel(
     onOpenTtsSettings: () -> Unit,
     onBack: () -> Unit
 ) {
-    val activate = LocalMenuDestinationActivateAction.current
     LisaPanelShell(title = uiStrings.deviceVoiceTitle, onBack = onBack, backLabel = uiStrings.back) {
         VoiceScrollColumn {
             VoiceInfoCard(uiStrings.currentLanguage, state.language.label)
@@ -134,25 +133,39 @@ fun DeviceVoicePanel(
                 }
             }
 
-            Button(
-                onClick = { activate(MenuDestinationActionId.VoiceTest) },
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.VoiceTest,
                 enabled = state.ttsReady,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = LisaBlueDark)
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
-                Text(uiStrings.testVoice)
+                Text(
+                    uiStrings.testVoice,
+                    fontWeight = FontWeight.Bold,
+                    color = if (state.ttsReady) LisaBlueDark else LisaGray,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
-            OutlinedButton(
-                onClick = { activate(MenuDestinationActionId.VoiceInstallData) },
-                modifier = Modifier.fillMaxWidth()
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.VoiceInstallData,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
-                Text(uiStrings.installVoiceData)
+                Text(
+                    uiStrings.installVoiceData,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaBlueDark,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
-            OutlinedButton(
-                onClick = { activate(MenuDestinationActionId.VoiceSystemSettings) },
-                modifier = Modifier.fillMaxWidth()
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.VoiceSystemSettings,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
             ) {
-                Text(uiStrings.openTtsSettings)
+                Text(
+                    uiStrings.openTtsSettings,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaBlueDark,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
@@ -289,83 +302,79 @@ private fun VoiceCategoryCard(
         VoiceCategory.MyVoice -> MenuDestinationActionId.VoiceMyVoice
         VoiceCategory.Family -> MenuDestinationActionId.VoiceFamily
     }
-    val activate = LocalMenuDestinationActivateAction.current
-    val focused = LocalMenuDestinationSelectedAction.current == actionId
     val available = pack.category == VoiceCategory.Device ||
         pack.category == VoiceCategory.Premium
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (focused) LisaBlue.copy(alpha = 0.30f) else LisaWhite)
-            .clickable(enabled = available) { activate(actionId) }
-            .padding(14.dp)
+    MenuDestinationSelectableSurface(
+        actionId = actionId,
+        enabled = available,
+        active = pack.status == VoiceStatus.Active,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            VoiceCategoryIcon(category = pack.category)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = pack.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = LisaBlueDark,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(5.dp))
-                VoiceStatusBadge(status = pack.status, uiStrings = uiStrings)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = pack.description,
-                    fontSize = 12.sp,
-                    color = LisaBlueDark.copy(alpha = 0.75f),
-                    lineHeight = 17.sp
-                )
-                if (pack.category == VoiceCategory.Premium) {
-                    if (pack.highlights.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        pack.highlights.forEach { highlight ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                VoiceCategoryIcon(category = pack.category)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = pack.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = LisaBlueDark,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    VoiceStatusBadge(status = pack.status, uiStrings = uiStrings)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = pack.description,
+                        fontSize = 12.sp,
+                        color = LisaBlueDark.copy(alpha = 0.75f),
+                        lineHeight = 17.sp
+                    )
+                    if (pack.category == VoiceCategory.Premium) {
+                        if (pack.highlights.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            pack.highlights.forEach { highlight ->
+                                Text(
+                                    text = highlight,
+                                    fontSize = 11.sp,
+                                    color = LisaGray,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                        if (pack.previews.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            pack.previews.take(2).forEach { preview ->
+                                Text(
+                                    text = preview.displayName,
+                                    fontSize = 11.sp,
+                                    color = LisaGray,
+                                    lineHeight = 15.sp
+                                )
+                            }
                             Text(
-                                text = highlight,
+                                text = uiStrings.moreVoicesComing,
                                 fontSize = 11.sp,
                                 color = LisaGray,
-                                lineHeight = 15.sp
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                             )
                         }
                     }
-                    if (pack.previews.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        pack.previews.take(2).forEach { preview ->
-                            Text(
-                                text = preview.displayName,
-                                fontSize = 11.sp,
-                                color = LisaGray,
-                                lineHeight = 15.sp
-                            )
-                        }
-                        Text(
-                            text = uiStrings.moreVoicesComing,
-                            fontSize = 11.sp,
-                            color = LisaGray,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                        )
-                    }
-                }
-                if (pack.status == VoiceStatus.Active && pack.actionLabel != null) {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { activate(actionId) },
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp)
-                    ) {
+                    if (pack.status == VoiceStatus.Active && pack.actionLabel != null) {
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             pack.actionLabel,
                             fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LisaBlue,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -557,27 +566,30 @@ private fun DeviceVoiceRow(
     onSelect: () -> Unit
 ) {
     val actionId = MenuDestinationActionId.installedVoice(voice.name)
-    val activate = LocalMenuDestinationActivateAction.current
-    val focused = LocalMenuDestinationSelectedAction.current == actionId
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(if (focused) LisaBlue.copy(alpha = 0.22f) else LisaWhite)
-            .clickable { activate(actionId) }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    MenuDestinationSelectableSurface(
+        actionId = actionId,
+        active = selected,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 8.dp,
+            vertical = 6.dp
+        )
     ) {
-        RadioButton(selected = selected, onClick = { activate(actionId) })
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = voice.displayLabel,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = LisaBlueDark,
-                lineHeight = 17.sp
-            )
-            if (voice.isNetwork) {
-                Text(text = "Requires internet", fontSize = 11.sp, color = LisaGray)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = selected, onClick = null)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = voice.displayLabel,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LisaBlueDark,
+                    lineHeight = 17.sp
+                )
+                if (voice.isNetwork) {
+                    Text(text = "Requires internet", fontSize = 11.sp, color = LisaGray)
+                }
             }
         }
     }

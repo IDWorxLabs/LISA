@@ -17,7 +17,10 @@ data class BlinkDetectionTuning(
     val cooldownMs: Long = WINK_COOLDOWN_MS,
     val streakGraceFrames: Int = STREAK_GRACE_FRAMES,
     val jitterThresholdIdle: Float = EYE_PROB_JUMP_THRESHOLD_IDLE,
-    val jitterThresholdActive: Float = EYE_PROB_JUMP_THRESHOLD_ACTIVE
+    val jitterThresholdActive: Float = EYE_PROB_JUMP_THRESHOLD_ACTIVE,
+    /** Optional per-eye closed thresholds from Quick Eye Calibration. */
+    val leftClosedEyeThreshold: Float? = null,
+    val rightClosedEyeThreshold: Float? = null
 ) {
     companion object {
         /** Minimum gap between accepted blinks on the same eye (was 900 ms — too strict for double-blink phrases). */
@@ -51,11 +54,20 @@ data class BlinkDetectionTuning(
         val default: BlinkDetectionTuning = forSensitivityLevel(DEFAULT_SENSITIVITY_LEVEL)
     }
 
+    val effectiveLeftClosedThreshold: Float
+        get() = leftClosedEyeThreshold ?: closedEyeThreshold
+
+    val effectiveRightClosedThreshold: Float
+        get() = rightClosedEyeThreshold ?: closedEyeThreshold
+
     fun isLeftWinkCandidate(leftProb: Float, rightProb: Float): Boolean =
-        leftProb < closedEyeThreshold && rightProb > openEyeThreshold
+        leftProb < effectiveLeftClosedThreshold && rightProb > openEyeThreshold
 
     fun isRightWinkCandidate(leftProb: Float, rightProb: Float): Boolean =
-        rightProb < closedEyeThreshold && leftProb > openEyeThreshold
+        rightProb < effectiveRightClosedThreshold && leftProb > openEyeThreshold
 
-    fun isEyeUncertain(prob: Float): Boolean = prob in closedEyeThreshold..openEyeThreshold
+    fun isEyeUncertain(prob: Float): Boolean {
+        val closed = minOf(effectiveLeftClosedThreshold, effectiveRightClosedThreshold)
+        return prob in closed..openEyeThreshold
+    }
 }

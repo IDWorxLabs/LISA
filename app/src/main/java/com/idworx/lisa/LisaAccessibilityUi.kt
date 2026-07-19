@@ -225,8 +225,30 @@ fun LisaRootUI(
     onTrainingPracticeNavigation: () -> Unit = {},
     onTrainingResetProgress: () -> Unit = {},
     onTrainingPreferencesChange: (TrainingPreferences) -> Unit = {},
+    intelligentStartupActive: Boolean = false,
+    intelligentStartupState: com.idworx.lisa.features.intelligentstartup.model.StartupFlowState =
+        com.idworx.lisa.features.intelligentstartup.model.StartupFlowState(isActive = false),
+    onIntelligentStartupCalibrationTimeout: () -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
+    if (intelligentStartupActive) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                Box(modifier = Modifier.matchParentSize().alpha(0f)) {
+                    cameraView()
+                }
+            }
+            com.idworx.lisa.features.intelligentstartup.ui.IntelligentStartupFlow(
+                state = intelligentStartupState,
+                uiStrings = uiStrings,
+                cameraPermissionGranted = cameraPermissionGranted,
+                cameraView = {},
+                onCalibrationTimeout = onIntelligentStartupCalibrationTimeout,
+                onRequestCameraPermission = onRequestCameraPermission
+            )
+        }
+        return
+    }
     if (guidedTrainingActive && trainingBlocksMainUi(guidedTrainingState.phase)) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (cameraPermissionGranted) {
@@ -1721,8 +1743,6 @@ private fun MyCommunicationPanel(
     onBack: () -> Unit
 ) {
     val activeProfile = profiles.find { it.id == activeProfileId } ?: profiles.firstOrNull()
-    val activateDestinationAction = LocalMenuDestinationActivateAction.current
-    val selectedDestinationAction = LocalMenuDestinationSelectedAction.current
 
     LisaPanelShell(title = uiStrings.myCommunication, onBack = onBack, backLabel = uiStrings.back) {
         Column(
@@ -1734,83 +1754,66 @@ private fun MyCommunicationPanel(
             PanelPurposeLine(uiStrings.communicationProfilePurpose)
             if (activeProfile != null) {
                 SettingsSectionLabel(uiStrings.activeProfileSection)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(LisaWhite)
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                MenuDestinationSelectableSurface(
+                    actionId = MenuDestinationActionId.ProfileActive,
+                    active = true,
+                    contentPadding = PaddingValues(12.dp)
                 ) {
-                    Text(
-                        text = activeProfile.name,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = LisaBlueDark
-                    )
-                    Text(
-                        text = "${activeProfile.preferredLanguage.label} · ${activeProfile.communicationLevel.label}",
-                        fontSize = 12.sp,
-                        color = LisaBlueDark.copy(alpha = 0.7f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = activeProfile.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = LisaBlueDark,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${activeProfile.preferredLanguage.label} · ${activeProfile.communicationLevel.label}",
+                            fontSize = 12.sp,
+                            color = LisaBlueDark.copy(alpha = 0.7f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 SettingsSectionLabel(uiStrings.profileNameSection)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (selectedDestinationAction == MenuDestinationActionId.ProfileName) {
-                                LisaBlue.copy(alpha = 0.30f)
-                            } else {
-                                LisaWhite
-                            }
-                        )
-                        .clickable {
-                            activateDestinationAction(MenuDestinationActionId.ProfileName)
-                        }
-                        .padding(12.dp)
+                MenuDestinationSelectableSurface(
+                    actionId = MenuDestinationActionId.ProfileName,
+                    contentPadding = PaddingValues(12.dp)
                 ) {
-                    Text(
-                        uiStrings.nameLabel,
-                        fontSize = 12.sp,
-                        color = LisaBlueDark.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        activeProfile.name,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LisaBlueDark,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column {
+                        Text(
+                            uiStrings.nameLabel,
+                            fontSize = 12.sp,
+                            color = LisaBlueDark.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            activeProfile.name,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LisaBlueDark,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 SettingsSectionLabel(uiStrings.preferredLanguageSection)
                 ProfileOptionGroup(
                     options = PreferredLanguage.selectable.map { it.label },
                     selected = activeProfile.preferredLanguage.label,
-                    idFor = { MenuDestinationActionId.language(it) },
-                    onSelect = { label ->
-                        val language = PreferredLanguage.fromStored(label)
-                        onUpdateProfile(activeProfile.copy(preferredLanguage = language))
-                    }
+                    idFor = { MenuDestinationActionId.language(it) }
                 )
 
                 SettingsSectionLabel(uiStrings.communicationLevelSection)
                 ProfileOptionGroup(
                     options = CommunicationLevel.entries.map { it.label },
                     selected = activeProfile.communicationLevel.label,
-                    idFor = { MenuDestinationActionId.communicationLevel(it) },
-                    onSelect = { label ->
-                        val level = CommunicationLevel.fromStored(label)
-                        onUpdateProfile(activeProfile.withCommunicationLevel(level))
-                    }
+                    idFor = { MenuDestinationActionId.communicationLevel(it) }
                 )
             }
 
@@ -1818,79 +1821,69 @@ private fun MyCommunicationPanel(
             profiles.forEach { profile ->
                 val isActive = profile.id == activeProfileId
                 val actionId = MenuDestinationActionId.savedProfile(profile.id)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (selectedDestinationAction == actionId || isActive) {
-                                LisaBlueLight.copy(alpha = 0.55f)
-                            } else {
-                                LisaWhite
-                            }
-                        )
-                        .clickable { activateDestinationAction(actionId) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                MenuDestinationSelectableSurface(
+                    actionId = actionId,
+                    active = isActive
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = profile.name,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = LisaBlueDark,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = profile.communicationLevel.label,
-                            fontSize = 11.sp,
-                            color = LisaBlueDark.copy(alpha = 0.65f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    if (isActive) {
-                        Text(
-                            text = uiStrings.activeLabel,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = LisaBlue,
-                            maxLines = 1,
-                            modifier = Modifier.widthIn(min = 48.dp)
-                        )
-                    } else {
-                        Text(text = "›", fontSize = 18.sp, color = LisaGray)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = profile.name,
+                                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = LisaBlueDark,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = profile.communicationLevel.label,
+                                fontSize = 11.sp,
+                                color = LisaBlueDark.copy(alpha = 0.65f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (isActive) {
+                            Text(
+                                text = uiStrings.activeLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = LisaBlue,
+                                maxLines = 1,
+                                modifier = Modifier.widthIn(min = 48.dp)
+                            )
+                        } else {
+                            Text(text = "›", fontSize = 18.sp, color = LisaGray)
+                        }
                     }
                 }
             }
 
-            OutlinedButton(
-                onClick = {
-                    activateDestinationAction(MenuDestinationActionId.ProfileNew)
-                },
-                modifier = Modifier.fillMaxWidth()
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.ProfileNew
             ) {
                 Text(
                     uiStrings.createNewProfile,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
 
             if (profiles.size > 1 && activeProfile != null) {
-                OutlinedButton(
-                    onClick = {
-                        activateDestinationAction(MenuDestinationActionId.ProfileDelete)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaEmergencyRed)
+                MenuDestinationSelectableSurface(
+                    actionId = MenuDestinationActionId.ProfileDelete
                 ) {
                     Text(
                         uiStrings.deleteActiveProfile,
+                        color = LisaEmergencyRed,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -1902,41 +1895,32 @@ private fun MyCommunicationPanel(
 private fun ProfileOptionGroup(
     options: List<String>,
     selected: String,
-    idFor: (String) -> MenuDestinationActionId,
-    onSelect: (String) -> Unit
+    idFor: (String) -> MenuDestinationActionId
 ) {
-    val selectedDestinationAction = LocalMenuDestinationSelectedAction.current
-    val activateDestinationAction = LocalMenuDestinationActivateAction.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         options.forEach { option ->
             val actionId = idFor(option)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (option == selected || selectedDestinationAction == actionId) {
-                            LisaBlueLight.copy(alpha = 0.55f)
-                        } else {
-                            LisaWhite
-                        }
-                    )
-                    .clickable { activateDestinationAction(actionId) }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            MenuDestinationSelectableSurface(
+                actionId = actionId,
+                active = option == selected
             ) {
-                Text(
-                    text = option,
-                    fontWeight = if (option == selected) FontWeight.SemiBold else FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = LisaBlueDark,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                if (option == selected) {
-                    Text(text = "✓", fontSize = 14.sp, color = LisaBlue, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = option,
+                        fontWeight = if (option == selected) FontWeight.SemiBold else FontWeight.Medium,
+                        fontSize = 14.sp,
+                        color = LisaBlueDark,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (option == selected) {
+                        Text(text = "✓", fontSize = 14.sp, color = LisaBlue, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

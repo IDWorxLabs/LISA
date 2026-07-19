@@ -205,16 +205,7 @@ private fun MenuDestinationNavigationPanel(
     val reviewing =
         textStage?.fieldEditingStage == FeedbackFieldEditingStage.Review
     val commands = if (keyboardEditing) {
-        listOf(
-            MenuDestinationPanelCommand.MoveUp,
-            MenuDestinationPanelCommand.MoveDown,
-            MenuDestinationPanelCommand.MoveLeft,
-            MenuDestinationPanelCommand.MoveRight,
-            MenuDestinationPanelCommand.Select,
-            MenuDestinationPanelCommand.DoneEditing,
-            MenuDestinationPanelCommand.Back,
-            MenuDestinationPanelCommand.Emergency
-        )
+        FeedbackKeyboardNavigationAuthority.keyboardCommands
     } else if (reviewing) {
         listOf(
             MenuDestinationPanelCommand.Save,
@@ -245,7 +236,11 @@ private fun MenuDestinationNavigationPanel(
                 MenuDestinationPanelCommand.NextPage -> canNextPage
                 else -> true
             }
-            val (symbol, title, hint, sequence) = commandPresentation(command, uiStrings)
+            val (symbol, title, hint, sequence) = commandPresentation(
+                command,
+                uiStrings,
+                keyboardContext = keyboardEditing
+            )
             if (command == MenuDestinationPanelCommand.Emergency) {
                 GuidedEmergencyNavButton(
                     symbol = symbol,
@@ -285,7 +280,8 @@ private data class CommandPresentation(
 
 private fun commandPresentation(
     command: MenuDestinationPanelCommand,
-    uiStrings: LisaUiStrings
+    uiStrings: LisaUiStrings,
+    keyboardContext: Boolean = false
 ): CommandPresentation = when (command) {
     MenuDestinationPanelCommand.MoveUp -> CommandPresentation(
         "↑↑", uiStrings.mainMenuMoveUp, uiStrings.guidedScrollUpHint,
@@ -318,7 +314,9 @@ private fun commandPresentation(
         formatWinkSequenceShort(1, 2)
     )
     MenuDestinationPanelCommand.Select -> CommandPresentation(
-        "✅", uiStrings.mainMenuOpenSelected, uiStrings.guidedSelectEnterHint,
+        "✅",
+        if (keyboardContext) uiStrings.phraseComposerPanelSelectKey else uiStrings.mainMenuOpenSelected,
+        uiStrings.guidedSelectEnterHint,
         formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
     )
     MenuDestinationPanelCommand.Save -> CommandPresentation(
@@ -338,7 +336,9 @@ private fun commandPresentation(
         "✕", uiStrings.cancel, "", formatWinkSequenceShort(2, 2)
     )
     MenuDestinationPanelCommand.Back -> CommandPresentation(
-        "↩", uiStrings.back, uiStrings.guidedBackHint,
+        "↩",
+        if (keyboardContext) "${uiStrings.back} / ${uiStrings.cancel}" else uiStrings.back,
+        uiStrings.guidedBackHint,
         formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
     )
     MenuDestinationPanelCommand.Emergency -> CommandPresentation(
@@ -365,18 +365,21 @@ private fun MenuDestinationTextEditor(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
         )
-        Text(
-            text = if (stage.fieldEditingStage == FeedbackFieldEditingStage.Review) {
-                "Review before saving this field"
-            } else {
-                "Move L2 R0 / L0 R2 / L2 R1 / L1 R2  •  Select Key L1 R1"
-            },
-            color = com.idworx.lisa.ui.theme.LisaWhite.copy(alpha = 0.92f),
-            fontSize = 12.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-        )
+        if (stage.fieldEditingStage == FeedbackFieldEditingStage.Review) {
+            Text(
+                text = "Review before saving this field",
+                color = com.idworx.lisa.ui.theme.LisaWhite.copy(alpha = 0.92f),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            )
+        } else {
+            FeedbackKeyboardDirectionLegend(
+                uiStrings = uiStrings,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            )
+        }
         if (stage.fieldEditingStage == FeedbackFieldEditingStage.Review) {
             FeedbackFieldReview(stage = stage)
         } else {
@@ -399,6 +402,46 @@ private fun MenuDestinationTextEditor(
                 shiftMode = stage.shiftMode,
                 onKeyTouched = onKeyTouched
             )
+        }
+    }
+}
+
+@Composable
+private fun FeedbackKeyboardDirectionLegend(
+    uiStrings: LisaUiStrings,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        FeedbackKeyboardNavigationAuthority.directionCommands.forEach { command ->
+            val presentation = commandPresentation(command, uiStrings, keyboardContext = true)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(LisaWorkspaceVisualStyle.NavPanelBackground)
+                    .padding(horizontal = 2.dp, vertical = 4.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = presentation.title,
+                    color = com.idworx.lisa.ui.theme.LisaWhite,
+                    fontSize = 10.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = presentation.sequence,
+                    color = com.idworx.lisa.ui.theme.LisaWhite.copy(alpha = 0.9f),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -461,7 +504,11 @@ private fun KeyboardFocusedCommandBar(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         commands.forEach { command ->
-            val presentation = commandPresentation(command, uiStrings)
+            val presentation = commandPresentation(
+                command,
+                uiStrings,
+                keyboardContext = !reviewing
+            )
             OutlinedButton(
                 onClick = { onCommand(command) },
                 modifier = Modifier.weight(1f)

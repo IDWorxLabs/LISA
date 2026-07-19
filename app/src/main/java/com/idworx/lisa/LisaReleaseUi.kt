@@ -326,22 +326,16 @@ fun FeedbackPanel(
                 draft.speechTiming,
                 MenuDestinationActionId.FeedbackSpeech
             )
-            Button(
-                onClick = {
-                    onSaveFeedback(
-                        draft.workedWell,
-                        draft.confusing,
-                        draft.winkDetection,
-                        draft.speechTiming
-                    )
-                    onDraftChange(MenuFeedbackDraft())
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = LisaBlue),
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.FeedbackSave,
                 enabled = draft.hasContent
             ) {
-                Text(uiStrings.saveFeedback)
+                Text(
+                    uiStrings.saveFeedback,
+                    color = if (draft.hasContent) LisaBlueDark else LisaGray,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
@@ -353,23 +347,19 @@ private fun FeedbackField(
     value: String,
     actionId: MenuDestinationActionId
 ) {
-    val activate = LocalMenuDestinationActivateAction.current
-    val selected = LocalMenuDestinationSelectedAction.current == actionId
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) LisaBlue.copy(alpha = 0.30f) else LisaWhite)
-            .clickable { activate(actionId) }
-            .padding(12.dp)
+    MenuDestinationSelectableSurface(
+        actionId = actionId,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp)
     ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            value.ifBlank { "Select to enter feedback" },
-            fontSize = 13.sp,
-            color = if (value.isBlank()) LisaGray else LisaBlueDark
-        )
+        Column {
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                value.ifBlank { "Select to enter feedback" },
+                fontSize = 13.sp,
+                color = if (value.isBlank()) LisaGray else LisaBlueDark
+            )
+        }
     }
 }
 

@@ -206,8 +206,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var trainingProgressStore: TrainingProgressStore
     private lateinit var trainingSession: TrainingSessionController
+    private lateinit var startupSession: com.idworx.lisa.features.intelligentstartup.StartupSessionController
     private var trainingNarration: OnboardingNarrationController? = null
     private val uiGuidedTrainingState = mutableStateOf(GuidedTrainingUiState())
+    private val uiStartupState = mutableStateOf(
+        com.idworx.lisa.features.intelligentstartup.model.StartupFlowState()
+    )
 
     // phrase mappings
     private val mappingsState = mutableStateListOf<WinkMapping>()
@@ -292,7 +296,38 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             trainingSession.startRecalibrationFlow()
             refreshTrainingActiveState()
         }
+        startupSession = com.idworx.lisa.features.intelligentstartup.StartupSessionController(
+            loadProfileCalibration = { activeProfile()?.eyeCalibration },
+            persistCalibration = { calibration ->
+                updateActiveProfile { it.copy(eyeCalibration = calibration) }
+                applyProfileEyeCalibration(calibration)
+            },
+            nowMs = { System.currentTimeMillis() },
+            onStateChanged = { uiStartupState.value = it },
+            onEyeControlActivated = {
+                activeProfile()?.eyeCalibration?.let { applyProfileEyeCalibration(it) }
+            },
+            onStartupComplete = {
+                uiStartupState.value = startupSession.state
+                refreshTrainingActiveState()
+            },
+            scheduleReadyHandoff = { delayMs, action ->
+                mainHandler.postDelayed({ action() }, delayMs)
+            },
+            scheduleAutoRetry = { delayMs, action ->
+                mainHandler.postDelayed({ action() }, delayMs)
+            }
+        )
+        startupSession.start()
         applyColdLaunchSessionState()
+        // Prefer stored high-confidence calibration immediately so Welcome is eye-ready after skip/quick path.
+        activeProfile()?.eyeCalibration?.let { existing ->
+            if (com.idworx.lisa.features.intelligentstartup.authority.EyeCalibrationAuthority
+                    .shouldSkipQuickCalibration(existing, System.currentTimeMillis())
+            ) {
+                applyProfileEyeCalibration(existing)
+            }
+        }
         uiTestingChecklist.value = releaseStore.loadChecklist()
         uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
         refreshCameraPermissionState()
@@ -660,6 +695,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         trainingEyeTracking = trainingEyeTrackingState(),
                         trainingBlinkDiagnostics = uiBlinkDiagnostics.value,
                         showBlinkDiagnostics = uiDeveloperMode.value,
+                        intelligentStartupActive = startupSession.isActive,
+                        intelligentStartupState = uiStartupState.value,
+                        onIntelligentStartupCalibrationTimeout = {
+                            startupSession.notifyCalibrationTimeoutFailure()
+                        },
                         onTrainingEvent = { event -> handleTrainingEvent(event) },
                         onTrainingWelcomeNarration = { trainingSession.welcomeNarration() },
                         onTrainingFirstLaunchNarration = { trainingSession.firstLaunchChoiceNarration() },
@@ -1266,65 +1306,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         panel: LisaPanel = uiActivePanel.value,
         uiStrings: LisaUiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
     ): List<MenuDestinationAction> = when (panel) {
-        LisaPanel.MyCommunication -> buildList {
-            val active = activeProfile()
-            add(
-                MenuDestinationAction(
-                    MenuDestinationActionId.ProfileName,
-                    uiStrings.nameLabel,
-                    MenuDestinationActionType.TextField
-                )
-            )
-            PreferredLanguage.selectable.forEach { language ->
-                add(
-                    MenuDestinationAction(
-                        MenuDestinationActionId.language(language.label),
-                        language.label,
-                        MenuDestinationActionType.Choice,
-                        selected = active?.preferredLanguage == language,
-                        sectionId = "language"
-                    )
-                )
-            }
-            CommunicationLevel.entries.forEach { level ->
-                add(
-                    MenuDestinationAction(
-                        MenuDestinationActionId.communicationLevel(level.label),
-                        level.label,
-                        MenuDestinationActionType.Choice,
-                        selected = active?.communicationLevel == level,
-                        sectionId = "communication_level"
-                    )
-                )
-            }
-            uiProfiles.forEach { profile ->
-                add(
-                    MenuDestinationAction(
-                        MenuDestinationActionId.savedProfile(profile.id),
-                        profile.name,
-                        MenuDestinationActionType.Choice,
-                        selected = profile.id == uiActiveProfileId.value,
-                        sectionId = "saved_profiles"
-                    )
-                )
-            }
-            add(
-                MenuDestinationAction(
-                    MenuDestinationActionId.ProfileNew,
-                    uiStrings.createNewProfile,
-                    MenuDestinationActionType.Navigation
-                )
-            )
-            if (uiProfiles.size > 1) {
-                add(
-                    MenuDestinationAction(
-                        MenuDestinationActionId.ProfileDelete,
-                        uiStrings.deleteActiveProfile,
-                        MenuDestinationActionType.Button
-                    )
-                )
-            }
-        }
+        LisaPanel.MyCommunication -> CommunicationProfileDestinationActionAuthority.actions(
+            profiles = uiProfiles,
+            activeProfileId = uiActiveProfileId.value,
+            uiStrings = uiStrings
+        )
         LisaPanel.Voice -> listOf(
             MenuDestinationAction(
                 MenuDestinationActionId.VoiceDevice,
@@ -1349,40 +1335,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 isEnabled = false
             )
         )
-        LisaPanel.VoiceDevice -> buildList {
-            uiVoiceSettingsState.value.availableVoices.forEach { voice ->
-                add(
-                    MenuDestinationAction(
-                        MenuDestinationActionId.installedVoice(voice.name),
-                        voice.displayLabel,
-                        MenuDestinationActionType.Choice,
-                        selected = voice.name == uiVoiceSettingsState.value.selectedVoiceName
-                    )
-                )
-            }
-            add(
-                MenuDestinationAction(
-                    MenuDestinationActionId.VoiceTest,
-                    uiStrings.testVoice,
-                    MenuDestinationActionType.Button,
-                    isEnabled = uiVoiceSettingsState.value.ttsReady
-                )
-            )
-            add(
-                MenuDestinationAction(
-                    MenuDestinationActionId.VoiceInstallData,
-                    uiStrings.installVoiceData,
-                    MenuDestinationActionType.Navigation
-                )
-            )
-            add(
-                MenuDestinationAction(
-                    MenuDestinationActionId.VoiceSystemSettings,
-                    uiStrings.openTtsSettings,
-                    MenuDestinationActionType.Navigation
-                )
-            )
-        }
+        LisaPanel.VoiceDevice -> DeviceVoiceDestinationActionAuthority.actions(
+            uiVoiceSettingsState.value,
+            uiStrings
+        )
         LisaPanel.VoicePremium,
         LisaPanel.VoiceMyVoice,
         LisaPanel.VoiceFamily -> emptyList()
@@ -1555,6 +1511,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
         }
         when {
+            actionId == MenuDestinationActionId.ProfileActive ->
+                activeProfile()?.let { switchToProfile(it.id) }
             actionId == MenuDestinationActionId.ProfileName -> {
                 uiMenuDestinationState.value =
                     MenuDestinationNavigationController.beginTextEditing(
@@ -3748,7 +3706,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun applySensitivityLevel(level: Int, persist: Boolean = true) {
         val clamped = level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
-        val tuning = sensitivitySettingsForLevel(clamped)
+        val base = sensitivitySettingsForLevel(clamped)
+        val calibration = activeProfile()?.eyeCalibration
+        val tuning = if (calibration != null) {
+            com.idworx.lisa.features.intelligentstartup.authority.EyeCalibrationAuthority
+                .toBlinkTuning(calibration, base)
+        } else {
+            base
+        }
         blinkProcessor.tuning = tuning
         closedEyeThreshold = tuning.closedEyeThreshold
         openEyeThreshold = tuning.openEyeThreshold
@@ -3759,6 +3724,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             updateActiveProfile { it.copy(sensitivityLevel = clamped) }
         }
         calibrationReliability.notifySensitivityAdjusted(clamped)
+    }
+
+    private fun applyProfileEyeCalibration(
+        calibration: com.idworx.lisa.features.intelligentstartup.model.ProfileEyeCalibration
+    ) {
+        val base = sensitivitySettingsForLevel(uiSensitivityLevel.value)
+        val tuning = com.idworx.lisa.features.intelligentstartup.authority.EyeCalibrationAuthority
+            .toBlinkTuning(calibration, base)
+        blinkProcessor.tuning = tuning
+        closedEyeThreshold = tuning.closedEyeThreshold
+        openEyeThreshold = tuning.openEyeThreshold
+        requiredWinkFrames = tuning.requiredWinkFrames
     }
 
     private fun changeSensitivity(delta: Int) {
@@ -3846,6 +3823,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     uiEyesDetected.value = false
                     blinkProcessor.clearPreviousProbabilities()
                     updateDiagnostics(null, null)
+                    if (startupSession.isActive) {
+                        startupSession.onFacePresence(false)
+                    }
                     if (trainingSession.state.phase == TrainingPhase.Setup) {
                         trainingSession.onFaceLostDuringSetup()
                     }
@@ -3856,6 +3836,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
                 uiTrackingLost.value = false
                 uiFacePresent.value = true
+                if (startupSession.isActive) {
+                    startupSession.onFacePresence(true)
+                }
                 if (trainingSession.state.phase == TrainingPhase.Setup) {
                     trainingSession.onFaceDetectedDuringSetup()
                 }
@@ -3900,6 +3883,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiEyesDetected.value = true
         val leftProb = eyes.userLeft
         val rightProb = eyes.userRight
+
+        if (startupSession.isActive) {
+            val bounds = face.boundingBox
+            val faceWidthNormalized = if (bounds.width() > 0) {
+                // Relative width proxy; absolute camera resolution varies by device.
+                (bounds.width().toFloat() / 1000f).coerceIn(0.05f, 1f)
+            } else {
+                0.35f
+            }
+            startupSession.onFrameSample(
+                leftOpenness = leftProb,
+                rightOpenness = rightProb,
+                faceWidthNormalized = faceWidthNormalized
+            )
+        }
 
         if (countdownActive) {
             handleCountdownWinks(leftProb, rightProb)
@@ -3950,19 +3948,33 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         updateDiagnostics(leftProb, rightProb, result)
 
         if (result.acceptLeft) {
-            if (rejectLessonWrongEyeBlink(isLeft = true)) return
-            flashAcceptedBlink(isLeft = true)
-            leftWinks += 1
-            if (sequenceStartMs == 0L) sequenceStartMs = now
-            onWinkCounted(isLeft = true)
+            if (startupSession.isActive && !startupSession.eyeControlEnabled) {
+                startupSession.onLeftWinkAccepted(closePeak = leftProb)
+                flashAcceptedBlink(isLeft = true)
+            } else {
+                if (rejectLessonWrongEyeBlink(isLeft = true)) return
+                flashAcceptedBlink(isLeft = true)
+                leftWinks += 1
+                if (sequenceStartMs == 0L) sequenceStartMs = now
+                onWinkCounted(isLeft = true)
+            }
         }
 
         if (result.acceptRight) {
-            if (rejectLessonWrongEyeBlink(isLeft = false)) return
-            flashAcceptedBlink(isLeft = false)
-            rightWinks += 1
-            if (sequenceStartMs == 0L) sequenceStartMs = now
-            onWinkCounted(isLeft = false)
+            if (startupSession.isActive && !startupSession.eyeControlEnabled) {
+                startupSession.onRightWinkAccepted(closePeak = rightProb)
+                flashAcceptedBlink(isLeft = false)
+            } else {
+                if (rejectLessonWrongEyeBlink(isLeft = false)) return
+                flashAcceptedBlink(isLeft = false)
+                rightWinks += 1
+                if (sequenceStartMs == 0L) sequenceStartMs = now
+                onWinkCounted(isLeft = false)
+            }
+        }
+
+        if (startupSession.isActive && !startupSession.eyeControlEnabled) {
+            return
         }
 
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0

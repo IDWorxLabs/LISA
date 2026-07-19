@@ -45,6 +45,7 @@ value class MenuDestinationActionId(val value: String) {
 
     companion object {
         val Back = MenuDestinationActionId("navigation.back")
+        val ProfileActive = MenuDestinationActionId("profile.active")
         val ProfileName = MenuDestinationActionId("profile.name")
         val ProfileNew = MenuDestinationActionId("profile.new")
         val ProfileDelete = MenuDestinationActionId("profile.delete")
@@ -223,6 +224,33 @@ enum class MenuDestinationPanelCommand {
     Cancel,
     Back,
     Emergency
+}
+
+object FeedbackKeyboardNavigationAuthority {
+    val keyboardCommands = listOf(
+        MenuDestinationPanelCommand.MoveUp,
+        MenuDestinationPanelCommand.MoveDown,
+        MenuDestinationPanelCommand.MoveLeft,
+        MenuDestinationPanelCommand.MoveRight,
+        MenuDestinationPanelCommand.Select,
+        MenuDestinationPanelCommand.DoneEditing,
+        MenuDestinationPanelCommand.Back,
+        MenuDestinationPanelCommand.Emergency
+    )
+
+    val directionCommands = keyboardCommands.take(5)
+
+    fun sequence(command: MenuDestinationPanelCommand): Pair<Int, Int>? = when (command) {
+        MenuDestinationPanelCommand.MoveUp -> 2 to 0
+        MenuDestinationPanelCommand.MoveDown -> 0 to 2
+        MenuDestinationPanelCommand.MoveLeft -> 2 to 1
+        MenuDestinationPanelCommand.MoveRight -> 1 to 2
+        MenuDestinationPanelCommand.Select -> 1 to 1
+        MenuDestinationPanelCommand.DoneEditing -> 3 to 2
+        MenuDestinationPanelCommand.Back -> 2 to 2
+        MenuDestinationPanelCommand.Emergency -> 6 to 0
+        else -> null
+    }
 }
 
 sealed interface MenuDestinationSequenceResult {
