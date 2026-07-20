@@ -146,6 +146,8 @@ fun TrainingPrimaryButton(
 ) {
     val heightModifier = if (secondaryText != null) {
         Modifier.height(minHeight)
+    } else if (minHeight > 56.dp) {
+        Modifier.height(minHeight)
     } else {
         Modifier.height(56.dp)
     }
@@ -714,7 +716,8 @@ fun TrainingSecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     minHeight: androidx.compose.ui.unit.Dp = 52.dp,
-    contentDescription: String = text
+    contentDescription: String = text,
+    textStyle: androidx.compose.ui.text.TextStyle? = null
 ) {
     val heightModifier = when {
         minHeight.value <= 48f -> Modifier.height(48.dp)
@@ -731,7 +734,14 @@ fun TrainingSecondaryButton(
         colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
         border = BorderStroke(1.dp, LisaBlue)
     ) {
-        Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = LisaBlue)
+        Text(
+            text = text,
+            style = textStyle ?: androidx.compose.ui.text.TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = LisaBlue
+        )
     }
 }
 

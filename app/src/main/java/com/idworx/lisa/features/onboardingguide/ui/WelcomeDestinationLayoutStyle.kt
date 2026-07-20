@@ -8,8 +8,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * RC7D.40 — compact spacing/typography for single-screen Welcome destination selection.
- * Prefer reclaiming whitespace before shrinking accessible button heights.
+ * RC7D.40+ — Welcome destination selection: readable type, large targets, even vertical balance.
+ * Prefer reclaiming whitespace by distributing actions before introducing scroll.
  */
 object WelcomeDestinationLayoutStyle {
     val TargetViewportHeight: Dp = WelcomeIntroductionLayoutStyle.TargetViewportHeight
@@ -21,37 +21,52 @@ object WelcomeDestinationLayoutStyle {
 
     val StatusToCardSpacing: Dp = 4.dp
     val CardCornerRadius: Dp = 16.dp
-    val CardPadding: Dp = 10.dp
+    val CardPadding: Dp = 12.dp
 
-    val TitleToSubtitleSpacing: Dp = 2.dp
-    val SubtitleToActionSpacing: Dp = 6.dp
+    val TitleToSubtitleSpacing: Dp = 4.dp
+    val SubtitleToActionSpacing: Dp = 4.dp
+    /** Minimum visual separation between action groups when not using SpaceEvenly. */
     val ActionGroupSpacing: Dp = 4.dp
-    val ButtonToInstructionSpacing: Dp = 2.dp
+    val ButtonToInstructionSpacing: Dp = 4.dp
 
     val CaregiverSpacing: Dp = 2.dp
     val BottomPadding: Dp = 2.dp
 
-    val PrimaryButtonHeight: Dp = 56.dp
-    val SecondaryButtonHeight: Dp = 48.dp
+    val PrimaryButtonHeight: Dp = 64.dp
+    val SecondaryButtonHeight: Dp = 60.dp
 
     val TitleTextStyle = TextStyle(
-        fontSize = 20.sp,
+        fontSize = 26.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 24.sp,
+        lineHeight = 30.sp,
         textAlign = TextAlign.Center
     )
 
     val SubtitleTextStyle = TextStyle(
-        fontSize = 14.sp,
+        fontSize = 17.sp,
         fontWeight = FontWeight.Normal,
-        lineHeight = 18.sp,
+        lineHeight = 22.sp,
+        textAlign = TextAlign.Center
+    )
+
+    val PrimaryButtonTextStyle = TextStyle(
+        fontSize = 19.sp,
+        fontWeight = FontWeight.SemiBold,
+        lineHeight = 24.sp,
+        textAlign = TextAlign.Center
+    )
+
+    val SecondaryButtonTextStyle = TextStyle(
+        fontSize = 18.sp,
+        fontWeight = FontWeight.Medium,
+        lineHeight = 22.sp,
         textAlign = TextAlign.Center
     )
 
     val InstructionLineTextStyle = TextStyle(
-        fontSize = 13.sp,
+        fontSize = 16.sp,
         fontWeight = FontWeight.SemiBold,
-        lineHeight = 16.sp,
+        lineHeight = 20.sp,
         textAlign = TextAlign.Center
     )
 
@@ -63,9 +78,10 @@ object WelcomeDestinationLayoutStyle {
     )
 
     // Conservative height budget (dp) for the ordinary 720dp target viewport.
+    // Actions fill remaining card height via SpaceEvenly; budget confirms no outer scroll.
     const val BudgetStatusBlockDp: Int = 190
-    const val BudgetTitleBlockDp: Int = 48
-    const val BudgetActionGroupDp: Int = 72
+    const val BudgetTitleBlockDp: Int = 64
+    const val BudgetActionGroupDp: Int = 96
     const val BudgetCaregiverDp: Int = 36
     const val BudgetChromePaddingDp: Int = 28
 
@@ -80,11 +96,11 @@ object WelcomeDestinationLayoutStyle {
         viewportHeightDp: Int = TargetViewportHeight.value.toInt()
     ): Boolean = estimatedContentHeightDp() <= viewportHeightDp
 
-    /** Compact gaps vs the pre-RC7D.40 destination layout (hardcoded 16/10/12/16). */
+    /** Compact chrome vs the pre-RC7D.40 destination layout (hardcoded 16/10/12/16). */
     fun spacingMoreCompactThanPreRc7d40(): Boolean =
         StatusToCardSpacing <= 6.dp &&
             ActionGroupSpacing <= 6.dp &&
-            ButtonToInstructionSpacing <= 4.dp &&
+            ButtonToInstructionSpacing <= 6.dp &&
             CardPadding <= 12.dp &&
             SubtitleToActionSpacing <= 8.dp
 }
@@ -102,8 +118,14 @@ object WelcomeDestinationLayoutAuthority {
     fun destinationUsesLayoutTokens(source: String): Boolean {
         val block = destinationBlock(source) ?: return false
         return block.contains("WelcomeDestinationLayoutStyle") &&
-            block.contains("ActionGroupSpacing") &&
+            (block.contains("ActionGroupSpacing") || block.contains("SpaceEvenly")) &&
             block.contains("StatusToCardSpacing")
+    }
+
+    fun destinationActionsSpreadEvenly(source: String): Boolean {
+        val block = destinationBlock(source) ?: return false
+        return block.contains("SpaceEvenly") &&
+            block.contains("weight(1f")
     }
 
     fun destinationUsesCombinedInstructionLine(source: String): Boolean {

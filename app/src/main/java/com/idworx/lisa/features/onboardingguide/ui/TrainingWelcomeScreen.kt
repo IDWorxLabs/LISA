@@ -282,32 +282,39 @@ private fun WelcomeDestinationSelectionScreen(
                             bottom = style.SubtitleToActionSpacing
                         )
                 )
-                WelcomeChoiceBlock(
-                    title = uiStrings.startGuidedLearning,
-                    instruction = WelcomeEyeNavigationAuthority.startGuidedLearningInstruction(),
-                    sequenceLabel = WelcomeEyeNavigationAuthority.startGuidedLearningSequenceLabel(),
-                    selected = startSelected,
-                    primary = true,
-                    onClick = onStartGuidedLearning
-                )
-                Spacer(modifier = Modifier.height(style.ActionGroupSpacing))
-                WelcomeChoiceBlock(
-                    title = uiStrings.skipToCommunication,
-                    instruction = WelcomeEyeNavigationAuthority.skipToCommunicationInstruction(),
-                    sequenceLabel = WelcomeEyeNavigationAuthority.skipToCommunicationSequenceLabel(),
-                    selected = skipSelected,
-                    primary = false,
-                    onClick = onSkipToWorkspace
-                )
-                Spacer(modifier = Modifier.height(style.ActionGroupSpacing))
-                WelcomeChoiceBlock(
-                    title = uiStrings.back,
-                    instruction = WelcomeEyeNavigationAuthority.backInstruction(),
-                    sequenceLabel = WelcomeEyeNavigationAuthority.backSequenceLabel(),
-                    selected = false,
-                    primary = false,
-                    onClick = onBackToIntroduction
-                )
+                // Spread the three primary actions evenly through remaining card height.
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = true)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    WelcomeChoiceBlock(
+                        title = uiStrings.startGuidedLearning,
+                        instruction = WelcomeEyeNavigationAuthority.startGuidedLearningInstruction(),
+                        sequenceLabel = WelcomeEyeNavigationAuthority.startGuidedLearningSequenceLabel(),
+                        selected = startSelected,
+                        primary = true,
+                        onClick = onStartGuidedLearning
+                    )
+                    WelcomeChoiceBlock(
+                        title = uiStrings.skipToCommunication,
+                        instruction = WelcomeEyeNavigationAuthority.skipToCommunicationInstruction(),
+                        sequenceLabel = WelcomeEyeNavigationAuthority.skipToCommunicationSequenceLabel(),
+                        selected = skipSelected,
+                        primary = false,
+                        onClick = onSkipToWorkspace
+                    )
+                    WelcomeChoiceBlock(
+                        title = uiStrings.back,
+                        instruction = WelcomeEyeNavigationAuthority.backInstruction(),
+                        sequenceLabel = WelcomeEyeNavigationAuthority.backSequenceLabel(),
+                        selected = false,
+                        primary = false,
+                        onClick = onBackToIntroduction
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(style.CaregiverSpacing))
             CaregiverAdvancedSkipLink(
@@ -406,6 +413,7 @@ private fun WelcomeChoiceBlock(
                 text = title,
                 onClick = onClick,
                 contentDescription = a11y,
+                textStyle = style.PrimaryButtonTextStyle,
                 minHeight = style.PrimaryButtonHeight
             )
         } else {
@@ -413,6 +421,7 @@ private fun WelcomeChoiceBlock(
                 text = title,
                 onClick = onClick,
                 contentDescription = a11y,
+                textStyle = style.SecondaryButtonTextStyle,
                 minHeight = style.SecondaryButtonHeight
             )
         }

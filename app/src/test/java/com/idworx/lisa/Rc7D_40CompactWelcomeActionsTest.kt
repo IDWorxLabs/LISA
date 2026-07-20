@@ -252,14 +252,22 @@ class Rc7D_40CompactWelcomeActionsTest {
     @Test
     fun noButtonsOverlap() {
         val choice = choiceBlockSource()
-        assertTrue(choice.contains("ActionGroupSpacing") || destinationBlock().contains("ActionGroupSpacing"))
+        assertTrue(
+            choice.contains("ActionGroupSpacing") ||
+                destinationBlock().contains("ActionGroupSpacing") ||
+                destinationBlock().contains("SpaceEvenly")
+        )
         assertTrue(destStyle.ActionGroupSpacing.value > 0f)
         assertTrue(destStyle.ButtonToInstructionSpacing.value >= 0f)
+        assertTrue(WelcomeDestinationLayoutAuthority.destinationActionsSpreadEvenly(welcomeSource()))
     }
 
     @Test
     fun noActionInstructionOverlapsAnotherAction() {
-        assertTrue(destinationBlock().contains("Spacer(modifier = Modifier.height(style.ActionGroupSpacing))"))
+        assertTrue(
+            destinationBlock().contains("SpaceEvenly") ||
+                destinationBlock().contains("Spacer(modifier = Modifier.height(style.ActionGroupSpacing))")
+        )
         assertTrue(WelcomeDestinationLayoutAuthority.destinationUsesCombinedInstructionLine(welcomeSource()))
         assertEquals(
             "Blink left twice · L2 R0",
