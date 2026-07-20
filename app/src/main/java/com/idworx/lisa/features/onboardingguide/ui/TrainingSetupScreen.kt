@@ -19,6 +19,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.LisaUiStrings
+import com.idworx.lisa.features.eyetrackingstatus.ExpandedEyeTrackingStatusPanel
+import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper
+import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.onboardingguide.services.TrainingSessionController
 import com.idworx.lisa.ui.theme.LisaBlueDark
 
@@ -35,7 +38,8 @@ fun TrainingSetupScreen(
     onIncreaseResponseTime: () -> Unit = {},
     onRequestCameraPermission: () -> Unit,
     onAdvance: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    eyeTrackingStatus: EyeTrackingStatusUiState? = null
 ) {
     val watchingLabel = when {
         !eyeTracking.cameraActive -> uiStrings.t("Waiting for camera", "Wag vir kamera", "Ilinde ikhamera")
@@ -44,6 +48,12 @@ fun TrainingSetupScreen(
         else -> uiStrings.t("Watching your eyes", "Kyk na jou oë", "Ibona amehlo akho")
     }
     val eyesReady = eyeTracking.eyesDetected
+    val status = (eyeTrackingStatus ?: EyeTrackingStatusUiMapper.fromTraining(
+        uiStrings = uiStrings,
+        eyeTracking = eyeTracking,
+        sensitivity = sensitivityLevel,
+        responseTimeSeconds = responseTimeSec
+    )).copy(statusText = watchingLabel)
 
     TrainingSoftBackground {
         Column(
@@ -54,16 +64,13 @@ fun TrainingSetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            EyeTrackingStatusPill(
-                label = watchingLabel,
-                active = eyeTracking.cameraActive && eyeTracking.eyesDetected,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            TrainingSensitivityControls(
-                sensitivityLevel = sensitivityLevel,
-                onDecrease = onDecreaseSensitivity,
-                onIncrease = onIncreaseSensitivity,
-                responseTimeSec = responseTimeSec,
+            // Shared live status (EyeTrackingStatusPill + LessonEyeStatusPanel + BlinkCounterRow).
+            ExpandedEyeTrackingStatusPanel(
+                state = status,
+                uiStrings = uiStrings,
+                showSensitivityControls = true,
+                onDecreaseSensitivity = onDecreaseSensitivity,
+                onIncreaseSensitivity = onIncreaseSensitivity,
                 onDecreaseResponseTime = onDecreaseResponseTime,
                 onIncreaseResponseTime = onIncreaseResponseTime,
                 modifier = Modifier
@@ -80,7 +87,7 @@ fun TrainingSetupScreen(
                         color = LisaBlueDark,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = uiStrings.t(
                             "Position the phone so your eyes are clearly visible.",
@@ -92,7 +99,7 @@ fun TrainingSetupScreen(
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
                     TrainingCard {
                         SetupDetectionStatusRow(
                             cameraActive = eyeTracking.cameraActive,
@@ -102,7 +109,7 @@ fun TrainingSetupScreen(
                         )
                     }
                     if (!eyeTracking.cameraActive) {
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                         TrainingPrimaryButton(
                             text = uiStrings.allowCameraAccess,
                             onClick = onRequestCameraPermission
@@ -118,7 +125,7 @@ fun TrainingSetupScreen(
                         color = LisaBlueDark,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = if (eyesReady) {
                             uiStrings.t(
@@ -138,7 +145,7 @@ fun TrainingSetupScreen(
                         lineHeight = 24.sp,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     TrainingCard {
                         SetupDetectionStatusRow(
                             cameraActive = eyeTracking.cameraActive,
@@ -147,11 +154,11 @@ fun TrainingSetupScreen(
                             uiStrings = uiStrings
                         )
                     }
-                    Spacer(Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
                     OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
                         Text(uiStrings.back)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     TrainingPrimaryButton(
                         text = uiStrings.t(
                             "Continue to first lesson",

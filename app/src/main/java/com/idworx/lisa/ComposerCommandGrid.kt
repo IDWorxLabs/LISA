@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,12 +36,18 @@ import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
 
-private val CommandCardBackground = LisaWhite.copy(alpha = 0.94f)
-private val CommandGridBackground = LisaWhite.copy(alpha = 0.88f)
-private val PrimaryCommandBackground = LisaBlue.copy(alpha = 0.22f)
-private val PrimaryCommandBorder = LisaBlue.copy(alpha = 0.55f)
-private val CommandEntryPartialHighlight = LisaBlue.copy(alpha = 0.12f)
+private val CommandCardBackground = LisaWorkspaceVisualStyle.NavActionEnabledBackground
+private val CommandGridBackground = LisaWorkspaceVisualStyle.NavActionGridBackground
+private val PrimaryCommandBackground = LisaWorkspaceVisualStyle.NavActionPrimaryBackground
+private val PrimaryCommandBorder = LisaWorkspaceVisualStyle.NavActionPrimaryBorder
+private val CommandEntryPartialHighlight = LisaWorkspaceVisualStyle.NavActionPartialHighlight
+private val CommandSelectedBackground = LisaWorkspaceVisualStyle.NavActionSelectedBackground
+private val CommandSelectedBorder = LisaWorkspaceVisualStyle.NavActionSelectedBorder
+private val CommandDisabledBackground = LisaWorkspaceVisualStyle.NavActionDisabledBackground
+private val CommandDisabledBorder = LisaWorkspaceVisualStyle.NavActionDisabledBorder
+private val CommandIdleBorder = LisaWorkspaceVisualStyle.NavActionEnabledBorder
 
 /**
  * Large navigation and composer command grid above the bottom-aligned keyboard (RC7D.4).
@@ -132,6 +139,7 @@ private fun ComposerConfirmationCommandCard(
 ) {
     val contentColor = if (enabled) LisaBlueDark else LisaGray
     val background = when {
+        !enabled -> CommandDisabledBackground
         highlightLevel == PhraseComposerEntryHighlight.Level.Full ->
             LisaBlue.copy(alpha = if (primary) 0.32f else 0.22f)
         highlightLevel == PhraseComposerEntryHighlight.Level.Partial -> CommandEntryPartialHighlight
@@ -139,9 +147,10 @@ private fun ComposerConfirmationCommandCard(
         else -> CommandCardBackground
     }
     val borderColor = when {
+        !enabled -> CommandDisabledBorder
         highlightLevel != PhraseComposerEntryHighlight.Level.None -> LisaBlue.copy(alpha = 0.45f)
         primary -> PrimaryCommandBorder
-        else -> LisaBlue.copy(alpha = 0.18f)
+        else -> CommandIdleBorder
     }
     Column(
         modifier = Modifier
@@ -214,15 +223,26 @@ fun ComposerCommandCard(
     entry: PhraseComposerEntry,
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selected: Boolean = false
 ) {
     val contentColor = if (enabled) LisaBlueDark else LisaGray
+    val background = when {
+        !enabled -> CommandDisabledBackground
+        selected -> CommandSelectedBackground
+        else -> CommandCardBackground
+    }
+    val borderColor = when {
+        !enabled -> CommandDisabledBorder
+        selected -> CommandSelectedBorder
+        else -> CommandIdleBorder
+    }
     val interactionSource = remember { MutableInteractionSource() }
     Column(
         modifier = modifier
             .defaultMinSize(minHeight = 76.dp)
             .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, LisaBlue.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
             .clickable(
                 enabled = enabled,
                 role = Role.Button,
@@ -230,8 +250,11 @@ fun ComposerCommandCard(
                 indication = null,
                 onClick = onClick
             )
-            .semantics { contentDescription = entry.label }
-            .background(if (enabled) CommandCardBackground else LisaSoftGray.copy(alpha = 0.65f))
+            .semantics {
+                contentDescription = entry.label
+                if (!enabled) disabled()
+            }
+            .background(background)
             .padding(horizontal = 6.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center

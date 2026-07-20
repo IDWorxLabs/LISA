@@ -138,19 +138,53 @@ fun TrainingPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentDescription: String = text
+    contentDescription: String = text,
+    textStyle: androidx.compose.ui.text.TextStyle? = null,
+    secondaryText: String? = null,
+    secondaryTextStyle: androidx.compose.ui.text.TextStyle? = null,
+    minHeight: androidx.compose.ui.unit.Dp = if (secondaryText != null) 64.dp else 56.dp
 ) {
+    val heightModifier = if (secondaryText != null) {
+        Modifier.height(minHeight)
+    } else {
+        Modifier.height(56.dp)
+    }
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .then(heightModifier)
             .semantics { this.contentDescription = contentDescription },
         shape = RoundedCornerShape(28.dp),
         colors = ButtonDefaults.buttonColors(containerColor = LisaBlue)
     ) {
-        Text(text = text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        if (secondaryText == null) {
+            Text(
+                text = text,
+                style = textStyle ?: androidx.compose.ui.text.TextStyle(
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    style = textStyle ?: androidx.compose.ui.text.TextStyle(
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                Text(
+                    text = secondaryText,
+                    style = secondaryTextStyle ?: androidx.compose.ui.text.TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
     }
 }
 
@@ -499,18 +533,20 @@ fun TrainingSensitivityControls(
     onDecreaseResponseTime: () -> Unit = {},
     onIncreaseResponseTime: () -> Unit = {},
     responseTimeMinSeconds: Int = com.idworx.lisa.SequenceProcessingDelay.MIN_SECONDS,
-    responseTimeMaxSeconds: Int = com.idworx.lisa.SequenceProcessingDelay.MAX_SECONDS
+    responseTimeMaxSeconds: Int = com.idworx.lisa.SequenceProcessingDelay.MAX_SECONDS,
+    compact: Boolean = false
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)
     ) {
         TrainingAdjustableValueRow(
             label = "Sensitivity: $sensitivityLevel",
             onDecrease = onDecrease,
             onIncrease = onIncrease,
             decreaseEnabled = sensitivityLevel > minLevel,
-            increaseEnabled = sensitivityLevel < maxLevel
+            increaseEnabled = sensitivityLevel < maxLevel,
+            compact = compact
         )
         if (responseTimeSec != null) {
             TrainingAdjustableValueRow(
@@ -518,7 +554,8 @@ fun TrainingSensitivityControls(
                 onDecrease = onDecreaseResponseTime,
                 onIncrease = onIncreaseResponseTime,
                 decreaseEnabled = responseTimeSec > responseTimeMinSeconds,
-                increaseEnabled = responseTimeSec < responseTimeMaxSeconds
+                increaseEnabled = responseTimeSec < responseTimeMaxSeconds,
+                compact = compact
             )
         }
     }
@@ -530,20 +567,24 @@ private fun TrainingAdjustableValueRow(
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     decreaseEnabled: Boolean,
-    increaseEnabled: Boolean
+    increaseEnabled: Boolean,
+    compact: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
             .background(LisaWhite.copy(alpha = 0.92f))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(
+                horizontal = if (compact) 10.dp else 14.dp,
+                vertical = if (compact) 6.dp else 10.dp
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
-            fontSize = 15.sp,
+            fontSize = if (compact) 13.sp else 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = LisaBlueDark
         )
@@ -551,7 +592,7 @@ private fun TrainingAdjustableValueRow(
             OutlinedButton(
                 onClick = onDecrease,
                 enabled = decreaseEnabled,
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.height(if (compact) 32.dp else 36.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
                 border = BorderStroke(1.dp, LisaBlue.copy(alpha = 0.5f))
@@ -561,7 +602,7 @@ private fun TrainingAdjustableValueRow(
             OutlinedButton(
                 onClick = onIncrease,
                 enabled = increaseEnabled,
-                modifier = Modifier.height(36.dp),
+                modifier = Modifier.height(if (compact) 32.dp else 36.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
                 border = BorderStroke(1.dp, LisaBlue.copy(alpha = 0.5f))
@@ -671,13 +712,21 @@ private fun com.idworx.lisa.LisaUiStrings.t(en: String, af: String, zu: String):
 fun TrainingSecondaryButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    minHeight: androidx.compose.ui.unit.Dp = 52.dp,
+    contentDescription: String = text
 ) {
+    val heightModifier = when {
+        minHeight.value <= 48f -> Modifier.height(48.dp)
+        minHeight == 52.dp -> Modifier.height(52.dp)
+        else -> Modifier.height(minHeight)
+    }
     OutlinedButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .then(heightModifier)
+            .semantics { this.contentDescription = contentDescription },
         shape = RoundedCornerShape(26.dp),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
         border = BorderStroke(1.dp, LisaBlue)

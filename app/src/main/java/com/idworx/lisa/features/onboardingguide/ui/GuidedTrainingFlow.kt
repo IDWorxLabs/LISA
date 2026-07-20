@@ -150,6 +150,8 @@ fun GuidedTrainingFlow(
     setupStep: Int,
     onSetupStepChange: (Int) -> Unit,
     eyeTracking: TrainingEyeTrackingState = TrainingEyeTrackingState(),
+    eyeTrackingStatus: com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState =
+        com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState(),
     blinkDiagnostics: com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics =
         com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics(),
     showBlinkDiagnostics: Boolean = false,
@@ -174,9 +176,18 @@ fun GuidedTrainingFlow(
     when (progress.currentPhase) {
         TrainingPhase.FirstLaunchChoice -> TrainingFirstLaunchChoiceScreen(
             uiStrings = uiStrings,
+            welcomeStage = state.welcomeStage,
+            onContinueToDestination = { onEvent(TrainingEvent.WelcomeContinueToDestination) },
             onStartGuidedLearning = { onEvent(TrainingEvent.BeginLearning) },
             onSkipToWorkspace = { onEvent(TrainingEvent.ConfirmSkip) },
-            onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }
+            onBackToIntroduction = { onEvent(TrainingEvent.WelcomeBackToIntroduction) },
+            onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) },
+            eyeTrackingStatus = eyeTrackingStatus,
+            selectedChoiceLabel = state.brain1Decision.choiceLabel,
+            onDecreaseSensitivity = onReduceSensitivity,
+            onIncreaseSensitivity = onIncreaseSensitivity,
+            onDecreaseResponseTime = onDecreaseResponseTime,
+            onIncreaseResponseTime = onIncreaseResponseTime
         )
 
         TrainingPhase.Welcome -> TrainingWelcomeScreen(
@@ -210,7 +221,8 @@ fun GuidedTrainingFlow(
             },
             onBack = {
                 onSetupStepChange(TrainingSessionController.SETUP_STEP_EYE_DETECTION)
-            }
+            },
+            eyeTrackingStatus = eyeTrackingStatus
         )
 
         TrainingPhase.Calibration -> TrainingCalibrationScreen(
@@ -247,7 +259,9 @@ fun GuidedTrainingFlow(
                     totalLessons = lessonProgress?.second,
                     onLessonNarration = {
                         onLessonNarration(phrase, formatWinkInstruction(lesson.left, lesson.right))
-                    }
+                    },
+                    uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus
                 )
             }
         }
@@ -282,7 +296,9 @@ fun GuidedTrainingFlow(
                     totalLessons = lessonProgress?.second,
                     onLessonNarration = {
                         onLessonNarration(phrase, formatWinkInstruction(lesson.left, lesson.right))
-                    }
+                    },
+                    uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus
                 )
             }
         }

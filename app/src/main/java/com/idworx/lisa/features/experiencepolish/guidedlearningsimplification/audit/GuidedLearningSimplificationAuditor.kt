@@ -22,9 +22,11 @@ object GuidedLearningSimplificationAuditor {
         val welcome = ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingWelcomeScreen.kt"
         ) ?: return false
+        val hasDestinationCard = welcome.contains("TrainingCard") ||
+            welcome.contains("WelcomeDestinationLayoutStyle")
         return welcome.contains("welcomeToLisa") &&
             welcome.contains("SilentWelcomeLaunchFlowMetadata.SUBTITLE") &&
-            welcome.contains("TrainingCard") &&
+            hasDestinationCard &&
             welcome.contains("startGuidedLearning") &&
             welcome.contains("skipToCommunication") &&
             !welcome.contains("LargeGestureChoiceCard")

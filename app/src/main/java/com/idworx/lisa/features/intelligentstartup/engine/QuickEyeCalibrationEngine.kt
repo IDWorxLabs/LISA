@@ -8,7 +8,8 @@ data class CalibrationFrameSample(
     val leftOpenness: Float,
     val rightOpenness: Float,
     val faceWidthNormalized: Float,
-    val timestampMs: Long
+    val timestampMs: Long,
+    val eyeSpacingProxy: Float = faceWidthNormalized * 0.35f
 )
 
 /**
@@ -19,6 +20,7 @@ class QuickEyeCalibrationEngine {
 
     private val opennessSamples = mutableListOf<Float>()
     private val distanceSamples = mutableListOf<Float>()
+    private val spacingSamples = mutableListOf<Float>()
     private val blinkClosePeaks = mutableListOf<Float>()
     private val blinkDurationsMs = mutableListOf<Long>()
     private val leftClosePeaks = mutableListOf<Float>()
@@ -36,6 +38,7 @@ class QuickEyeCalibrationEngine {
     fun reset() {
         opennessSamples.clear()
         distanceSamples.clear()
+        spacingSamples.clear()
         blinkClosePeaks.clear()
         blinkDurationsMs.clear()
         leftClosePeaks.clear()
@@ -59,6 +62,9 @@ class QuickEyeCalibrationEngine {
                 opennessSamples += open
                 if (sample.faceWidthNormalized > 0f) {
                     distanceSamples += sample.faceWidthNormalized
+                }
+                if (sample.eyeSpacingProxy > 0f) {
+                    spacingSamples += sample.eyeSpacingProxy
                 }
                 return false
             }
@@ -106,6 +112,7 @@ class QuickEyeCalibrationEngine {
         if (opennessSamples.isEmpty()) return null
         val baseline = opennessSamples.average().toFloat()
         val distance = if (distanceSamples.isEmpty()) 0.35f else distanceSamples.average().toFloat()
+        val spacing = if (spacingSamples.isEmpty()) distance * 0.35f else spacingSamples.average().toFloat()
         val openThreshold = (baseline * 0.92f).coerceIn(0.55f, 0.92f)
 
         val leftClosed = percentileOr(
@@ -142,6 +149,7 @@ class QuickEyeCalibrationEngine {
             requiredWinkFrames = frames,
             eyeOpennessBaseline = baseline,
             faceDistanceProxy = distance,
+            eyeSpacingProxy = spacing,
             confidence = confidence,
             calibratedAtMs = nowMs
         )

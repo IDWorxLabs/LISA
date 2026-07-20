@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.features.experiencepolish.patientcommunicationcoach.model.CoachUiState
+import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper
+import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.onboardingguide.coach.CaregiverProgressSnapshot
 import com.idworx.lisa.features.onboardingguide.services.AdaptiveLearningOffer
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics
@@ -95,7 +98,9 @@ fun CommunicationLessonScreen(
     coachPacingBlocked: Boolean = false,
     lessonNumber: Int? = null,
     totalLessons: Int? = null,
-    onLessonNarration: () -> Unit
+    onLessonNarration: () -> Unit,
+    uiStrings: LisaUiStrings = LisaUiStrings(com.idworx.lisa.PreferredLanguage.English),
+    eyeTrackingStatus: EyeTrackingStatusUiState? = null
 ) {
     LaunchedEffect(phrase, coachPacingBlocked) {
         if (!coachPacingBlocked && LisaSpeechPolicy.allowsNarration()) {
@@ -121,6 +126,20 @@ fun CommunicationLessonScreen(
         eyeTracking.rightBlinkCount
     }
     val panelTracking = eyeTracking.copy(leftBlinkCount = panelLeft, rightBlinkCount = panelRight)
+    val status = (eyeTrackingStatus ?: EyeTrackingStatusUiMapper.fromTraining(
+        uiStrings = uiStrings,
+        eyeTracking = panelTracking,
+        sensitivity = sensitivityLevel,
+        responseTimeSeconds = responseTimeSec,
+        leftBlinkCount = panelLeft,
+        rightBlinkCount = panelRight
+    )).copy(
+        statusText = watchingLabel,
+        leftBlinkCount = panelLeft,
+        rightBlinkCount = panelRight,
+        sensitivity = sensitivityLevel,
+        responseTimeSeconds = responseTimeSec
+    )
 
     TrainingSoftBackground {
         Column(
@@ -131,19 +150,21 @@ fun CommunicationLessonScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            EyeTrackingStatusPill(
-                label = watchingLabel,
-                active = eyeTracking.cameraActive && eyeTracking.eyesDetected,
-                modifier = Modifier.padding(bottom = 12.dp)
+            // RC7D.36 — shared compact blink counter is mandatory on every Guided Learning lesson.
+            // CompactEyeTrackingHeader renders EyeTrackingStatusPill + BlinkCounterRow + sensitivity.
+            CompactEyeTrackingHeader(
+                state = status,
+                uiStrings = uiStrings,
+                showSensitivityControls = true,
+                onDecreaseSensitivity = onDecreaseSensitivity,
+                onIncreaseSensitivity = onIncreaseSensitivity,
+                onDecreaseResponseTime = onDecreaseResponseTime,
+                onIncreaseResponseTime = onIncreaseResponseTime,
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(bottom = 8.dp)
             )
-            if (showBlinkDiagnostics) {
-                BlinkDetectionDiagnosticsPanel(
-                    diagnostics = blinkDiagnostics,
-                    modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .padding(bottom = 12.dp)
-                )
-            }
+            // Detailed left/right counters (LessonEyeStatusPanel) stay visible for lesson feedback.
             LessonEyeStatusPanel(
                 eyeTracking = panelTracking,
                 modifier = Modifier
@@ -157,17 +178,14 @@ fun CommunicationLessonScreen(
                     .fillMaxWidth(0.82f)
                     .padding(bottom = 8.dp)
             )
-            TrainingSensitivityControls(
-                sensitivityLevel = sensitivityLevel,
-                onDecrease = onDecreaseSensitivity,
-                onIncrease = onIncreaseSensitivity,
-                responseTimeSec = responseTimeSec,
-                onDecreaseResponseTime = onDecreaseResponseTime,
-                onIncreaseResponseTime = onIncreaseResponseTime,
-                modifier = Modifier
-                    .fillMaxWidth(0.82f)
-                    .padding(bottom = 20.dp)
-            )
+            if (showBlinkDiagnostics) {
+                BlinkDetectionDiagnosticsPanel(
+                    diagnostics = blinkDiagnostics,
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .padding(bottom = 12.dp)
+                )
+            }
             if (lessonInteraction.wrongEyeMessage != null) {
                 Text(
                     text = lessonInteraction.wrongEyeMessage,

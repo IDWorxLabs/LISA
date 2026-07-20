@@ -392,10 +392,13 @@ class TrainingSessionController(
     fun handleBrain1Interaction(left: Int, right: Int, blinkOrder: List<Boolean> = emptyList()): Boolean {
         if (!hasActiveBrain1Decision()) return false
 
+        // RC7D.37 — FirstLaunchChoice is stage-scoped; do not use Brain1 Option A/B here.
+        if (state.progress.currentPhase == TrainingPhase.FirstLaunchChoice) {
+            return handleWelcomeStageInteraction(left, right, blinkOrder)
+        }
+
         val current = when {
             state.brain1Decision.isActive -> state.brain1Decision
-            state.progress.currentPhase == TrainingPhase.FirstLaunchChoice ->
-                Brain1DecisionEngine.beginDecision(Brain1DecisionKind.FirstLaunchGuidedLearning)
             state.progress.currentPhase == TrainingPhase.SkipConfirm ->
                 Brain1DecisionEngine.beginAwaitingConfirm(Brain1DecisionKind.FirstLaunchSkipWorkspace)
             else -> return false
@@ -411,17 +414,16 @@ class TrainingSessionController(
                     Brain1DecisionDialogueProvider.repeatForKind(outcome.kind, outcome.label)
                 )
             Brain1DecisionOutcome.ChooseAgain -> when {
-                state.progress.currentPhase == TrainingPhase.FirstLaunchChoice -> firstLaunchChoiceNarration()
                 state.progress.currentPhase == TrainingPhase.SkipConfirm -> {
                     state = state.copy(
                         progress = state.progress.copy(currentPhase = TrainingPhase.FirstLaunchChoice),
-                        brain1Decision = Brain1DecisionEngine.beginDecision(
-                            Brain1DecisionKind.FirstLaunchGuidedLearning
-                        )
+                        welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction,
+                        brain1Decision = state.brain1Decision.clear(),
+                        leftWinkDots = 0,
+                        rightWinkDots = 0
                     )
                     store.save(state.progress)
                     onPersist(state)
-                    firstLaunchChoiceNarration()
                 }
                 // Prompt-only decisions (Emergency, Reset, Replay, Recalibration) have no alternate
                 // choice to re-ask — cancel must fully clear the decision so any armed/awaiting-confirm
@@ -437,6 +439,70 @@ class TrainingSessionController(
             Brain1DecisionOutcome.None -> Unit
         }
         return true
+    }
+
+    /**
+     * RC7D.37 — stage-scoped Welcome sequences. Consumes the command and clears partial
+     * wink dots so Continue / Back never leaks into the next stage.
+     */
+    fun handleWelcomeStageInteraction(
+        left: Int,
+        right: Int,
+        blinkOrder: List<Boolean> = emptyList()
+    ): Boolean {
+        val authority = com.idworx.lisa.features.intelligentstartup.authority.WelcomeEyeNavigationAuthority
+        val action = authority.resolve(state.welcomeStage, left, right, blinkOrder)
+        if (!authority.consumesCommand(action)) {
+            // Still consume the FirstLaunchChoice phase so unrelated sequences do not fall through.
+            return true
+        }
+        when (action) {
+            com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.ContinueToDestinationSelection ->
+                advanceWelcomeToDestinationSelection()
+            com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.BackToIntroduction ->
+                returnWelcomeToIntroduction()
+            com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.StartGuidedLearning -> {
+                clearWelcomeGestureResidue()
+                dispatch(TrainingEvent.BeginLearning)
+            }
+            com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.SkipToCommunication -> {
+                clearWelcomeGestureResidue()
+                dispatch(TrainingEvent.ConfirmSkip)
+            }
+            com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.None -> Unit
+        }
+        return true
+    }
+
+    fun advanceWelcomeToDestinationSelection() {
+        state = state.copy(
+            welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.DestinationSelection,
+            brain1Decision = state.brain1Decision.clear(),
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
+        )
+        onPersist(state)
+    }
+
+    fun returnWelcomeToIntroduction() {
+        state = state.copy(
+            welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction,
+            brain1Decision = state.brain1Decision.clear(),
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
+        )
+        onPersist(state)
+    }
+
+    private fun clearWelcomeGestureResidue() {
+        state = state.copy(
+            brain1Decision = state.brain1Decision.clear(),
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
+        )
     }
 
     private fun executeBrain1Confirmed(kind: Brain1DecisionKind) {
@@ -504,9 +570,20 @@ class TrainingSessionController(
             TrainingEvent.RepeatNarration -> narration.repeatLast()
             TrainingEvent.SkipNarration -> narration.skip()
             TrainingEvent.BeginLearning -> {
-                state = applyTrainingEvent(state, event, navigator).copy(setupStep = 0)
+                state = applyTrainingEvent(state, event, navigator).copy(
+                    setupStep = 0,
+                    welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction
+                )
                 setupStep = 0
                 GuidedLearningMemoryAdapter.onMetLisa(memory)
+            }
+            TrainingEvent.WelcomeContinueToDestination -> {
+                advanceWelcomeToDestinationSelection()
+                return
+            }
+            TrainingEvent.WelcomeBackToIntroduction -> {
+                returnWelcomeToIntroduction()
+                return
             }
             TrainingEvent.ConfirmSkip -> {
                 state = applyTrainingEvent(state, event, navigator)

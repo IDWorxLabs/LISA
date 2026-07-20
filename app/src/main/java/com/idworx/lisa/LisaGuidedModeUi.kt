@@ -880,7 +880,10 @@ internal fun GuidedNavigationActionButton(
                 indication = null,
                 onClick = onClick
             )
-            .background(if (enabled) LisaBlue.copy(alpha = 0.10f) else LisaSoftGray.copy(alpha = 0.6f))
+            .background(
+                if (enabled) LisaWorkspaceVisualStyle.NavActionEnabledBackground
+                else LisaWorkspaceVisualStyle.NavActionDisabledBackground
+            )
             .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
             .guidedTrainingDim(trainingDimmed)
             .padding(

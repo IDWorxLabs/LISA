@@ -71,7 +71,13 @@ data class GuidedTrainingUiState(
      * enough for the user to see/hear the acknowledgement, and guards against re-processing
      * further gestures during that window. General for any lesson catalog length.
      */
-    val completionPendingFeedback: Boolean = false
+    val completionPendingFeedback: Boolean = false,
+    /**
+     * RC7D.37 — two-step Welcome within [TrainingPhase.FirstLaunchChoice].
+     * Starts on blink-sequence introduction after Eye Tracking Ready.
+     */
+    val welcomeStage: com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage =
+        com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction
 ) {
     val phase: TrainingPhase get() = progress.currentPhase
     val isActive: Boolean get() = !progress.isFinished || progress.practiceModeOnly
@@ -88,6 +94,10 @@ sealed class TrainingEvent {
     data object ConfirmSkip : TrainingEvent()
     /** Caregiver/testing shortcut — jumps straight into Lesson 16 of 23 (real workspace GUIDED_TRAINING), bypassing all 15 phrase lessons. */
     data object SkipToNavigationTraining : TrainingEvent()
+    /** RC7D.37 — Welcome introduction → destination selection (L1 R1 / Continue). */
+    data object WelcomeContinueToDestination : TrainingEvent()
+    /** RC7D.37 — Destination selection → blink-sequence introduction (L2 R2 / Back). */
+    data object WelcomeBackToIntroduction : TrainingEvent()
     data object ReturnToTutorial : TrainingEvent()
     data object AdvanceSetup : TrainingEvent()
     data object CompleteSetup : TrainingEvent()

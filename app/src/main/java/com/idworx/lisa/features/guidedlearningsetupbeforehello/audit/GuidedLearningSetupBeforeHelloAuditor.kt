@@ -42,7 +42,7 @@ object GuidedLearningSetupBeforeHelloAuditor {
         val setup = readSetupScreen() ?: return false
         return setup.contains("SetupDetectionStatusRow") &&
             setup.contains("Let's get ready") &&
-            setup.contains("EyeTrackingStatusPill") &&
+            (setup.contains("EyeTrackingStatusPill") || setup.contains("ExpandedEyeTrackingStatusPanel")) &&
             setup.contains("Watching your eyes")
     }
 
@@ -57,7 +57,9 @@ object GuidedLearningSetupBeforeHelloAuditor {
 
     fun lessonHasEyeIndicator(): Boolean {
         val lessons = readLessonScreens() ?: return false
-        return lessons.contains("EyeTrackingStatusPill") &&
+        return (lessons.contains("EyeTrackingStatusPill") ||
+            lessons.contains("CompactEyeTrackingHeader") ||
+            lessons.contains("ExpandedEyeTrackingStatusPanel")) &&
             lessons.contains("eyeTracking")
     }
 

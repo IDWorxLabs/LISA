@@ -43,4 +43,19 @@ object LisaWorkspaceVisualStyle {
     val FullWidthChromeHorizontalPadding = 10.dp
     val FullWidthActionMinHeight = 52.dp
     val FullWidthActionCornerRadius = 10.dp
+
+    /**
+     * Canonical composer / guided keyboard navigation action colours (RC7D.36).
+     * Reuse these tokens — do not invent per-file white or alternate blues.
+     */
+    val NavActionEnabledBackground: Color = LisaBlue.copy(alpha = 0.18f)
+    val NavActionEnabledBorder: Color = LisaBlue.copy(alpha = 0.45f)
+    val NavActionSelectedBackground: Color = LisaBlue.copy(alpha = 0.32f)
+    val NavActionSelectedBorder: Color = LisaBlue.copy(alpha = 0.70f)
+    val NavActionDisabledBackground: Color = LisaSoftGray.copy(alpha = 0.65f)
+    val NavActionDisabledBorder: Color = LisaGray.copy(alpha = 0.35f)
+    val NavActionGridBackground: Color = LisaBlueLight.copy(alpha = 0.55f)
+    val NavActionPartialHighlight: Color = LisaBlue.copy(alpha = 0.12f)
+    val NavActionPrimaryBackground: Color = LisaBlue.copy(alpha = 0.22f)
+    val NavActionPrimaryBorder: Color = LisaBlue.copy(alpha = 0.55f)
 }

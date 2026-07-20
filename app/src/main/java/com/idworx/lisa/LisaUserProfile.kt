@@ -116,8 +116,23 @@ data class LisaUserProfile(
                     put("requiredWinkFrames", cal.requiredWinkFrames)
                     put("eyeOpennessBaseline", cal.eyeOpennessBaseline.toDouble())
                     put("faceDistanceProxy", cal.faceDistanceProxy.toDouble())
+                    put("eyeSpacingProxy", cal.eyeSpacingProxy.toDouble())
                     put("confidence", cal.confidence.toDouble())
                     put("calibratedAtMs", cal.calibratedAtMs)
+                    put(
+                        "compatibilityHistory",
+                        JSONArray().apply {
+                            cal.compatibilityHistory.forEach { record ->
+                                put(
+                                    JSONObject().apply {
+                                        put("level", record.level.name)
+                                        put("score", record.score.toDouble())
+                                        put("evaluatedAtMs", record.evaluatedAtMs)
+                                    }
+                                )
+                            }
+                        }
+                    )
                 }
             )
         }
@@ -165,8 +180,29 @@ data class LisaUserProfile(
                     requiredWinkFrames = cal.optInt("requiredWinkFrames", 2),
                     eyeOpennessBaseline = cal.optDouble("eyeOpennessBaseline", 0.8).toFloat(),
                     faceDistanceProxy = cal.optDouble("faceDistanceProxy", 0.35).toFloat(),
+                    eyeSpacingProxy = cal.optDouble("eyeSpacingProxy", 0.35).toFloat(),
                     confidence = cal.optDouble("confidence", 0.0).toFloat(),
-                    calibratedAtMs = cal.optLong("calibratedAtMs", 0L)
+                    calibratedAtMs = cal.optLong("calibratedAtMs", 0L),
+                    compatibilityHistory = cal.optJSONArray("compatibilityHistory")?.let { arr ->
+                        buildList {
+                            for (i in 0 until arr.length()) {
+                                val item = arr.optJSONObject(i) ?: continue
+                                val levelName = item.optString("level", "Low")
+                                val level = runCatching {
+                                    com.idworx.lisa.features.intelligentstartup.model.CalibrationCompatibilityLevel.valueOf(levelName)
+                                }.getOrDefault(
+                                    com.idworx.lisa.features.intelligentstartup.model.CalibrationCompatibilityLevel.Low
+                                )
+                                add(
+                                    com.idworx.lisa.features.intelligentstartup.model.CalibrationCompatibilityRecord(
+                                        level = level,
+                                        score = item.optDouble("score", 0.0).toFloat(),
+                                        evaluatedAtMs = item.optLong("evaluatedAtMs", 0L)
+                                    )
+                                )
+                            }
+                        }
+                    } ?: emptyList()
                 )
             },
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),

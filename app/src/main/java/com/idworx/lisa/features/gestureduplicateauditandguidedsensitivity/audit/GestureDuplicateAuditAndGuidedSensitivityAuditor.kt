@@ -57,16 +57,20 @@ object GestureDuplicateAuditAndGuidedSensitivityAuditor {
 
     fun setupScreenHasSensitivityControl(): Boolean {
         val setup = readSetupScreen() ?: return false
-        return setup.contains("TrainingSensitivityControls") &&
+        return (setup.contains("TrainingSensitivityControls") ||
+            setup.contains("ExpandedEyeTrackingStatusPanel") ||
+            setup.contains("CompactEyeTrackingHeader")) &&
             setup.contains("onDecreaseSensitivity") &&
             setup.contains("onIncreaseSensitivity")
     }
 
     fun lessonScreenHasSensitivityControl(): Boolean {
         val lessons = readLessonScreens() ?: return false
-        return lessons.contains("TrainingSensitivityControls") &&
+        val components = readTrainingComponents() ?: return false
+        return (lessons.contains("TrainingSensitivityControls") ||
+            lessons.contains("CompactEyeTrackingHeader")) &&
             lessons.contains("onDecreaseSensitivity") &&
-            lessons.contains("Sensitivity:")
+            (lessons.contains("Sensitivity:") || components.contains("Sensitivity:"))
     }
 
     fun sensitivityWiredToChangeSensitivity(): Boolean {
@@ -124,6 +128,10 @@ object GestureDuplicateAuditAndGuidedSensitivityAuditor {
 
     private fun readLessonScreens(): String? = ZeroTouchFileProbe.readProjectFile(
         "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingLessonScreens.kt"
+    )
+
+    private fun readTrainingComponents(): String? = ZeroTouchFileProbe.readProjectFile(
+        "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingComponents.kt"
     )
 
     private fun readGuidedMode(): String? = ZeroTouchFileProbe.readProjectFile(

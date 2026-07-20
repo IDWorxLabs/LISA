@@ -200,6 +200,8 @@ fun LisaRootUI(
     guidedTrainingSetupStep: Int = 0,
     guidedTrainingReturningUser: Boolean = false,
     trainingEyeTracking: TrainingEyeTrackingState = TrainingEyeTrackingState(),
+    eyeTrackingStatus: com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState =
+        com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState(),
     trainingBlinkDiagnostics: com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics =
         com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics(),
     showBlinkDiagnostics: Boolean = false,
@@ -229,6 +231,10 @@ fun LisaRootUI(
     intelligentStartupState: com.idworx.lisa.features.intelligentstartup.model.StartupFlowState =
         com.idworx.lisa.features.intelligentstartup.model.StartupFlowState(isActive = false),
     onIntelligentStartupCalibrationTimeout: () -> Unit = {},
+    onIntelligentStartupCreateDraftChange: (String?, String?, String?) -> Unit = { _, _, _ -> },
+    onIntelligentStartupConfirmCreatePrimary: () -> Unit = {},
+    onIntelligentStartupSelectProfileIndex: (Int) -> Unit = {},
+    onIntelligentStartupConfirmSelectedProfile: () -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
     if (intelligentStartupActive) {
@@ -243,8 +249,17 @@ fun LisaRootUI(
                 uiStrings = uiStrings,
                 cameraPermissionGranted = cameraPermissionGranted,
                 cameraView = {},
+                eyeTrackingStatus = eyeTrackingStatus,
                 onCalibrationTimeout = onIntelligentStartupCalibrationTimeout,
-                onRequestCameraPermission = onRequestCameraPermission
+                onRequestCameraPermission = onRequestCameraPermission,
+                onCreateDraftChange = onIntelligentStartupCreateDraftChange,
+                onConfirmCreatePrimaryUser = onIntelligentStartupConfirmCreatePrimary,
+                onSelectProfileIndex = onIntelligentStartupSelectProfileIndex,
+                onConfirmSelectedProfile = onIntelligentStartupConfirmSelectedProfile,
+                onDecreaseSensitivity = onSensitivityDecrease,
+                onIncreaseSensitivity = onSensitivityIncrease,
+                onDecreaseResponseTime = onResponseTimeDecrease,
+                onIncreaseResponseTime = onResponseTimeIncrease
             )
         }
         return
@@ -281,6 +296,7 @@ fun LisaRootUI(
                 setupStep = guidedTrainingSetupStep,
                 onSetupStepChange = onTrainingSetupStepChange,
                 eyeTracking = trainingEyeTracking,
+                eyeTrackingStatus = eyeTrackingStatus,
                 blinkDiagnostics = trainingBlinkDiagnostics,
                 showBlinkDiagnostics = showBlinkDiagnostics,
                 onCalibrationStarted = onTrainingCalibrationStarted,

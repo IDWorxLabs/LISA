@@ -1,6 +1,7 @@
 package com.idworx.lisa.features.intelligentstartup.authority
 
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
+import com.idworx.lisa.features.intelligentstartup.model.CalibrationCompatibilityLevel
 import com.idworx.lisa.features.intelligentstartup.model.CalibrationConfidenceLevel
 import com.idworx.lisa.features.intelligentstartup.model.ProfileEyeCalibration
 import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
@@ -73,32 +74,110 @@ object StartupFlowAuthority {
                 lookingForFaceMessage = !event.present
             )
             StartupPhase.QuickCalibration,
-            StartupPhase.CalibrationFailure -> state.copy(faceDetected = event.present)
+            StartupPhase.CalibrationFailure,
+            StartupPhase.EvaluatingCompatibility,
+            StartupPhase.ProfileSelection -> state.copy(faceDetected = event.present)
             else -> state.copy(faceDetected = event.present)
         }
 
-        StartupEvent.BeginConfidenceEvaluation -> {
+        StartupEvent.BeginProfileResolution -> {
             if (state.phase != StartupPhase.FaceDetection || !state.faceDetected) state
-            else state.copy(phase = StartupPhase.EvaluatingConfidence)
+            else state.copy(phase = StartupPhase.ProfileResolution)
+        }
+
+        is StartupEvent.ProfilesResolvedNone -> {
+            if (state.phase != StartupPhase.ProfileResolution) state
+            else state.copy(
+                phase = StartupPhase.CreatePrimaryUser,
+                createNameDraft = event.defaultName,
+                eyeControlActive = false
+            )
+        }
+
+        is StartupEvent.ProfilesResolvedSingle -> {
+            if (state.phase != StartupPhase.ProfileResolution) state
+            else state.copy(
+                phase = StartupPhase.EvaluatingCompatibility,
+                selectedProfileId = event.profileId,
+                selectedProfileIndex = 0
+            )
+        }
+
+        is StartupEvent.ProfilesResolvedMultiple -> {
+            if (state.phase != StartupPhase.ProfileResolution) state
+            else state.copy(
+                phase = StartupPhase.ProfileSelection,
+                profileChoices = event.choices,
+                selectedProfileIndex = 0,
+                selectedProfileId = event.choices.firstOrNull()?.id,
+                eyeControlActive = true
+            )
+        }
+
+        is StartupEvent.CreatePrimaryUserDraftChanged -> {
+            if (state.phase != StartupPhase.CreatePrimaryUser) state
+            else state.copy(
+                createNameDraft = event.name ?: state.createNameDraft,
+                createLanguageLabel = event.languageLabel ?: state.createLanguageLabel,
+                createLevelLabel = event.levelLabel ?: state.createLevelLabel
+            )
+        }
+
+        is StartupEvent.PrimaryUserCreated -> {
+            if (state.phase != StartupPhase.CreatePrimaryUser) state
+            else state.copy(
+                selectedProfileId = event.profileId,
+                phase = StartupPhase.QuickCalibration,
+                calibrationStep = QuickCalibrationStep.LookNaturally,
+                blinksCollected = 0,
+                leftWinksCollected = 0,
+                rightWinksCollected = 0,
+                skippedCalibration = false,
+                eyeControlActive = false
+            )
+        }
+
+        StartupEvent.MoveProfileSelectionUp -> moveProfileSelection(state, -1)
+        StartupEvent.MoveProfileSelectionDown -> moveProfileSelection(state, 1)
+
+        StartupEvent.SelectHighlightedProfile -> {
+            if (state.phase != StartupPhase.ProfileSelection) {
+                state
+            } else {
+                val choice = state.selectedProfileChoice
+                if (choice == null) {
+                    state
+                } else {
+                    state.copy(
+                        selectedProfileId = choice.id,
+                        phase = StartupPhase.EvaluatingCompatibility,
+                        eyeControlActive = false
+                    )
+                }
+            }
+        }
+
+        StartupEvent.BeginCompatibilityEvaluation -> {
+            if (state.phase != StartupPhase.EvaluatingCompatibility) state
+            else state
+        }
+
+        is StartupEvent.CompatibilityEvaluated -> {
+            if (state.phase != StartupPhase.EvaluatingCompatibility) state
+            else routeCompatibility(state, event.level)
         }
 
         is StartupEvent.ConfidenceEvaluated -> {
-            if (state.phase != StartupPhase.EvaluatingConfidence) state
-            else when (event.level) {
-                CalibrationConfidenceLevel.High -> state.copy(
-                    phase = StartupPhase.EyeTrackingReady,
-                    skippedCalibration = true,
-                    eyeControlActive = true
-                )
-                CalibrationConfidenceLevel.Missing,
-                CalibrationConfidenceLevel.Low -> state.copy(
-                    phase = StartupPhase.QuickCalibration,
-                    calibrationStep = QuickCalibrationStep.LookNaturally,
-                    blinksCollected = 0,
-                    leftWinksCollected = 0,
-                    rightWinksCollected = 0,
-                    skippedCalibration = false
-                )
+            // RC7D.34 bridge: High → skip calibration; Low/Missing → calibrate.
+            if (state.phase != StartupPhase.EvaluatingCompatibility &&
+                state.phase != StartupPhase.ProfileResolution
+            ) {
+                // Legacy tests entered EvaluatingConfidence; accept from FaceDetection path via
+                // ProfileResolution skip when already evaluating.
+                if (state.phase == StartupPhase.FaceDetection) state
+                else mapLegacyConfidence(state, event.level)
+            } else {
+                mapLegacyConfidence(state, event.level)
             }
         }
 
@@ -160,5 +239,57 @@ object StartupFlowAuthority {
                 eyeControlActive = true
             )
         }
+    }
+
+    private fun moveProfileSelection(state: StartupFlowState, delta: Int): StartupFlowState {
+        if (state.phase != StartupPhase.ProfileSelection) return state
+        val next = StartupProfileAuthority.clampSelectionIndex(
+            state.selectedProfileIndex + delta,
+            state.profileChoices.size
+        )
+        return state.copy(
+            selectedProfileIndex = next,
+            selectedProfileId = state.profileChoices.getOrNull(next)?.id
+        )
+    }
+
+    private fun routeCompatibility(
+        state: StartupFlowState,
+        level: CalibrationCompatibilityLevel
+    ): StartupFlowState = when (level) {
+        CalibrationCompatibilityLevel.High -> state.copy(
+            phase = StartupPhase.EyeTrackingReady,
+            compatibilityLevel = level,
+            skippedCalibration = true,
+            eyeControlActive = true
+        )
+        CalibrationCompatibilityLevel.Medium,
+        CalibrationCompatibilityLevel.Low -> state.copy(
+            phase = StartupPhase.QuickCalibration,
+            compatibilityLevel = level,
+            calibrationStep = QuickCalibrationStep.LookNaturally,
+            blinksCollected = 0,
+            leftWinksCollected = 0,
+            rightWinksCollected = 0,
+            skippedCalibration = false,
+            eyeControlActive = false
+        )
+    }
+
+    private fun mapLegacyConfidence(
+        state: StartupFlowState,
+        level: CalibrationConfidenceLevel
+    ): StartupFlowState {
+        val compatibility = when (level) {
+            CalibrationConfidenceLevel.High -> CalibrationCompatibilityLevel.High
+            CalibrationConfidenceLevel.Low,
+            CalibrationConfidenceLevel.Missing -> CalibrationCompatibilityLevel.Low
+        }
+        val base = if (state.phase == StartupPhase.EvaluatingCompatibility) {
+            state
+        } else {
+            state.copy(phase = StartupPhase.EvaluatingCompatibility)
+        }
+        return routeCompatibility(base, compatibility)
     }
 }

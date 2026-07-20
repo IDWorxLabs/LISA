@@ -48,6 +48,10 @@ class GuidedTrainingNavigator {
             currentLessonSuccessCount = 0
         ).let { clearPracticeFlags(it) }
 
+        // RC7D.37 — Welcome stage changes are UI-only; TrainingPhase stays FirstLaunchChoice.
+        TrainingEvent.WelcomeContinueToDestination,
+        TrainingEvent.WelcomeBackToIntroduction -> progress
+
         TrainingEvent.ReturnToTutorial -> progress.copy(
             currentPhase = TrainingPhase.Welcome,
             tutorialSkipped = false

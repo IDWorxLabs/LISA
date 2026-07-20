@@ -19,10 +19,12 @@ object LaunchScreenExactSimpleAuditor {
 
     fun launchScreenLayoutExact(): Boolean {
         val welcome = readWelcomeScreen() ?: return false
+        val hasDestinationCard = welcome.contains("TrainingCard") ||
+            welcome.contains("WelcomeDestinationLayoutStyle")
         return welcome.contains("TrainingFirstLaunchChoiceScreen") &&
             welcome.contains("welcomeToLisa") &&
             welcome.contains("SilentWelcomeLaunchFlowMetadata.SUBTITLE") &&
-            welcome.contains("TrainingCard") &&
+            hasDestinationCard &&
             welcome.contains("TrainingPrimaryButton") &&
             welcome.contains("startGuidedLearning") &&
             welcome.contains("TrainingSecondaryButton") &&

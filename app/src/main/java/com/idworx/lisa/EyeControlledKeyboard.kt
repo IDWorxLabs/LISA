@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaWhite
+import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
 
 private val KeyBackground = Color.White.copy(alpha = 0.94f)
 private val KeyHighlightFill = LisaBlue.copy(alpha = 0.58f)
@@ -605,7 +606,8 @@ private fun ComposerStatusControlButton(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .background(Color.White.copy(alpha = 0.92f))
+            .background(LisaWorkspaceVisualStyle.NavActionEnabledBackground)
+            .border(1.dp, LisaWorkspaceVisualStyle.NavActionEnabledBorder, RoundedCornerShape(8.dp))
             .padding(horizontal = 6.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {

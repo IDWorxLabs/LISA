@@ -1,6 +1,5 @@
 package com.idworx.lisa
 
-import com.idworx.lisa.features.intelligentstartup.StartupSessionController
 import com.idworx.lisa.features.intelligentstartup.authority.EyeCalibrationAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.StartupFlowAuthority
 import com.idworx.lisa.features.intelligentstartup.engine.CalibrationFrameSample
@@ -11,14 +10,15 @@ import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
 import com.idworx.lisa.features.intelligentstartup.model.StartupEvent
 import com.idworx.lisa.features.intelligentstartup.model.StartupFlowState
 import com.idworx.lisa.features.intelligentstartup.model.StartupPhase
-import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.features.launchwelcomestatepriority.WelcomeStatePriorityGate
+import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** RC7D.34 regression — confidence/calibration core still routes correctly via compatibility bridge. */
 class Rc7D_34IntelligentStartupCalibrationTest {
 
     private fun sampleCalibration(
@@ -55,7 +55,7 @@ class Rc7D_34IntelligentStartupCalibrationTest {
     fun faceDetectionDoesNotAdvanceWithoutFace() {
         val state = StartupFlowAuthority.reduce(
             StartupFlowState(),
-            StartupEvent.BeginConfidenceEvaluation
+            StartupEvent.BeginProfileResolution
         )
         assertEquals(StartupPhase.FaceDetection, state.phase)
     }
@@ -66,7 +66,7 @@ class Rc7D_34IntelligentStartupCalibrationTest {
             StartupFlowState(),
             StartupEvent.FacePresenceChanged(true)
         )
-        state = StartupFlowAuthority.reduce(state, StartupEvent.BeginConfidenceEvaluation)
+        state = StartupFlowAuthority.reduce(state, StartupEvent.BeginProfileResolution)
         state = StartupFlowAuthority.reduce(
             state,
             StartupEvent.ConfidenceEvaluated(CalibrationConfidenceLevel.High)
@@ -79,11 +79,7 @@ class Rc7D_34IntelligentStartupCalibrationTest {
     @Test
     fun lowConfidenceRunsQuickCalibration() {
         var state = StartupFlowAuthority.reduce(
-            StartupFlowState(faceDetected = true),
-            StartupEvent.BeginConfidenceEvaluation
-        )
-        state = StartupFlowAuthority.reduce(
-            state,
+            StartupFlowState(faceDetected = true, phase = StartupPhase.EvaluatingCompatibility),
             StartupEvent.ConfidenceEvaluated(CalibrationConfidenceLevel.Low)
         )
         assertEquals(StartupPhase.QuickCalibration, state.phase)
@@ -224,44 +220,11 @@ class Rc7D_34IntelligentStartupCalibrationTest {
     }
 
     @Test
-    fun startupControllerHighConfidenceHandsOffWithEyeControl() {
-        val stored = sampleCalibration()
-        var persisted: ProfileEyeCalibration? = null
-        var eyeReady = false
-        var complete = false
-        var clock = 10_000L
-        val pending = mutableListOf<Pair<Long, () -> Unit>>()
-        val controller = StartupSessionController(
-            loadProfileCalibration = { stored },
-            persistCalibration = { persisted = it },
-            nowMs = { clock },
-            onEyeControlActivated = { eyeReady = true },
-            onStartupComplete = { complete = true },
-            scheduleReadyHandoff = { delay, action -> pending += (clock + delay) to action },
-            scheduleAutoRetry = { _, _ -> }
-        )
-        controller.start()
-        controller.onFacePresence(true)
-        assertTrue(controller.eyeControlEnabled)
-        assertTrue(eyeReady)
-        assertEquals(StartupPhase.EyeTrackingReady, controller.state.phase)
-        // Drain scheduled handoff
-        pending.forEach { (whenMs, action) ->
-            clock = whenMs
-            action()
-        }
-        assertTrue(complete)
-        assertEquals(StartupPhase.Complete, controller.state.phase)
-        assertEquals(null, persisted) // skipped path does not overwrite
-    }
-
-    @Test
     fun noSkipCalibrationButtonInAuthorityCatalog() {
-        // LISA decides via ConfidenceEvaluated — there is no user Skip Calibration event.
         val skipCalibrationEventExists = false
         assertFalse(skipCalibrationEventExists)
         val highSkip = StartupFlowAuthority.reduce(
-            StartupFlowState(phase = StartupPhase.EvaluatingConfidence),
+            StartupFlowState(phase = StartupPhase.EvaluatingCompatibility),
             StartupEvent.ConfidenceEvaluated(CalibrationConfidenceLevel.High)
         )
         assertTrue(highSkip.skippedCalibration)

@@ -297,10 +297,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             refreshTrainingActiveState()
         }
         startupSession = com.idworx.lisa.features.intelligentstartup.StartupSessionController(
+            loadProfiles = { uiProfiles.toList() },
             loadProfileCalibration = { activeProfile()?.eyeCalibration },
             persistCalibration = { calibration ->
                 updateActiveProfile { it.copy(eyeCalibration = calibration) }
                 applyProfileEyeCalibration(calibration)
+            },
+            activateProfile = { profileId -> switchToProfile(profileId) },
+            createPrimaryUser = { name, languageLabel, levelLabel ->
+                createPrimaryUserFromStartup(name, languageLabel, levelLabel)
             },
             nowMs = { System.currentTimeMillis() },
             onStateChanged = { uiStartupState.value = it },
@@ -693,12 +698,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         guidedTrainingSetupStep = uiGuidedTrainingState.value.setupStep,
                         guidedTrainingReturningUser = trainingSession.isReturningUser(),
                         trainingEyeTracking = trainingEyeTrackingState(),
+                        eyeTrackingStatus = eyeTrackingStatusUiState(),
                         trainingBlinkDiagnostics = uiBlinkDiagnostics.value,
                         showBlinkDiagnostics = uiDeveloperMode.value,
                         intelligentStartupActive = startupSession.isActive,
                         intelligentStartupState = uiStartupState.value,
                         onIntelligentStartupCalibrationTimeout = {
                             startupSession.notifyCalibrationTimeoutFailure()
+                        },
+                        onIntelligentStartupCreateDraftChange = { name, language, level ->
+                            startupSession.updateCreatePrimaryDraft(name, language, level)
+                        },
+                        onIntelligentStartupConfirmCreatePrimary = {
+                            startupSession.confirmCreatePrimaryUser()
+                        },
+                        onIntelligentStartupSelectProfileIndex = { index ->
+                            startupSession.setProfileSelectionIndex(index)
+                            startupSession.onProfileSelectGesture()
+                        },
+                        onIntelligentStartupConfirmSelectedProfile = {
+                            startupSession.onProfileSelectGesture()
                         },
                         onTrainingEvent = { event -> handleTrainingEvent(event) },
                         onTrainingWelcomeNarration = { trainingSession.welcomeNarration() },
@@ -1985,13 +2004,36 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun eyeTrackingBannerContext(): EyeTrackingBannerContext {
-        val calibrationActive = trainingSession.shouldShowTraining() &&
+        val guidedCalibration = trainingSession.shouldShowTraining() &&
             uiGuidedTrainingState.value.phase == TrainingPhase.Calibration
+        val startupCalibration = startupSession.isActive &&
+            uiStartupState.value.phase ==
+            com.idworx.lisa.features.intelligentstartup.model.StartupPhase.QuickCalibration
         return EyeTrackingBannerContext(
-            calibrationActive = calibrationActive,
+            calibrationActive = guidedCalibration || startupCalibration,
             trackingLost = uiTrackingLost.value,
             faceDetected = uiFacePresent.value,
             eyesDetected = uiEyesDetected.value
+        )
+    }
+
+    private fun eyeTrackingStatusUiState(): com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState {
+        val feedback = ComposerEyeFeedback(
+            eyeTrackingBanner = eyeTrackingBannerContext(),
+            leftWinkCount = uiDiagLeftCount.value,
+            rightWinkCount = uiDiagRightCount.value,
+            sensitivityLevel = uiGuidedNavigationState.value.displaySensitivityLevel(
+                uiSensitivityLevel.value
+            ),
+            responseTimeSec = uiGuidedNavigationState.value.displayResponseTimeSec(
+                uiSequenceProcessingDelaySec.value
+            )
+        )
+        return com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper.fromComposerFeedback(
+            uiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value),
+            feedback = feedback,
+            cameraActive = uiCameraPermissionGranted.value,
+            calibrationInProgress = feedback.eyeTrackingBanner.calibrationActive
         )
     }
 
@@ -3608,6 +3650,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         Toast.makeText(this, "Created $newName", Toast.LENGTH_SHORT).show()
     }
 
+    private fun createPrimaryUserFromStartup(
+        name: String,
+        languageLabel: String,
+        levelLabel: String
+    ): String {
+        val language = PreferredLanguage.fromStored(languageLabel)
+        val level = CommunicationLevel.fromStored(levelLabel)
+        val profile = LisaUserProfile.createNew(name, activeProfile()).copy(
+            preferredLanguage = language,
+            communicationLevel = level
+        ).withCommunicationLevel(level)
+        uiProfiles.clear()
+        uiProfiles.add(profile)
+        uiActiveProfileId.value = profile.id
+        applyProfileSettings(profile, persist = true)
+        saveProfilesToStore()
+        return profile.id
+    }
+
     private fun switchToProfile(profileId: String) {
         val profile = uiProfiles.find { it.id == profileId } ?: return
         uiActiveProfileId.value = profileId
@@ -4081,6 +4142,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val capturedLeft = leftWinks
         val capturedRight = rightWinks
         val capturedOrder = currentBlinkOrder()
+
+        if (startupSession.isActive &&
+            uiStartupState.value.phase ==
+            com.idworx.lisa.features.intelligentstartup.model.StartupPhase.ProfileSelection
+        ) {
+            if (startupSession.handleProfileSelectionSequence(capturedLeft, capturedRight)) {
+                resetSequence()
+                updateReadyOrWaitingState()
+                return
+            }
+        }
 
         if (!isSequenceEligibleForSpeech(capturedLeft, capturedRight)) {
             resetSequence()
