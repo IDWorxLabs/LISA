@@ -1438,6 +1438,9 @@ private fun MenuPanel(
                                 Modifier.heightIn(max = 280.dp)
                             }
                         )
+                        // Match MainMenuNavigationControls outer padding(6.dp) so the first
+                        // destination card top edge aligns with the Move Up button top edge.
+                        .padding(top = 6.dp)
                         .onGloballyPositioned { viewportHeightPx = it.size.height }
                         .verticalScroll(menuScrollState),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1445,6 +1448,9 @@ private fun MenuPanel(
                     entries.forEach { entry ->
                         when (entry) {
                             is MainMenuListEntry.SectionHeader -> {
+                                // Skip the leading Communication header so the first destination
+                                // card (Communication Profile) shares Move Up's vertical origin.
+                                if (entry.section == MainMenuSection.Communication) return@forEach
                                 MenuSectionHeader(
                                     title = when (entry.section) {
                                         MainMenuSection.Communication -> uiStrings.menuSectionCommunication
