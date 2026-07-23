@@ -75,11 +75,12 @@ object MainMenuCatalog {
 
     fun accessibilityDescription(destination: MainMenuDestination, uiStrings: LisaUiStrings): String {
         val index = destinations.indexOf(destination) + 1
-        return uiStrings.mainMenuItemAccessibility(
+        val sequence = MainMenuDestinationShortcuts.sequenceLabelForDestination(destination)
+        return "${uiStrings.mainMenuItemAccessibility(
             title(destination, uiStrings),
             index,
             destinationCount
-        )
+        )}, $sequence"
     }
 
     /** Render order: section header then its destinations (headers are not selectable). */
@@ -94,6 +95,73 @@ object MainMenuCatalog {
             }
         }
         return out
+    }
+}
+
+/**
+ * Direct blink shortcuts for Main Menu destinations — same architecture as
+ * [GuidedCategoryShortcuts] in the Communication Category Menu.
+ *
+ * Displayed labels and processed gestures always come from this authority.
+ * Settings uses the canonical L5 R5 entry sequence (same as Adjust Settings).
+ */
+object MainMenuDestinationShortcuts {
+    val SHORTCUT_COUNT: Int get() = MainMenuCatalog.destinationCount
+
+    fun indexOf(destination: MainMenuDestination): Int =
+        MainMenuCatalog.destinations.indexOf(destination)
+
+    fun gestureForDestination(destination: MainMenuDestination): Pair<Int, Int> =
+        gestureForIndex(indexOf(destination))
+
+    fun gestureForIndex(destinationIndex: Int): Pair<Int, Int> {
+        val index = destinationIndex.coerceIn(0, SHORTCUT_COUNT - 1)
+        if (MainMenuCatalog.destinations[index] == MainMenuDestination.Settings) {
+            return GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+        }
+        return GuidedPageSequences.slotAt(index)
+    }
+
+    fun sequenceLabelForDestination(destination: MainMenuDestination): String {
+        val (left, right) = gestureForDestination(destination)
+        return formatWinkSequenceShort(left, right)
+    }
+
+    fun sequenceLabelForIndex(destinationIndex: Int): String {
+        val (left, right) = gestureForIndex(destinationIndex)
+        return formatWinkSequenceShort(left, right)
+    }
+
+    fun destinationForGesture(left: Int, right: Int): MainMenuDestination? {
+        for (index in 0 until SHORTCUT_COUNT) {
+            val (slotLeft, slotRight) = gestureForIndex(index)
+            if (slotLeft == left && slotRight == right) {
+                return MainMenuCatalog.destinations[index]
+            }
+        }
+        return null
+    }
+
+    fun allGestures(): List<Pair<Int, Int>> =
+        (0 until SHORTCUT_COUNT).map { gestureForIndex(it) }
+
+    fun doNotConflictWithCommandNavigation(): Boolean {
+        val command = setOf(
+            GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT,
+            GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT,
+            GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT to
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+            GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT to
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
+            GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT,
+            GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT,
+            GuidedModeNavigation.OPEN_MAIN_MENU_LEFT to
+                GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT,
+            EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS
+        )
+        return allGestures().none { it in command } &&
+            allGestures().distinct().size == allGestures().size
     }
 }
 
@@ -210,6 +278,9 @@ object MainMenuController {
     /**
      * Mode-scoped gesture routing while the Menu is open. Emergency is matched upstream.
      * Open-Menu entry is unmatched here so it cannot reopen or stack the menu.
+     *
+     * Command-tier navigation (Up/Down/Page/Select/Back) is checked first; Content-tier
+     * destination shortcuts open immediately without changing selection first.
      */
     fun processSequence(
         left: Int,
@@ -220,6 +291,7 @@ object MainMenuController {
     ): MainMenuSequenceResult {
         if (!state.isOpen) return MainMenuSequenceResult.Unmatched
         val normalized = state.normalized()
+        val pageCount = CategoryViewportPaging.pageCount(viewportHeightPx, maxScrollPx)
         return when {
             GuidedModeNavigation.isOpenMainMenuSequence(left, right) ->
                 MainMenuSequenceResult.Unmatched
@@ -227,15 +299,19 @@ object MainMenuController {
                 MainMenuSequenceResult.Navigate(moveSelectionUp(normalized))
             GuidedModeNavigation.isNextSequence(left, right) ->
                 MainMenuSequenceResult.Navigate(moveSelectionDown(normalized))
-            GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) ->
+            GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) &&
+                pageCount > 1 ->
                 MainMenuSequenceResult.Navigate(previousPage(normalized, viewportHeightPx, maxScrollPx))
-            GuidedModeNavigation.isNextCategoryPageSequence(left, right) ->
+            GuidedModeNavigation.isNextCategoryPageSequence(left, right) &&
+                pageCount > 1 ->
                 MainMenuSequenceResult.Navigate(nextPage(normalized, viewportHeightPx, maxScrollPx))
             GuidedModeNavigation.isSelectSequence(left, right) ->
                 MainMenuSequenceResult.OpenDestination(normalized.selectedDestination, close(normalized))
             GuidedModeNavigation.isBackSequence(left, right) ->
                 MainMenuSequenceResult.CloseMenu(close(normalized))
-            else -> MainMenuSequenceResult.Unmatched
+            else -> MainMenuDestinationShortcuts.destinationForGesture(left, right)?.let { destination ->
+                MainMenuSequenceResult.OpenDestination(destination, close(normalized))
+            } ?: MainMenuSequenceResult.Unmatched
         }
     }
 }

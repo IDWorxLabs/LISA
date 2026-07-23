@@ -105,11 +105,11 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
     fun welcomeExplainsLAndRNotationInPlainLanguage() {
         assertTrue(
             WelcomeEyeNavigationAuthority.notationExplanationBody()
-                .contains("L means your left eye")
+                .contains("L = left eye")
         )
         assertTrue(
             WelcomeEyeNavigationAuthority.notationExplanationBody()
-                .contains("R means your right eye")
+                .contains("R = right eye")
         )
         val welcome = readFile("features/onboardingguide/ui/TrainingWelcomeScreen.kt")
         assertTrue(welcome.contains("WelcomeBlinkNotationExplanation"))

@@ -156,7 +156,14 @@ fun GuidedTrainingFlow(
         com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnostics(),
     showBlinkDiagnostics: Boolean = false,
     onCalibrationStarted: () -> Unit = {},
-    onAdvanceCalibrationDot: () -> Unit = {}
+    onAdvanceCalibrationDot: () -> Unit = {},
+    onReplayTutorial: () -> Unit = {},
+    onPracticeCommunication: () -> Unit = {},
+    onPracticeNavigation: () -> Unit = {},
+    onResetLearningProgress: () -> Unit = {},
+    onLearningPreferencesChange: (
+        com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
+    ) -> Unit = {}
 ) {
     val progress = state.progress
 
@@ -217,12 +224,18 @@ fun GuidedTrainingFlow(
             onRequestCameraPermission = onRequestCameraPermission,
             onAdvance = {
                 onEvent(TrainingEvent.CompleteSetup)
-                onSetupStepChange(TrainingSessionController.SETUP_STEP_EYE_DETECTION)
             },
             onBack = {
                 onSetupStepChange(TrainingSessionController.SETUP_STEP_EYE_DETECTION)
             },
-            eyeTrackingStatus = eyeTrackingStatus
+            eyeTrackingStatus = eyeTrackingStatus,
+            learningPreferences = progress.preferences,
+            learningProgress = progress,
+            onReplayTutorial = onReplayTutorial,
+            onPracticeCommunication = onPracticeCommunication,
+            onPracticeNavigation = onPracticeNavigation,
+            onResetProgress = onResetLearningProgress,
+            onLearningPreferencesChange = onLearningPreferencesChange
         )
 
         TrainingPhase.Calibration -> TrainingCalibrationScreen(

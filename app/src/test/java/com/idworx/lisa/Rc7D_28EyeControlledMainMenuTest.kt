@@ -183,6 +183,96 @@ class Rc7D_28EyeControlledMainMenuTest {
     }
 
     @Test
+    fun everyDestinationDisplaysAndOpensViaUniqueBlinkSequence() {
+        assertTrue(MainMenuDestinationShortcuts.doNotConflictWithCommandNavigation())
+        assertEquals(8, MainMenuDestinationShortcuts.SHORTCUT_COUNT)
+        MainMenuCatalog.destinations.forEach { destination ->
+            val (left, right) = MainMenuDestinationShortcuts.gestureForDestination(destination)
+            assertEquals(
+                destination,
+                MainMenuDestinationShortcuts.destinationForGesture(left, right)
+            )
+            assertEquals(
+                formatWinkSequenceShort(left, right),
+                MainMenuDestinationShortcuts.sequenceLabelForDestination(destination)
+            )
+            val result = process(left, right, openMenu())
+            assertTrue("$destination should open via $left/$right", result is MainMenuSequenceResult.OpenDestination)
+            val open = result as MainMenuSequenceResult.OpenDestination
+            assertEquals(destination, open.destination)
+            assertEquals(destination.panel, open.destination.panel)
+            assertFalse(open.newState.isOpen)
+        }
+    }
+
+    @Test
+    fun settingsUsesCanonicalL5R5ShortcutMatchingCategoryMenu() {
+        assertEquals(
+            GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
+            MainMenuDestinationShortcuts.gestureForDestination(MainMenuDestination.Settings)
+        )
+        assertEquals(
+            GuidedCategoryShortcuts.gestureForCategory(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX),
+            MainMenuDestinationShortcuts.gestureForDestination(MainMenuDestination.Settings)
+        )
+    }
+
+    @Test
+    fun directShortcutDoesNotRequirePriorSelection() {
+        // Highlight Phrase Management, then open Settings directly via L5 R5.
+        val highlighted = navigate(
+            process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, openMenu())
+        )
+        assertEquals(MainMenuDestination.PhraseManagement, highlighted.selectedDestination)
+        val (left, right) = MainMenuDestinationShortcuts.gestureForDestination(MainMenuDestination.Settings)
+        val result = process(left, right, highlighted)
+        assertTrue(result is MainMenuSequenceResult.OpenDestination)
+        assertEquals(
+            MainMenuDestination.Settings,
+            (result as MainMenuSequenceResult.OpenDestination).destination
+        )
+    }
+
+    @Test
+    fun moveUpDownAndSelectRemainAvailableAlongsideShortcuts() {
+        val menu = openMenu()
+        assertEquals(
+            MainMenuDestination.CommunicationProfile,
+            navigate(process(2, 0, menu)).selectedDestination
+        )
+        val down = navigate(process(0, 2, menu))
+        assertEquals(MainMenuDestination.PhraseManagement, down.selectedDestination)
+        val opened = process(1, 1, down)
+        assertTrue(opened is MainMenuSequenceResult.OpenDestination)
+        assertEquals(
+            MainMenuDestination.PhraseManagement,
+            (opened as MainMenuSequenceResult.OpenDestination).destination
+        )
+    }
+
+    @Test
+    fun pageSequencesUnmatchedWhenMenuFitsOneViewport() {
+        val menu = openMenu()
+        assertEquals(
+            MainMenuSequenceResult.Unmatched,
+            process(0, 4, menu, viewportHeightPx = 800, maxScrollPx = 0)
+        )
+        assertEquals(
+            MainMenuSequenceResult.Unmatched,
+            process(4, 0, menu, viewportHeightPx = 800, maxScrollPx = 0)
+        )
+    }
+
+    @Test
+    fun mainMenuContentBindingsIncludeDestinationShortcuts() {
+        val content = ModeScopedGestureAuthority.mainMenuBindings()
+            .filter { it.tier == ModeGestureTier.Content }
+        assertEquals(MainMenuDestinationShortcuts.SHORTCUT_COUNT, content.size)
+        assertTrue(ModeScopedGestureAuthorityAudit.passes())
+    }
+
+    @Test
     fun touchAndBlinkShareDestinationPanelMapping() {
         assertEquals(LisaPanel.Settings, MainMenuDestination.Settings.panel)
         assertEquals(

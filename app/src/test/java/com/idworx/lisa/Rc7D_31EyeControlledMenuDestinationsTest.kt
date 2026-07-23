@@ -143,7 +143,8 @@ class Rc7D_31EyeControlledMenuDestinationsTest {
     @Test
     fun readOnlyCapabilitiesHideIrrelevantSelectAndHorizontalCommands() {
         val commands = MenuDestinationNavigationController.visibleCommands(
-            MenuDestinationNavigationCapabilities.ReadOnly
+            capabilities = MenuDestinationNavigationCapabilities.ReadOnly,
+            viewportPageCount = 2
         )
         assertTrue(MenuDestinationPanelCommand.PreviousPage in commands)
         assertTrue(MenuDestinationPanelCommand.NextPage in commands)
@@ -152,6 +153,16 @@ class Rc7D_31EyeControlledMenuDestinationsTest {
         assertFalse(MenuDestinationPanelCommand.Select in commands)
         assertFalse(MenuDestinationPanelCommand.MoveLeft in commands)
         assertFalse(MenuDestinationPanelCommand.MoveRight in commands)
+    }
+
+    @Test
+    fun pageCommandsHiddenWhenContentFitsOneViewport() {
+        val commands = MenuDestinationNavigationController.visibleCommands(
+            capabilities = MenuDestinationNavigationCapabilities.Interactive,
+            viewportPageCount = 1
+        )
+        assertFalse(MenuDestinationPanelCommand.PreviousPage in commands)
+        assertFalse(MenuDestinationPanelCommand.NextPage in commands)
     }
 
     @Test

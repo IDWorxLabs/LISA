@@ -47,12 +47,12 @@ class Rc7D_37TwoStepWelcomeNavigationTest {
 
     @Test
     fun explanationStatesLMeansLeftEye() {
-        assertTrue(WelcomeEyeNavigationAuthority.notationExplanationBody().contains("L means your left eye"))
+        assertTrue(WelcomeEyeNavigationAuthority.notationExplanationBody().contains("L = left eye"))
     }
 
     @Test
     fun explanationStatesRMeansRightEye() {
-        assertTrue(WelcomeEyeNavigationAuthority.notationExplanationBody().contains("R means your right eye"))
+        assertTrue(WelcomeEyeNavigationAuthority.notationExplanationBody().contains("R = right eye"))
     }
 
     @Test
@@ -69,9 +69,9 @@ class Rc7D_37TwoStepWelcomeNavigationTest {
         val right = WelcomeEyeNavigationAuthority.notationCompleteRightExample()
         assertTrue(left.contains("L2 R0"))
         assertTrue(left.contains("left eye twice"))
-        assertTrue(left.contains("do not blink your right eye"))
+        assertFalse(left.contains("do not blink"))
         assertTrue(right.contains("L0 R2"))
-        assertTrue(right.contains("do not blink your left eye"))
+        assertFalse(right.contains("do not blink"))
         assertTrue(right.contains("right eye twice"))
     }
 
@@ -94,9 +94,14 @@ class Rc7D_37TwoStepWelcomeNavigationTest {
 
     @Test
     fun continueActionExplainsBlinkOnceWithEachEye() {
-        assertEquals("Blink once with each eye", WelcomeEyeNavigationAuthority.continueInstruction())
+        // RC7D Welcome simplification — duplicate instruction under Continue removed.
+        assertEquals("", WelcomeEyeNavigationAuthority.continueInstruction())
         val welcome = readWelcome()
-        assertTrue(welcome.contains("continueInstruction"))
+        assertFalse(welcome.contains("Blink once with each eye"))
+        val intro = welcome.substringAfter("fun WelcomeIntroductionContinueAction")
+            .substringBefore("fun WelcomeDestinationSelectionScreen")
+        assertFalse(intro.contains("continueInstruction()"))
+        assertTrue(intro.contains("continueSequenceLabel"))
     }
 
     @Test

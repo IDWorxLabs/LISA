@@ -242,7 +242,22 @@ object AccessibilitySettingsValidator {
         if (settings?.contains("sensitivityLevel") == true) passed++ else issues.add(issue("SET_004", "Sensitivity setting missing"))
 
         val ui = AccessibilityFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        if (ui?.contains("TrainingSettingsSection") == true) passed++ else issues.add(issue("SET_005", "Learning preferences not integrated in settings", AccessibilitySeverity.Warning))
+        val setup = AccessibilityFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingSetupScreen.kt"
+        )
+        if (setup?.contains("TrainingSettingsSection") == true ||
+            ui?.contains("TrainingSettingsSection") == true
+        ) {
+            passed++
+        } else {
+            issues.add(
+                issue(
+                    "SET_005",
+                    "Learning preferences not integrated in Guided Learning setup",
+                    AccessibilitySeverity.Warning
+                )
+            )
+        }
 
         return ValidatorResult(
             validatorName = "AccessibilitySettingsValidator",

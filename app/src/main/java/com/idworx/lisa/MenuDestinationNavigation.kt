@@ -26,6 +26,7 @@ sealed interface MenuDestinationScreenMode {
             LisaPanel.VoiceMyVoice,
             LisaPanel.VoiceFamily -> Voice
             LisaPanel.Settings,
+            LisaPanel.Recalibration,
             LisaPanel.DeveloperTools,
             LisaPanel.TestingChecklist -> Settings
             LisaPanel.AboutLisa -> AboutLisa
@@ -284,21 +285,25 @@ object MenuDestinationNavigationController {
                 )
             MenuDestinationScreenMode.PhraseManagement ->
                 MenuDestinationNavigationCapabilities.Interactive
-            MenuDestinationScreenMode.Voice,
-            MenuDestinationScreenMode.Settings ->
+            MenuDestinationScreenMode.Voice ->
                 MenuDestinationNavigationCapabilities.Interactive.copy(
                     supportsHorizontalMovement = true
                 )
+            // Primary Settings fits on one page after simplification — no Previous/Next Page.
+            MenuDestinationScreenMode.Settings ->
+                PrimarySettingsNavigationAuthority.capabilities()
         }
 
     fun visibleCommands(
-        capabilities: MenuDestinationNavigationCapabilities
+        capabilities: MenuDestinationNavigationCapabilities,
+        viewportPageCount: Int = 1
     ): List<MenuDestinationPanelCommand> = buildList {
         if (capabilities.supportsItemMovement) {
             add(MenuDestinationPanelCommand.MoveUp)
             add(MenuDestinationPanelCommand.MoveDown)
         }
-        if (capabilities.supportsPageMovement) {
+        // Only advertise paging when content actually spans multiple viewport pages.
+        if (capabilities.supportsPageMovement && viewportPageCount > 1) {
             add(MenuDestinationPanelCommand.PreviousPage)
             add(MenuDestinationPanelCommand.NextPage)
         }
@@ -569,34 +574,55 @@ object MenuDestinationNavigationController {
         maxScrollPx: Int = 0
     ): MenuDestinationSequenceResult {
         if (!state.isActive) return MenuDestinationSequenceResult.Unmatched
+        val current = updateActions(state, actions)
+        val focusable = focusableActions(actions)
+        val pageCount = CategoryViewportPaging.pageCount(viewportHeightPx, maxScrollPx)
+        val canPreviousPage = CategoryViewportPaging.canGoToPreviousPage(current.viewportPage)
+        val canNextPage = CategoryViewportPaging.canGoToNextPage(current.viewportPage, pageCount)
+        val selected = focusable.getOrNull(current.selectedIndex)
         return when {
             GuidedModeNavigation.isPreviousSequence(left, right) &&
-                capabilities.supportsItemMovement ->
-                MenuDestinationSequenceResult.Navigate(move(state, actions, -1))
+                capabilities.supportsItemMovement -> {
+                if (current.selectedIndex <= 0) {
+                    MenuDestinationSequenceResult.Unmatched
+                } else {
+                    MenuDestinationSequenceResult.Navigate(move(state, actions, -1))
+                }
+            }
             GuidedModeNavigation.isNextSequence(left, right) &&
-                capabilities.supportsItemMovement ->
-                MenuDestinationSequenceResult.Navigate(move(state, actions, 1))
+                capabilities.supportsItemMovement -> {
+                if (current.selectedIndex >= focusable.lastIndex) {
+                    MenuDestinationSequenceResult.Unmatched
+                } else {
+                    MenuDestinationSequenceResult.Navigate(move(state, actions, 1))
+                }
+            }
             GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) &&
-                capabilities.supportsPageMovement ->
+                capabilities.supportsPageMovement &&
+                pageCount > 1 &&
+                canPreviousPage ->
                 MenuDestinationSequenceResult.Navigate(
                     previousPage(state, viewportHeightPx, maxScrollPx)
                 )
             GuidedModeNavigation.isNextCategoryPageSequence(left, right) &&
-                capabilities.supportsPageMovement ->
+                capabilities.supportsPageMovement &&
+                pageCount > 1 &&
+                canNextPage ->
                 MenuDestinationSequenceResult.Navigate(
                     nextPage(state, viewportHeightPx, maxScrollPx)
                 )
-            left == 2 && right == 1 && capabilities.supportsHorizontalMovement ->
+            left == 2 && right == 1 &&
+                capabilities.supportsHorizontalMovement &&
+                selected?.actionType == MenuDestinationActionType.Choice ->
                 MenuDestinationSequenceResult.MoveHorizontal(-1, state)
-            left == 1 && right == 2 && capabilities.supportsHorizontalMovement ->
+            left == 1 && right == 2 &&
+                capabilities.supportsHorizontalMovement &&
+                selected?.actionType == MenuDestinationActionType.Choice ->
                 MenuDestinationSequenceResult.MoveHorizontal(1, state)
             GuidedModeNavigation.isSelectSequence(left, right) &&
                 capabilities.supportsSelection -> {
-                val action = focusableActions(actions).getOrNull(
-                    updateActions(state, actions).selectedIndex
-                )
-                if (action?.actionType?.canActivate == true) {
-                    MenuDestinationSequenceResult.Activate(action.id, state)
+                if (selected?.actionType?.canActivate == true) {
+                    MenuDestinationSequenceResult.Activate(selected.id, state)
                 } else {
                     MenuDestinationSequenceResult.Unmatched
                 }
@@ -604,6 +630,30 @@ object MenuDestinationNavigationController {
             GuidedModeNavigation.isBackSequence(left, right) ->
                 MenuDestinationSequenceResult.Back(cancelCurrentStage(state))
             else -> MenuDestinationSequenceResult.Unmatched
+        }
+    }
+
+    fun commandIsEnabled(
+        command: MenuDestinationPanelCommand,
+        state: MenuDestinationNavigationState,
+        actions: List<MenuDestinationAction>,
+        canPreviousPage: Boolean,
+        canNextPage: Boolean,
+        keyboardEditing: Boolean = false
+    ): Boolean {
+        val focusableCount = focusableActions(actions).size
+        val selected = actions.firstOrNull { it.id == state.selectedActionId }
+        return when (command) {
+            MenuDestinationPanelCommand.MoveUp ->
+                keyboardEditing || state.selectedIndex > 0
+            MenuDestinationPanelCommand.MoveDown ->
+                keyboardEditing || state.selectedIndex < focusableCount - 1
+            MenuDestinationPanelCommand.PreviousPage -> canPreviousPage
+            MenuDestinationPanelCommand.NextPage -> canNextPage
+            MenuDestinationPanelCommand.MoveLeft,
+            MenuDestinationPanelCommand.MoveRight ->
+                keyboardEditing || selected?.actionType == MenuDestinationActionType.Choice
+            else -> true
         }
     }
 
@@ -620,6 +670,7 @@ object MenuDestinationProductionUiAuthority {
         LisaPanel.VoiceMyVoice,
         LisaPanel.VoiceFamily,
         LisaPanel.Settings,
+        LisaPanel.Recalibration,
         LisaPanel.DeveloperTools,
         LisaPanel.AboutLisa,
         LisaPanel.PrivacyPolicy,
@@ -638,6 +689,7 @@ object MenuDestinationProductionUiAuthority {
         LisaPanel.VoiceMyVoice,
         LisaPanel.VoiceFamily -> MainMenuDestination.Voice
         LisaPanel.Settings,
+        LisaPanel.Recalibration,
         LisaPanel.DeveloperTools,
         LisaPanel.TestingChecklist -> MainMenuDestination.Settings
         LisaPanel.AboutLisa -> MainMenuDestination.AboutLisa

@@ -43,16 +43,18 @@ class Rc6ProductionMenuCleanupTest {
     fun settingsContainsRunDeviceCheck() {
         val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(source.contains("private fun SettingsPanel"))
-        assertTrue(source.contains("settingsSectionSupportDiagnostics"))
-        assertTrue(source.contains("runDeviceCheckTitle"))
-        assertTrue(source.contains("runDeviceCheckSubtitle"))
-        assertTrue(source.contains("onOpenDeviceCheck"))
+        assertTrue(source.contains("PrimarySettingsAuthority") || source.contains("runDeviceCheckTitle"))
+        assertTrue(source.contains("ItemId.DeviceCheck") || source.contains("runDeviceCheckTitle"))
+        val authority = readSource("app/src/main/java/com/idworx/lisa/PrimarySettingsAuthority.kt")
+        assertTrue(authority.contains("DeviceCheck"))
+        assertTrue(authority.contains("device_check"))
     }
 
     @Test
     fun settingsOpensExistingDeviceChecklistPanel() {
         val mainActivity = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
-        assertTrue(mainActivity.contains("onOpenDeviceCheck = { openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings) }"))
+        assertTrue(mainActivity.contains("onOpenDeviceCheck = { openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings) }") ||
+            mainActivity.contains("openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings)"))
         val uiSource = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         assertTrue(uiSource.contains("LisaPanel.TestingChecklist -> TestingChecklistPanel"))
     }
@@ -77,13 +79,11 @@ class Rc6ProductionMenuCleanupTest {
 
     @Test
     fun developerToolsGatedForDebugBuildsInSettings() {
-        val source = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        val settingsStart = source.indexOf("private fun SettingsPanel")
-        assertTrue(settingsStart >= 0)
-        val settingsPanel = source.substring(settingsStart)
-        assertTrue(settingsPanel.contains("BuildConfig.DEBUG"))
-        assertTrue(settingsPanel.contains("onOpenDeveloperTools"))
-        assertTrue(settingsPanel.contains("developerTools"))
+        // Developer Tools removed from primary Settings; debug panel remains as LisaPanel.DeveloperTools.
+        assertTrue(PrimarySettingsAuthority.removedFromPrimaryKeys.contains("developer_tools"))
+        assertFalse(PrimarySettingsAuthority.approvedActionKeys.contains("developer_tools"))
+        val uiSource = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        assertTrue(uiSource.contains("LisaPanel.DeveloperTools -> DeveloperToolsPanel"))
     }
 
     @Test

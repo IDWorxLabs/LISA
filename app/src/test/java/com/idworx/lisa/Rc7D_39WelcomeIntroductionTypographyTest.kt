@@ -89,10 +89,10 @@ class Rc7D_39WelcomeIntroductionTypographyTest {
     }
 
     @Test
-    fun blinkOnceWithEachEyeIsLarger() {
-        assertEquals(16f, style.WelcomeContinueInstructionTextStyle.fontSize.value)
-        assertEquals(FontWeight.Medium, style.WelcomeContinueInstructionTextStyle.fontWeight)
-        assertTrue(introBlock().contains("WelcomeContinueInstructionTextStyle"))
+    fun blinkOnceWithEachEyeIsRemovedFromWelcome() {
+        assertEquals("", WelcomeEyeNavigationAuthority.continueInstruction())
+        assertFalse(introBlock().contains("WelcomeContinueInstructionTextStyle"))
+        assertFalse(introBlock().contains("Blink once with each eye"))
     }
 
     @Test
@@ -171,19 +171,23 @@ class Rc7D_39WelcomeIntroductionTypographyTest {
     @Test
     fun approvedWordingRemainsUnchanged() {
         val body = WelcomeEyeNavigationAuthority.notationExplanationBody()
-        assertTrue(body.contains("L means your left eye"))
-        assertTrue(body.contains("R means your right eye"))
+        assertTrue(body.contains("L = left eye"))
+        assertTrue(body.contains("R = right eye"))
         assertTrue(body.contains("The number tells you how many times to blink"))
         assertTrue(
-            WelcomeEyeNavigationAuthority.notationCompleteLeftExample()
-                .contains("do not blink your right eye")
+            WelcomeEyeNavigationAuthority.notationCompleteLeftExample().contains("L2 R0")
         )
         assertTrue(
-            WelcomeEyeNavigationAuthority.notationCompleteRightExample()
-                .contains("do not blink your left eye")
+            WelcomeEyeNavigationAuthority.notationCompleteRightExample().contains("L0 R2")
+        )
+        assertFalse(
+            WelcomeEyeNavigationAuthority.notationCompleteLeftExample().contains("do not blink")
+        )
+        assertFalse(
+            WelcomeEyeNavigationAuthority.notationCompleteRightExample().contains("do not blink")
         )
         assertEquals("Continue", WelcomeEyeNavigationAuthority.continueButtonLabel())
-        assertEquals("Blink once with each eye", WelcomeEyeNavigationAuthority.continueInstruction())
+        assertEquals("", WelcomeEyeNavigationAuthority.continueInstruction())
         assertEquals("L1 R1", WelcomeEyeNavigationAuthority.continueSequenceLabel())
     }
 

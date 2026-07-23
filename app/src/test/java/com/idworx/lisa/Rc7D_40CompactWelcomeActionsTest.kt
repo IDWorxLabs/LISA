@@ -82,10 +82,12 @@ class Rc7D_40CompactWelcomeActionsTest {
 
     @Test
     fun blinkOnceWithEachEyeRemainsVisibleBelowButton() {
-        assertEquals("Blink once with each eye", WelcomeEyeNavigationAuthority.continueInstruction())
+        // Intentionally removed — Continue + L1 R1 live inside the button only.
+        assertEquals("", WelcomeEyeNavigationAuthority.continueInstruction())
         val block = introContinueBlock()
-        assertTrue(block.contains("continueInstruction"))
-        assertTrue(block.indexOf("TrainingPrimaryButton") < block.indexOf("continueInstruction"))
+        assertFalse(block.contains("Blink once with each eye"))
+        assertFalse(block.contains("continueInstruction()"))
+        assertTrue(block.contains("continueSequenceLabel"))
     }
 
     @Test
@@ -94,7 +96,7 @@ class Rc7D_40CompactWelcomeActionsTest {
         assertEquals(1, Regex("TrainingPrimaryButton\\(").findAll(block).count())
         assertTrue(block.contains("continueContentDescription"))
         assertEquals(
-            "Continue, blink once with each eye, L1 R1",
+            "Continue, L1 R1",
             WelcomeEyeNavigationAuthority.continueContentDescription()
         )
         assertFalse(block.contains("nested") && block.contains("clickable"))

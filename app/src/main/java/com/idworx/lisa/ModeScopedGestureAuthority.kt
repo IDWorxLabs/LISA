@@ -37,7 +37,9 @@ enum class GestureRoutingTarget {
     MainMenu,
     GuidedOverlay,
     SystemCommand,
-    CommunicationPhrasePath
+    CommunicationPhrasePath,
+    /** Active non-Communication scope claimed the input; do not fall through. */
+    ScopeUnmatched
 }
 
 enum class GlobalGestureId {
@@ -184,6 +186,8 @@ object ModeScopedGestureAuthority {
                 if (GuidedModeNavigation.isBackSequence(left, right)) {
                     return GestureRoutingTarget.SettingsPanelBack
                 }
+                // Consume: never fall through to GuidedOverlay / Communication phrases.
+                return GestureRoutingTarget.ScopeUnmatched
             }
 
             LisaInteractionMode.CommunicationVocabulary,
@@ -202,6 +206,26 @@ object ModeScopedGestureAuthority {
         }
         return GestureRoutingTarget.CommunicationPhrasePath
     }
+
+    /**
+     * True only when Communication vocabulary / Category Menu / adjustment owns ordinary
+     * phrase-preview and phrase-path feedback. Main Menu, destinations, composer, and other
+     * layered surfaces must not inherit Communication phrase matching.
+     */
+    fun communicationPhraseFeedbackActive(context: LisaGestureContext): Boolean =
+        when (activeMode(context)) {
+            LisaInteractionMode.CommunicationVocabulary,
+            LisaInteractionMode.CommunicationCategoryMenu,
+            LisaInteractionMode.CommunicationAdjustment -> true
+            else -> false
+        }
+
+    /**
+     * Any panel layered over the Communication workspace suspends phrase selection,
+     * phrase preview, and WAITING Communication feedback until the panel closes.
+     */
+    fun suspendsCommunicationPhraseProcessing(panel: LisaPanel): Boolean =
+        panel != LisaPanel.None
 
     /** Bindings owned by Communication vocabulary mode (visible phrase slots). */
     fun communicationVocabularyBindings(): List<ModeGestureBinding> =
@@ -392,51 +416,74 @@ object ModeScopedGestureAuthority {
         }
     }
 
-    /** RC7D.28 — Main Menu owns Move Up/Down, page jumps, Select, Back (Emergency is global). */
-    fun mainMenuBindings(): List<ModeGestureBinding> = listOf(
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.PREVIOUS_LEFT,
-            right = GuidedModeNavigation.PREVIOUS_RIGHT,
-            label = "move_up",
-            tier = ModeGestureTier.Command
-        ),
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.NEXT_LEFT,
-            right = GuidedModeNavigation.NEXT_RIGHT,
-            label = "move_down",
-            tier = ModeGestureTier.Command
-        ),
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
-            right = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
-            label = "previous_page",
-            tier = ModeGestureTier.Command
-        ),
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
-            right = GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
-            label = "next_page",
-            tier = ModeGestureTier.Command
-        ),
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.SELECT_LEFT,
-            right = GuidedModeNavigation.SELECT_RIGHT,
-            label = "open_selected",
-            tier = ModeGestureTier.Command
-        ),
-        ModeGestureBinding(
-            mode = LisaInteractionMode.MainMenu,
-            left = GuidedModeNavigation.BACK_LEFT,
-            right = GuidedModeNavigation.BACK_RIGHT,
-            label = "close_menu",
-            tier = ModeGestureTier.Command
+    /** RC7D.28 — Main Menu owns Move Up/Down, page jumps, Select, Back + destination shortcuts. */
+    fun mainMenuBindings(): List<ModeGestureBinding> = buildList {
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.PREVIOUS_LEFT,
+                right = GuidedModeNavigation.PREVIOUS_RIGHT,
+                label = "move_up",
+                tier = ModeGestureTier.Command
+            )
         )
-    )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.NEXT_LEFT,
+                right = GuidedModeNavigation.NEXT_RIGHT,
+                label = "move_down",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                right = GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT,
+                label = "previous_page",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                right = GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT,
+                label = "next_page",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.SELECT_LEFT,
+                right = GuidedModeNavigation.SELECT_RIGHT,
+                label = "open_selected",
+                tier = ModeGestureTier.Command
+            )
+        )
+        add(
+            ModeGestureBinding(
+                mode = LisaInteractionMode.MainMenu,
+                left = GuidedModeNavigation.BACK_LEFT,
+                right = GuidedModeNavigation.BACK_RIGHT,
+                label = "close_menu",
+                tier = ModeGestureTier.Command
+            )
+        )
+        MainMenuDestinationShortcuts.allGestures().forEachIndexed { index, (left, right) ->
+            add(
+                ModeGestureBinding(
+                    mode = LisaInteractionMode.MainMenu,
+                    left = left,
+                    right = right,
+                    label = "destination_shortcut_$index",
+                    tier = ModeGestureTier.Content
+                )
+            )
+        }
+    }
 
     /** RC7D.31 — shared namespace for all Main Menu destination screens. */
     fun mainMenuDestinationBindings(): List<ModeGestureBinding> = listOf(

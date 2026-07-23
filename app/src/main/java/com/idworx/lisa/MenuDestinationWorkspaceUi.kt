@@ -216,7 +216,10 @@ private fun MenuDestinationNavigationPanel(
             MenuDestinationPanelCommand.Emergency
         )
     } else {
-        MenuDestinationNavigationController.visibleCommands(binding.capabilities)
+        MenuDestinationNavigationController.visibleCommands(
+            capabilities = binding.capabilities,
+            viewportPageCount = binding.state.viewportPageCount
+        )
     }
     Column(
         modifier = Modifier
@@ -228,16 +231,14 @@ private fun MenuDestinationNavigationPanel(
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         commands.forEach { command ->
-            val enabled = when (command) {
-                MenuDestinationPanelCommand.MoveUp ->
-                    keyboardEditing || binding.state.selectedIndex > 0
-                MenuDestinationPanelCommand.MoveDown ->
-                    keyboardEditing || binding.state.selectedIndex <
-                        binding.actions.count { it.canReceiveFocus } - 1
-                MenuDestinationPanelCommand.PreviousPage -> canPreviousPage
-                MenuDestinationPanelCommand.NextPage -> canNextPage
-                else -> true
-            }
+            val enabled = MenuDestinationNavigationController.commandIsEnabled(
+                command = command,
+                state = binding.state,
+                actions = binding.actions,
+                canPreviousPage = canPreviousPage,
+                canNextPage = canNextPage,
+                keyboardEditing = keyboardEditing
+            )
             val (symbol, title, hint, sequence) = commandPresentation(
                 command,
                 uiStrings,
@@ -261,11 +262,8 @@ private fun MenuDestinationNavigationPanel(
                     enabled = enabled,
                     compact = true,
                     onClick = {
-                        if (command == MenuDestinationPanelCommand.Select && textStage == null) {
-                            binding.state.selectedActionId?.let(binding.onActivate)
-                        } else {
-                            binding.onCommand(command)
-                        }
+                        // Touch and blink share handleMenuDestinationCommand / processSequence.
+                        binding.onCommand(command)
                     }
                 )
             }

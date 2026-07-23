@@ -148,7 +148,6 @@ object WelcomeIntroductionLayoutStyle {
             WelcomeExplanationBodyTextStyle.fontSize.value >= 16f &&
             WelcomeSequenceExampleTextStyle.fontSize.value >= 17f &&
             WelcomeContinueTextStyle.fontSize.value >= 18f &&
-            WelcomeContinueInstructionTextStyle.fontSize.value >= 16f &&
             WelcomeContinueSequenceTextStyle.fontSize.value >= 18f
 }
 
@@ -201,7 +200,6 @@ object WelcomeIntroductionLayoutAuthority {
             source.contains("WelcomeExplanationTitleTextStyle") &&
             source.contains("WelcomeSequenceExampleTextStyle") &&
             source.contains("WelcomeContinueTextStyle") &&
-            source.contains("WelcomeContinueInstructionTextStyle") &&
             source.contains("WelcomeContinueSequenceTextStyle")
     }
 

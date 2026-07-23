@@ -39,7 +39,17 @@ fun TrainingSetupScreen(
     onRequestCameraPermission: () -> Unit,
     onAdvance: () -> Unit,
     onBack: () -> Unit,
-    eyeTrackingStatus: EyeTrackingStatusUiState? = null
+    eyeTrackingStatus: EyeTrackingStatusUiState? = null,
+    learningPreferences: com.idworx.lisa.features.onboardingguide.model.TrainingPreferences =
+        com.idworx.lisa.features.onboardingguide.model.TrainingPreferences(),
+    learningProgress: com.idworx.lisa.features.onboardingguide.model.TrainingProgress? = null,
+    onReplayTutorial: () -> Unit = {},
+    onPracticeCommunication: () -> Unit = {},
+    onPracticeNavigation: () -> Unit = {},
+    onResetProgress: () -> Unit = {},
+    onLearningPreferencesChange: (
+        com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
+    ) -> Unit = {}
 ) {
     val watchingLabel = when {
         !eyeTracking.cameraActive -> uiStrings.t("Waiting for camera", "Wag vir kamera", "Ilinde ikhamera")
@@ -167,6 +177,18 @@ fun TrainingSetupScreen(
                         ),
                         onClick = onAdvance,
                         enabled = eyesReady && eyeTracking.cameraActive
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    // Learning preferences live here (relocated from primary Settings).
+                    TrainingSettingsSection(
+                        uiStrings = uiStrings,
+                        preferences = learningPreferences,
+                        learningProgress = learningProgress,
+                        onReplayTutorial = onReplayTutorial,
+                        onPracticeCommunication = onPracticeCommunication,
+                        onPracticeNavigation = onPracticeNavigation,
+                        onResetProgress = onResetProgress,
+                        onPreferencesChange = onLearningPreferencesChange
                     )
                 }
             }

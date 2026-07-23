@@ -13,6 +13,7 @@ enum class LisaPanel {
     VoiceMyVoice,
     VoiceFamily,
     Settings,
+    Recalibration,
     DeveloperTools,
     AboutLisa,
     PrivacyPolicy,

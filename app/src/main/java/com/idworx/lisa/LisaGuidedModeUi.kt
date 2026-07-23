@@ -637,6 +637,34 @@ private fun GuidedOverlayHeader(
     }
 }
 
+/**
+ * Shared wink-sequence badge used on Communication Category cards and Main Menu destination cards.
+ * Displayed label must always match the authority that processes the same sequence.
+ */
+@Composable
+internal fun WinkSequenceBadge(
+    sequenceLabel: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit = 13.sp
+) {
+    Box(
+        modifier = modifier
+            .widthIn(min = 58.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) LisaBlue.copy(alpha = 0.25f) else LisaSoftGray)
+            .padding(horizontal = 8.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = sequenceLabel,
+            fontWeight = FontWeight.Bold,
+            fontSize = fontSize,
+            color = LisaBlueDark
+        )
+    }
+}
+
 @Composable
 private fun GuidedCategoryMenuRow(
     title: String,
@@ -674,21 +702,10 @@ private fun GuidedCategoryMenuRow(
             lineHeight = 22.sp,
             modifier = Modifier.weight(1f)
         )
-        Box(
-            modifier = Modifier
-                .widthIn(min = 58.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (selected) LisaBlue.copy(alpha = 0.25f) else LisaSoftGray)
-                .padding(horizontal = 8.dp, vertical = 7.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = sequenceLabel,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = LisaBlueDark
-            )
-        }
+        WinkSequenceBadge(
+            sequenceLabel = sequenceLabel,
+            selected = selected
+        )
     }
 }
 

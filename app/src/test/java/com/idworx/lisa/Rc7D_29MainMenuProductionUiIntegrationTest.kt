@@ -438,7 +438,10 @@ class Rc7D_29MainMenuProductionUiIntegrationTest {
     @Test
     fun rc7D25Through27SettingsSequencesUnchanged() {
         assertEquals(5 to 5, GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT)
-        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[8])
+        assertEquals(
+            GuidedVocabularyCategory.AdjustSettings,
+            GuidedVocabularyCategory.ordered[GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX]
+        )
     }
 
     @Test

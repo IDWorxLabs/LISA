@@ -149,12 +149,12 @@ object WelcomeDestinationLayoutAuthority {
         val block = source.substring(start, end)
         val hasSecondaryInButton = block.contains("secondaryText") &&
             block.contains("continueSequenceLabel")
-        val instructionBelow = block.contains("continueInstruction")
-        // Standalone sequence Text after instruction must not remain.
+        // Instruction under the button and detached sequence Text must not remain.
+        val instructionRemoved = !block.contains("continueInstruction")
         val detachedSequenceRemoved = !Regex(
             """continueInstruction\(\)[\s\S]*?Text\(\s*\n\s*text = WelcomeEyeNavigationAuthority\.continueSequenceLabel"""
         ).containsMatchIn(block)
-        return hasSecondaryInButton && instructionBelow && detachedSequenceRemoved
+        return hasSecondaryInButton && instructionRemoved && detachedSequenceRemoved
     }
 
     private fun destinationBlock(source: String): String? {

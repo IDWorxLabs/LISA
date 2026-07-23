@@ -90,7 +90,26 @@ class Rc7D_30MainMenuVisualConsistencyTest {
         assertTrue(row.contains("LisaWorkspaceVisualStyle.CardSelectedBackground"))
         assertTrue(row.contains("LisaWorkspaceVisualStyle.CardBackground"))
         assertTrue(row.contains("defaultMinSize(minHeight = 52.dp)"))
+        assertTrue(row.contains("WinkSequenceBadge("))
+        assertTrue(row.contains("sequenceLabel"))
         assertFalse(row.contains("fontSize = 15.sp"))
+    }
+
+    @Test
+    fun destinationCardsReuseSharedWinkSequenceBadge() {
+        val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        val row = ui.substringAfter("private fun MainMenuDestinationRow")
+            .substringBefore("private fun WorkspaceFullWidthActionButton")
+        assertTrue(row.contains("WinkSequenceBadge("))
+        assertTrue(row.contains("sequenceLabel"))
+        assertTrue(ui.contains("MainMenuDestinationShortcuts"))
+        val guided = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
+        assertTrue(guided.contains("internal fun WinkSequenceBadge("))
+        MainMenuCatalog.destinations.forEach { destination ->
+            assertTrue(
+                MainMenuDestinationShortcuts.sequenceLabelForDestination(destination).startsWith("L")
+            )
+        }
     }
 
     @Test
@@ -118,6 +137,7 @@ class Rc7D_30MainMenuVisualConsistencyTest {
             .substringBefore("private fun MainMenuCloseRow")
         assertTrue(nav.contains("GuidedNavigationActionButton("))
         assertTrue(nav.contains("GuidedEmergencyNavButton("))
+        assertTrue(nav.contains("showPageControls"))
         assertTrue(nav.contains("LisaWorkspaceVisualStyle.NavPanelWidth"))
         assertTrue(nav.contains("LisaWorkspaceVisualStyle.NavPanelBackground"))
         assertFalse(nav.contains("fontSize = 8.sp"))

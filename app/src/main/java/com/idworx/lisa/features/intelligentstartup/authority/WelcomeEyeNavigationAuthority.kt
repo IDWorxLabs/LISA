@@ -59,22 +59,22 @@ object WelcomeEyeNavigationAuthority {
 
     fun skipToCommunicationInstruction(): String = "Blink right twice"
 
-    fun continueInstruction(): String = "Blink once with each eye"
+    fun continueInstruction(): String = ""
 
     fun backInstruction(): String = "Blink left twice and right twice"
 
     fun howToChooseTitle(): String = "How to choose an option"
 
     fun notationExplanationBody(): String =
-        "L means your left eye.\n" +
-            "R means your right eye.\n" +
+        "L = left eye\n" +
+            "R = right eye\n" +
             "The number tells you how many times to blink."
 
     fun notationCompleteLeftExample(): String =
-        "L2 R0 means blink your left eye twice and do not blink your right eye."
+        "L2 R0 = blink your left eye twice"
 
     fun notationCompleteRightExample(): String =
-        "L0 R2 means do not blink your left eye and blink your right eye twice."
+        "L0 R2 = blink your right eye twice"
 
     /** @deprecated RC7D.37 — standalone L2/R2 lines removed; use complete sequence examples. */
     fun notationLeftExample(): String = notationCompleteLeftExample()
@@ -94,10 +94,10 @@ object WelcomeEyeNavigationAuthority {
 
     /** RC7D.40 — human-readable instruction plus technical sequence on one line. */
     fun combinedActionHint(instruction: String, sequenceLabel: String): String =
-        "$instruction · $sequenceLabel"
+        if (instruction.isBlank()) sequenceLabel else "$instruction · $sequenceLabel"
 
     fun continueContentDescription(): String =
-        "${continueButtonLabel()}, blink once with each eye, ${continueSequenceLabel()}"
+        "${continueButtonLabel()}, ${continueSequenceLabel()}"
 
     fun isStartGuidedLearning(left: Int, right: Int): Boolean =
         UniversalInteractionGestures.isOptionA(left, right)

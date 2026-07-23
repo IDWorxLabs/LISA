@@ -50,7 +50,6 @@ import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTraini
 import com.idworx.lisa.features.onboardingguide.ui.GuidedTrainingFlow
 import com.idworx.lisa.features.onboardingguide.ui.TrainingEyeTrackingState
 import com.idworx.lisa.features.onboardingguide.ui.GuidedWorkspaceLessonCard
-import com.idworx.lisa.features.onboardingguide.ui.TrainingSettingsSection
 import com.idworx.lisa.features.onboardingguide.ui.trainingBlocksMainUi
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
@@ -198,6 +197,12 @@ fun LisaRootUI(
     onPhraseComposerKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPhraseComposerEmergency: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit = {},
+    onDecreaseEmergencyAlarmVolume: () -> Unit = {},
+    onIncreaseEmergencyAlarmVolume: () -> Unit = {},
+    hasSavedEyeCalibration: Boolean = false,
+    settingsRecalibrationState: SettingsRecalibrationState = SettingsRecalibrationState(),
+    onSettingsRecalibrationRetry: () -> Unit = {},
+    onSettingsRecalibrationCancel: () -> Unit = {},
     guidedTrainingActive: Boolean = false,
     guidedTrainingState: GuidedTrainingUiState = GuidedTrainingUiState(),
     guidedTrainingSetupStep: Int = 0,
@@ -476,7 +481,10 @@ fun LisaRootUI(
                 .padding(horizontal = 10.dp, vertical = if (phraseManagementActive) 4.dp else 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (userDisplay.showIntentPreview && userDisplay.phrase != null) {
+            if (userDisplay.showIntentPreview &&
+                userDisplay.phrase != null &&
+                !ModeScopedGestureAuthority.suspendsCommunicationPhraseProcessing(activePanel)
+            ) {
                 IntentPreviewCard(phrase = userDisplay.phrase, compact = !countdownActive)
                 Spacer(Modifier.height(4.dp))
             }
@@ -656,20 +664,21 @@ fun LisaRootUI(
                         LisaPanel.Settings -> SettingsPanel(
                             uiStrings = uiStrings,
                             settingsState = settingsState,
-                            trainingPreferences = guidedTrainingState.progress.preferences,
-                            learningProgress = guidedTrainingState.progress,
-                            onDeveloperModeChange = onDeveloperModeChange,
-                            onSensitivityDecrease = onSensitivityDecrease,
-                            onSensitivityIncrease = onSensitivityIncrease,
-                            onPlaceholderChange = onSettingsPlaceholderChange,
-                            onTrainingReplayTutorial = onTrainingReplayTutorial,
-                            onTrainingPracticeCommunication = onTrainingPracticeCommunication,
-                            onTrainingPracticeNavigation = onTrainingPracticeNavigation,
-                            onTrainingResetProgress = onTrainingResetProgress,
-                            onTrainingPreferencesChange = onTrainingPreferencesChange,
-                            onOpenDeviceCheck = onOpenDeviceCheck,
-                            onOpenDeveloperTools = onOpenDeveloperTools,
+                            speechVolumeLevel = speechVolumeLevel,
+                            speechSpeedLevel = speechSpeedLevel,
+                            hasSavedCalibration = hasSavedEyeCalibration,
                             onBack = onBackToMenu
+                        )
+                        LisaPanel.Recalibration -> SettingsRecalibrationPanel(
+                            uiStrings = uiStrings,
+                            state = settingsRecalibrationState,
+                            eyeTrackingStatus = eyeTrackingStatus,
+                            onDecreaseSensitivity = onSensitivityDecrease,
+                            onIncreaseSensitivity = onSensitivityIncrease,
+                            onDecreaseResponseTime = onResponseTimeDecrease,
+                            onIncreaseResponseTime = onResponseTimeIncrease,
+                            onRetry = onSettingsRecalibrationRetry,
+                            onCancel = onSettingsRecalibrationCancel
                         )
                         LisaPanel.DeveloperTools -> DeveloperToolsPanel(
                             uiStrings = uiStrings,
@@ -804,6 +813,7 @@ fun LisaRootUI(
                     LisaPanel.VoiceMyVoice,
                     LisaPanel.VoiceFamily,
                     LisaPanel.Settings,
+                    LisaPanel.Recalibration,
                     LisaPanel.DeveloperTools,
                     LisaPanel.AboutLisa,
                     LisaPanel.PrivacyPolicy,
@@ -851,6 +861,9 @@ fun LisaRootUI(
             emergencyActive = emergencyActive,
             emergencyAwaitingConfirm = emergencyAwaitingConfirm,
             blinkFeedback = composerEyeFeedback,
+            emergencyAlarmVolume = settingsState.emergencyAlarmVolume,
+            onDecreaseAlarmVolume = onDecreaseEmergencyAlarmVolume,
+            onIncreaseAlarmVolume = onIncreaseEmergencyAlarmVolume,
             onCancelOrStopEmergency = onCancelOrStopEmergency,
             modifier = Modifier.fillMaxSize()
         )
@@ -1447,6 +1460,7 @@ private fun MenuPanel(
                                 MainMenuDestinationRow(
                                     label = MainMenuCatalog.title(entry.destination, uiStrings),
                                     number = entry.selectionIndex,
+                                    sequenceLabel = MainMenuDestinationShortcuts.sequenceLabelForDestination(entry.destination),
                                     selected = isSelected,
                                     onClick = { onSelectDestination(entry.destination) },
                                     modifier = if (isSelected) {
@@ -1468,6 +1482,7 @@ private fun MenuPanel(
                     canMoveDown = canMoveDown,
                     canGoPreviousPage = canGoPreviousPage,
                     canGoNextPage = canGoNextPage,
+                    showPageControls = normalized.viewportPageCount > 1,
                     onMoveUp = onMoveUp,
                     onMoveDown = onMoveDown,
                     onPreviousPage = onPreviousPage,
@@ -1504,6 +1519,7 @@ private fun MainMenuNavigationControls(
     canMoveDown: Boolean,
     canGoPreviousPage: Boolean,
     canGoNextPage: Boolean,
+    showPageControls: Boolean,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onPreviousPage: () -> Unit,
@@ -1547,30 +1563,32 @@ private fun MainMenuNavigationControls(
             compact = true,
             onClick = onMoveDown
         )
-        GuidedNavigationActionButton(
-            symbol = "⏮",
-            title = uiStrings.mainMenuPreviousPage,
-            gestureHint = uiStrings.guidedPreviousCategoryPageHint,
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
-                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
-            ),
-            enabled = canGoPreviousPage,
-            compact = true,
-            onClick = onPreviousPage
-        )
-        GuidedNavigationActionButton(
-            symbol = "⏭",
-            title = uiStrings.mainMenuNextPage,
-            gestureHint = uiStrings.guidedNextCategoryPageHint,
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
-                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
-            ),
-            enabled = canGoNextPage,
-            compact = true,
-            onClick = onNextPage
-        )
+        if (showPageControls) {
+            GuidedNavigationActionButton(
+                symbol = "⏮",
+                title = uiStrings.mainMenuPreviousPage,
+                gestureHint = uiStrings.guidedPreviousCategoryPageHint,
+                sequenceLabel = formatWinkSequenceShort(
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+                ),
+                enabled = canGoPreviousPage,
+                compact = true,
+                onClick = onPreviousPage
+            )
+            GuidedNavigationActionButton(
+                symbol = "⏭",
+                title = uiStrings.mainMenuNextPage,
+                gestureHint = uiStrings.guidedNextCategoryPageHint,
+                sequenceLabel = formatWinkSequenceShort(
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                    GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+                ),
+                enabled = canGoNextPage,
+                compact = true,
+                onClick = onNextPage
+            )
+        }
         GuidedNavigationActionButton(
             symbol = "✅",
             title = uiStrings.mainMenuOpenSelected,
@@ -1659,6 +1677,7 @@ private fun MenuSectionHeader(title: String, onDarkWorkspace: Boolean = false) {
 private fun MainMenuDestinationRow(
     label: String,
     number: Int,
+    sequenceLabel: String,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1697,6 +1716,10 @@ private fun MainMenuDestinationRow(
             color = LisaBlueDark,
             lineHeight = LisaWorkspaceVisualStyle.CardTitleLineHeight,
             modifier = Modifier.weight(1f)
+        )
+        WinkSequenceBadge(
+            sequenceLabel = sequenceLabel,
+            selected = selected
         )
     }
 }
@@ -2006,19 +2029,9 @@ private fun SettingsToggleRow(
 private fun SettingsPanel(
     uiStrings: LisaUiStrings,
     settingsState: LisaSettingsUiState,
-    trainingPreferences: TrainingPreferences = TrainingPreferences(),
-    learningProgress: TrainingProgress? = null,
-    onDeveloperModeChange: (Boolean) -> Unit,
-    onSensitivityDecrease: () -> Unit,
-    onSensitivityIncrease: () -> Unit,
-    onPlaceholderChange: (LisaSettingsUiState) -> Unit,
-    onTrainingReplayTutorial: () -> Unit = {},
-    onTrainingPracticeCommunication: () -> Unit = {},
-    onTrainingPracticeNavigation: () -> Unit = {},
-    onTrainingResetProgress: () -> Unit = {},
-    onTrainingPreferencesChange: (TrainingPreferences) -> Unit = {},
-    onOpenDeviceCheck: () -> Unit = {},
-    onOpenDeveloperTools: () -> Unit = {},
+    speechVolumeLevel: Int,
+    speechSpeedLevel: Int,
+    hasSavedCalibration: Boolean,
     onBack: () -> Unit
 ) {
     LisaPanelShell(title = uiStrings.settings, onBack = onBack, backLabel = uiStrings.back) {
@@ -2029,102 +2042,56 @@ private fun SettingsPanel(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             PanelPurposeLine(uiStrings.settingsPurpose)
-            SettingsSectionLabel(uiStrings.settingsSectionDetection)
-            PanelPurposeLine(
-                uiStrings.t(
-                    "Sensitivity and response time remain in Adjust Settings.",
-                    "Sensitiwiteit en reaksietyd bly in Verstel Instellings.",
-                    "Ukuzwela nesikhathi sokuphendula kuhlala ku-Lungisa Izilungiselelo."
-                )
-            )
-
-            SettingsToggleRow(
-                title = uiStrings.calibrationTitle,
-                subtitle = uiStrings.calibrationSubtitle,
-                checked = settingsState.calibrationEnabled,
-                onCheckedChange = { onPlaceholderChange(settingsState.copy(calibrationEnabled = it)) }
-            )
-
-            SettingsSectionLabel(uiStrings.settingsSectionCommunication)
-            SettingsSliderRow(
-                title = uiStrings.confirmationCountdownTitle,
-                valueLabel = "${settingsState.countdownDurationSec} sec",
-                value = settingsState.countdownDurationSec.toFloat(),
-                valueRange = 2f..5f,
-                steps = 2,
-                onValueChange = {
-                    onPlaceholderChange(settingsState.copy(countdownDurationSec = it.toInt()))
-                }
-            )
-            SettingsSectionLabel(uiStrings.settingsSectionDisplay)
-            SettingsSliderRow(
-                title = uiStrings.textSize,
-                valueLabel = "${(settingsState.textSizeScale * 100).toInt()}%",
-                value = settingsState.textSizeScale,
-                valueRange = 0.8f..1.4f,
-                onValueChange = { onPlaceholderChange(settingsState.copy(textSizeScale = it)) }
-            )
-
-            SettingsSectionLabel(uiStrings.settingsSectionEmergency)
-            SettingsSliderRow(
-                title = uiStrings.emergencyAlarmVolumeTitle,
-                valueLabel = "${(settingsState.emergencyAlarmVolume * 100).toInt()}%",
-                value = settingsState.emergencyAlarmVolume,
-                valueRange = 0.5f..1f,
-                onValueChange = { onPlaceholderChange(settingsState.copy(emergencyAlarmVolume = it)) }
-            )
-
-            TrainingSettingsSection(
-                uiStrings = uiStrings,
-                preferences = trainingPreferences,
-                learningProgress = learningProgress,
-                onReplayTutorial = onTrainingReplayTutorial,
-                onPracticeCommunication = onTrainingPracticeCommunication,
-                onPracticeNavigation = onTrainingPracticeNavigation,
-                onResetProgress = onTrainingResetProgress,
-                onPreferencesChange = onTrainingPreferencesChange
-            )
-
-            SettingsSectionLabel(uiStrings.settingsSectionSupportDiagnostics)
-            SettingsLinkRow(
-                title = uiStrings.runDeviceCheckTitle,
-                subtitle = uiStrings.runDeviceCheckSubtitle,
-                onClick = onOpenDeviceCheck
-            )
-
-            SettingsSectionLabel(uiStrings.settingsSectionData)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(LisaWhite)
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(uiStrings.profileBackupTitle, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark)
-                    Text(uiStrings.profileBackupSubtitle, fontSize = 12.sp, color = LisaBlueDark.copy(alpha = 0.7f))
-                }
-                OutlinedButton(onClick = { }, enabled = false) {
-                    Text(uiStrings.exportLabel, fontSize = 12.sp)
+            PrimarySettingsAuthority.Section.entries.forEach { section ->
+                val sectionItems = PrimarySettingsAuthority.items.filter { it.section == section }
+                if (sectionItems.isEmpty()) return@forEach
+                SettingsSectionLabel(PrimarySettingsAuthority.sectionTitle(section, uiStrings))
+                sectionItems.forEach { item ->
+                    val status = when (item.id) {
+                        PrimarySettingsAuthority.ItemId.Calibration ->
+                            PrimarySettingsAuthority.calibrationStatusLabel(hasSavedCalibration, uiStrings)
+                        PrimarySettingsAuthority.ItemId.SpeechVolume ->
+                            SpeechVolumeAuthority.percentLabel(speechVolumeLevel)
+                        PrimarySettingsAuthority.ItemId.SpeechSpeed ->
+                            SpeechSpeedAuthority.displayLabel(speechSpeedLevel, uiStrings)
+                        PrimarySettingsAuthority.ItemId.TextSize ->
+                            "${(settingsState.textSizeScale * 100).toInt()}%"
+                        PrimarySettingsAuthority.ItemId.DeviceCheck -> uiStrings.runDeviceCheckSubtitle
+                        PrimarySettingsAuthority.ItemId.DeveloperMode ->
+                            if (settingsState.developerMode) "On" else "Off"
+                    }
+                    val hint = when (item.actionType) {
+                        MenuDestinationActionType.Choice -> uiStrings.settingsAdjustChoiceHint
+                        MenuDestinationActionType.Toggle -> uiStrings.settingsToggleHint
+                        else -> uiStrings.settingsAdjustWithSelectHint
+                    }
+                    PrimarySettingsLauncherCard(
+                        actionId = item.actionId,
+                        title = PrimarySettingsAuthority.title(item.id, uiStrings),
+                        status = status,
+                        hint = hint
+                    )
                 }
             }
+        }
+    }
+}
 
-            SettingsSectionLabel(uiStrings.settingsSectionAdvanced)
-            SettingsToggleRow(
-                title = uiStrings.developerModeTitle,
-                subtitle = uiStrings.developerModeSubtitle,
-                checked = settingsState.developerMode,
-                onCheckedChange = onDeveloperModeChange
-            )
-            if (BuildConfig.DEBUG) {
-                SettingsLinkRow(
-                    title = uiStrings.developerTools,
-                    subtitle = uiStrings.developerToolsPurpose,
-                    onClick = onOpenDeveloperTools
-                )
-            }
+@Composable
+private fun PrimarySettingsLauncherCard(
+    actionId: MenuDestinationActionId,
+    title: String,
+    status: String,
+    hint: String
+) {
+    MenuDestinationSelectableSurface(actionId = actionId) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = LisaBlueDark)
+            Text(text = status, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = LisaBlueDark.copy(alpha = 0.85f), maxLines = 2)
+            Text(text = hint, fontSize = 11.sp, color = LisaBlueDark.copy(alpha = 0.6f), maxLines = 2)
         }
     }
 }

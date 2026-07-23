@@ -194,7 +194,7 @@ private fun WelcomeIntroductionContinueAction(onContinue: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // RC7D.40 — single clickable control: Continue + L1 R1 inside the button.
+        // Continue + L1 R1 inside the button — no duplicate instruction underneath.
         TrainingPrimaryButton(
             text = WelcomeEyeNavigationAuthority.continueButtonLabel(),
             onClick = onContinue,
@@ -203,14 +203,6 @@ private fun WelcomeIntroductionContinueAction(onContinue: () -> Unit) {
             secondaryText = WelcomeEyeNavigationAuthority.continueSequenceLabel(),
             secondaryTextStyle = style.WelcomeContinueSequenceTextStyle,
             minHeight = 64.dp
-        )
-        Text(
-            text = WelcomeEyeNavigationAuthority.continueInstruction(),
-            style = style.WelcomeContinueInstructionTextStyle,
-            color = LisaBlueDark,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = style.ContinueInstructionTopPadding)
         )
     }
 }
@@ -359,6 +351,12 @@ private fun WelcomeBlinkNotationExplanation(
             text = WelcomeEyeNavigationAuthority.notationExplanationBody(),
             style = style.WelcomeExplanationBodyTextStyle,
             color = LisaBlueDark.copy(alpha = 0.9f),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "Examples:",
+            style = style.WelcomeExplanationTitleTextStyle,
+            color = LisaBlueDark,
             modifier = Modifier.fillMaxWidth()
         )
         Text(

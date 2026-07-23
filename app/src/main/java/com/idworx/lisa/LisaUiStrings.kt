@@ -1041,9 +1041,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Isikhathi i-LISA elinda ngemuva kwakho wokugcina ukucwayiza."
     )
     val settingsPurpose: String get() = t(
-        "Adjust detection, communication, display, and learning.",
-        "Pas opsporing, kommunikasie, vertoning en leer aan.",
-        "Lungisa ukutholwa, ukuxhumana, ukuboniswa nokufunda."
+        "Calibration, speech, display, and support — all blink-operable.",
+        "Kalibrasie, spraak, vertoning en ondersteuning — alles met knip.",
+        "Ukulungiswa, ukukhuluma, ukubonisa nokusekela — konke ngokucwayiza."
     )
     val feedbackPurpose: String get() = t(
         "Share what worked and what was confusing.",
@@ -1231,6 +1231,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val startGuidedLearning: String get() = t("Start Guided Learning", "Begin Geleide Leer", "Qala Ukufunda Okukhokhelwayo")
     val touchForNow: String get() = t("Use touch", "Gebruik aanraking", "Sebenzisa ukuthinta")
     val settingsSectionDetection: String get() = t("Detection", "Opsporing", "Ukuthola")
+    val settingsSectionSpeech: String get() = t("Speech", "Spraak", "Ukukhuluma")
     val settingsSectionDisplay: String get() = t("Display", "Vertoning", "Isibonisi")
     val textSize: String get() = t("Text size", "Teksgrootte", "Usayizi wombhalo")
     val settingsSectionCommunication: String get() = t("Communication", "Kommunikasie", "Ukuxhumana")
@@ -1243,6 +1244,21 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Ondersteuning en Diagnostiek",
         "Ukusekela Nokuhlola"
     )
+    val settingsAdjustWithSelectHint: String get() = t(
+        "Select to open · L1 R1",
+        "Kies om oop te maak · L1 R1",
+        "Khetha ukuvula · L1 R1"
+    )
+    val settingsAdjustChoiceHint: String get() = t(
+        "Left / Right to adjust · L2 R1 / L1 R2",
+        "Links / Regs om te verstel · L2 R1 / L1 R2",
+        "Kwesokunxele / Kwesokudla ukulungisa · L2 R1 / L1 R2"
+    )
+    val settingsToggleHint: String get() = t(
+        "Select to toggle · L1 R1",
+        "Kies om te wissel · L1 R1",
+        "Khetha ukushintsha · L1 R1"
+    )
     val runDeviceCheckTitle: String get() = t("Run Device Check", "Doen toestel-kontrole", "Qala Ukuhlola Idivayisi")
     val runDeviceCheckSubtitle: String get() = t(
         "Confirm camera, wink detection, and emergency alarm.",
@@ -1254,6 +1270,23 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Fine-tune eye detection",
         "Stel oog-opsporing fyn",
         "Lungisa ukutholwa kwamehlo"
+    )
+    val calibrationStatusCalibrated: String get() = t("Calibrated", "Gekalibreer", "Kulungisiwe")
+    val calibrationStatusNeedsCalibration: String get() = t(
+        "Needs calibration",
+        "Benodig kalibrasie",
+        "Kudinga ukulungiswa"
+    )
+    val calibrationRecalibrateTitle: String get() = t(
+        "Recalibrating eye detection",
+        "Herkalibreer oogopsporing",
+        "Kulungiswa kabusha ukutholwa kwamehlo"
+    )
+    val calibrationRetryLabel: String get() = t("Retry", "Probeer weer", "Zama futhi")
+    val calibrationCancelHint: String get() = t(
+        "Back cancels without changing your saved calibration · L2 R2",
+        "Terug kanselleer sonder om jou gestoorde kalibrasie te verander · L2 R2",
+        "Emuva kukhansela ngaphandle kokushintsha ukulungiswa okugciniwe · L2 R2"
     )
     val confirmationCountdownTitle: String get() = t("Confirmation time", "Bevestigingstyd", "Isikhathi sokuqinisekisa")
     val emergencyAlarmVolumeTitle: String get() = t("Alarm volume", "Alarmvolume", "Ivolumu ye-alamu")
@@ -1319,6 +1352,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         LisaPanel.VocabularyTraining -> vocabularyTraining
         LisaPanel.Voice -> voice
         LisaPanel.Settings -> settings
+        LisaPanel.Recalibration -> calibrationTitle
         LisaPanel.TestingChecklist -> testingChecklist
         LisaPanel.Feedback -> feedback
         LisaPanel.ReleaseNotes -> releaseNotes

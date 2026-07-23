@@ -44,6 +44,9 @@ fun GlobalEmergencyOverlayLayer(
     emergencyActive: Boolean,
     emergencyAwaitingConfirm: Boolean,
     blinkFeedback: ComposerEyeFeedback,
+    emergencyAlarmVolume: Float = 1f,
+    onDecreaseAlarmVolume: () -> Unit = {},
+    onIncreaseAlarmVolume: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -56,6 +59,9 @@ fun GlobalEmergencyOverlayLayer(
         emergencyAwaitingConfirm -> Brain1EmergencyConfirmOverlay(
             uiStrings = uiStrings,
             blinkFeedback = blinkFeedback,
+            emergencyAlarmVolume = emergencyAlarmVolume,
+            onDecreaseAlarmVolume = onDecreaseAlarmVolume,
+            onIncreaseAlarmVolume = onIncreaseAlarmVolume,
             onCancelEmergency = onCancelOrStopEmergency,
             modifier = modifier
         )
@@ -127,6 +133,9 @@ fun EmergencyAlarmOverlay(
 fun Brain1EmergencyConfirmOverlay(
     uiStrings: LisaUiStrings,
     blinkFeedback: ComposerEyeFeedback,
+    emergencyAlarmVolume: Float = 1f,
+    onDecreaseAlarmVolume: () -> Unit = {},
+    onIncreaseAlarmVolume: () -> Unit = {},
     onCancelEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -165,10 +174,64 @@ fun Brain1EmergencyConfirmOverlay(
                 uiStrings = uiStrings,
                 blinkFeedback = blinkFeedback
             )
+            Spacer(modifier = Modifier.padding(8.dp))
+            EmergencyAlarmVolumeRow(
+                uiStrings = uiStrings,
+                volume = emergencyAlarmVolume,
+                onDecrease = onDecreaseAlarmVolume,
+                onIncrease = onIncreaseAlarmVolume
+            )
             Spacer(modifier = Modifier.padding(10.dp))
             EmergencyManualButton(
                 label = uiStrings.cancelEmergency,
                 onClick = onCancelEmergency
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmergencyAlarmVolumeRow(
+    uiStrings: LisaUiStrings,
+    volume: Float,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = "${uiStrings.emergencyAlarmVolumeTitle}: ${(volume * 100).toInt()}%",
+            color = LisaWhite,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Text(
+                text = "− ${formatWinkSequenceShort(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT)}",
+                color = LisaWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onDecrease)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            )
+            Text(
+                text = "+ ${formatWinkSequenceShort(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT)}",
+                color = LisaWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(onClick = onIncrease)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             )
         }
     }

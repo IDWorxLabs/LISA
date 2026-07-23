@@ -7,7 +7,7 @@ object SilentWelcomeLaunchFlowMetadata {
     const val GRADLE_TASK: String = "validateLisaSilentWelcomeLaunchFlowV1"
 
     const val SUBTITLE: String =
-        "Lisa will guide the primary user through their first communication journey using only their eyes."
+        "LISA lets you communicate using your eyes."
 
     const val VOICE_POLICY: String =
         "Phrase translation only — no welcome, setup, lesson, coach, presence, or caregiver narration."

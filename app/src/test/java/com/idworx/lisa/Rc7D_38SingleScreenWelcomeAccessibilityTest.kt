@@ -99,8 +99,11 @@ class Rc7D_38SingleScreenWelcomeAccessibilityTest {
 
     @Test
     fun blinkOnceWithEachEyeRemainsPresent() {
-        assertEquals("Blink once with each eye", WelcomeEyeNavigationAuthority.continueInstruction())
-        assertTrue(introBlock().contains("continueInstruction"))
+        // Duplicate under-button instruction removed; Continue button still shows L1 R1.
+        assertEquals("", WelcomeEyeNavigationAuthority.continueInstruction())
+        assertFalse(introBlock().contains("Blink once with each eye"))
+        assertFalse(introBlock().contains("continueInstruction()"))
+        assertTrue(introBlock().contains("continueSequenceLabel"))
     }
 
     @Test

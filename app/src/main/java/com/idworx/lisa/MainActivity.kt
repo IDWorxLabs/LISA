@@ -177,6 +177,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiMenuDestinationViewportHeightPx = mutableStateOf(0)
     private val uiMenuDestinationMaxScrollPx = mutableStateOf(0)
     private val uiMenuFeedbackDraft = mutableStateOf(MenuFeedbackDraft())
+    private val uiSettingsRecalibrationState = mutableStateOf(SettingsRecalibrationState())
+    private lateinit var settingsRecalibrationController: SettingsRecalibrationController
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
     private val uiDevLeftStreak = mutableStateOf(0)
     private val uiDevRightStreak = mutableStateOf(0)
@@ -326,6 +328,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         )
         startupSession.start()
+        settingsRecalibrationController = SettingsRecalibrationController(
+            persistCalibration = { calibration ->
+                updateActiveProfile { it.copy(eyeCalibration = calibration) }
+                applyProfileEyeCalibration(calibration)
+            },
+            nowMs = { System.currentTimeMillis() },
+            onStateChanged = { uiSettingsRecalibrationState.value = it },
+            onSucceeded = {
+                openPanel(LisaPanel.Settings)
+            },
+            scheduleCompleteHandoff = { delayMs, action ->
+                mainHandler.postDelayed({ action() }, delayMs)
+            }
+        )
         applyColdLaunchSessionState()
         // Prefer stored high-confidence calibration immediately so Welcome is eye-ready after skip/quick path.
         activeProfile()?.eyeCalibration?.let { existing ->
@@ -715,6 +731,32 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
                         onCancelOrStopEmergency = { cancelOrStopEmergency() },
+                        onDecreaseEmergencyAlarmVolume = {
+                            updateActiveProfile {
+                                it.withUpdatedSettings(
+                                    uiSettingsState.value.copy(
+                                        emergencyAlarmVolume =
+                                            (uiSettingsState.value.emergencyAlarmVolume - 0.1f)
+                                                .coerceIn(0.5f, 1f)
+                                    )
+                                )
+                            }
+                        },
+                        onIncreaseEmergencyAlarmVolume = {
+                            updateActiveProfile {
+                                it.withUpdatedSettings(
+                                    uiSettingsState.value.copy(
+                                        emergencyAlarmVolume =
+                                            (uiSettingsState.value.emergencyAlarmVolume + 0.1f)
+                                                .coerceIn(0.5f, 1f)
+                                    )
+                                )
+                            }
+                        },
+                        hasSavedEyeCalibration = activeProfile()?.eyeCalibration != null,
+                        settingsRecalibrationState = uiSettingsRecalibrationState.value,
+                        onSettingsRecalibrationRetry = { settingsRecalibrationController.retry() },
+                        onSettingsRecalibrationCancel = { cancelSettingsRecalibration() },
                         guidedTrainingActive = trainingSession.shouldShowTraining(),
                         guidedTrainingState = uiGuidedTrainingState.value,
                         guidedTrainingSetupStep = uiGuidedTrainingState.value.setupStep,
@@ -1262,7 +1304,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (returnTo != null) {
             uiPanelReturnTarget.value = returnTo
         }
+        val enteringSuspendedScope =
+            ModeScopedGestureAuthority.suspendsCommunicationPhraseProcessing(panel) &&
+                !ModeScopedGestureAuthority.suspendsCommunicationPhraseProcessing(previousPanel)
         uiActivePanel.value = panel
+        if (ModeScopedGestureAuthority.suspendsCommunicationPhraseProcessing(panel)) {
+            suspendCommunicationPhraseProcessing(resetWinkBuffer = enteringSuspendedScope)
+        }
         when (panel) {
             LisaPanel.Menu -> {
                 // A fresh Menu layer must never inherit a nested Settings/Voice return target.
@@ -1311,6 +1359,37 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Suspend Communication phrase selection / WAITING preview while a layered panel owns input.
+     * Preserves category/page navigation state for return; clears only transient phrase feedback.
+     */
+    private fun suspendCommunicationPhraseProcessing(resetWinkBuffer: Boolean) {
+        clearCountdown()
+        uiGuidedConfirmedPhrase.value = null
+        when (uiCommunicationState.value) {
+            is LisaCommunicationState.PossibleMatch,
+            LisaCommunicationState.WaitingForNextWink,
+            LisaCommunicationState.ProcessingSequence,
+            LisaCommunicationState.BuildingMessage,
+            is LisaCommunicationState.CountdownConfirm,
+            is LisaCommunicationState.Detected,
+            LisaCommunicationState.WaitingForConfirmation ->
+                setCommunicationState(LisaCommunicationState.Listening)
+            else -> Unit
+        }
+        if (resetWinkBuffer) {
+            resetSequence()
+        }
+    }
+
+    /** Restore a clean Communication gesture buffer after leaving a layered panel. */
+    private fun resumeCommunicationPhraseProcessing() {
+        clearCountdown()
+        uiGuidedConfirmedPhrase.value = null
+        resetSequence()
+        updateReadyOrWaitingState()
+    }
+
     private fun navigateBackFromPanel() {
         val target = uiPanelReturnTarget.value ?: LisaPanel.Menu
         uiPanelReturnTarget.value = null
@@ -1325,6 +1404,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiActivePanel.value = LisaPanel.None
         uiMainMenuState.value = MainMenuController.close()
         uiPhraseComposerState.value = PhraseComposerController.initialState()
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationState(MainMenuDestination.CommunicationProfile)
+        resumeCommunicationPhraseProcessing()
     }
 
     /** RC7D.28 — canonical open for touch Menu button and blink L4 R6. */
@@ -1454,79 +1536,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 MenuDestinationActionType.ScrollAnchor
             )
         )
-        LisaPanel.Settings -> listOf(
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("calibration"),
-                uiStrings.calibrationTitle,
-                MenuDestinationActionType.Toggle
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("countdown"),
-                uiStrings.confirmationCountdownTitle,
-                MenuDestinationActionType.Choice
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("text_size"),
-                uiStrings.textSize,
-                MenuDestinationActionType.Choice
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("emergency_volume"),
-                uiStrings.emergencyAlarmVolumeTitle,
-                MenuDestinationActionType.Choice
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("replay_learning"),
-                uiStrings.replayLearningJourney,
-                MenuDestinationActionType.Navigation
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("practice_communication"),
-                uiStrings.practiceCommunication,
-                MenuDestinationActionType.Navigation
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("practice_navigation"),
-                uiStrings.practiceNavigation,
-                MenuDestinationActionType.Navigation
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("reset_learning"),
-                uiStrings.clearLearningProgress,
-                MenuDestinationActionType.Button
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("narration"),
-                uiStrings.narrationTitle,
-                MenuDestinationActionType.Toggle
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("narration_speed"),
-                uiStrings.voiceSpeedTitle,
-                MenuDestinationActionType.Choice
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("narration_volume"),
-                uiStrings.voiceVolumeTitle,
-                MenuDestinationActionType.Choice
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("device_check"),
-                uiStrings.runDeviceCheckTitle,
-                MenuDestinationActionType.Navigation
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("developer_mode"),
-                uiStrings.developerModeTitle,
-                MenuDestinationActionType.Toggle
-            ),
-            MenuDestinationAction(
-                MenuDestinationActionId.setting("developer_tools"),
-                uiStrings.developerTools,
-                MenuDestinationActionType.Navigation,
-                isEnabled = BuildConfig.DEBUG
+        LisaPanel.Settings -> PrimarySettingsAuthority.menuDestinationActions(uiStrings)
+        LisaPanel.Recalibration -> {
+            val failed = uiSettingsRecalibrationState.value.outcome ==
+                SettingsRecalibrationOutcome.Failed
+            listOf(
+                MenuDestinationAction(
+                    MenuDestinationActionId.setting("calibration_retry"),
+                    uiStrings.calibrationRetryLabel,
+                    MenuDestinationActionType.Button,
+                    isEnabled = failed
+                )
             )
-        )
+        }
         LisaPanel.DeveloperTools -> listOf(
             MenuDestinationAction(
                 MenuDestinationActionId.setting("developer_mode"),
@@ -1615,44 +1637,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 uiMenuFeedbackDraft.value = MenuFeedbackDraft()
             }
             actionId == MenuDestinationActionId.setting("calibration") ->
-                updateActiveProfile {
-                    it.withUpdatedSettings(
-                        uiSettingsState.value.copy(
-                            calibrationEnabled = !uiSettingsState.value.calibrationEnabled
-                        )
-                    )
-                }
+                openSettingsRecalibration()
+            actionId == MenuDestinationActionId.setting("calibration_retry") ->
+                settingsRecalibrationController.retry()
+            actionId == MenuDestinationActionId.setting("speech_volume") ->
+                openPrimarySettingAdjustment(PrimarySettingsAuthority.ItemId.SpeechVolume)
+            actionId == MenuDestinationActionId.setting("speech_speed") ->
+                openPrimarySettingAdjustment(PrimarySettingsAuthority.ItemId.SpeechSpeed)
             actionId == MenuDestinationActionId.setting("device_check") ->
                 openPanel(LisaPanel.TestingChecklist, LisaPanel.Settings)
             actionId == MenuDestinationActionId.setting("developer_mode") ->
                 updateActiveProfile { it.copy(developerMode = !uiDeveloperMode.value) }
-            actionId == MenuDestinationActionId.setting("developer_tools") &&
-                BuildConfig.DEBUG -> openPanel(LisaPanel.DeveloperTools, LisaPanel.Settings)
-            actionId == MenuDestinationActionId.setting("replay_learning") -> {
-                closeAllPanels()
-                trainingSession.beginAwaitingBrain1Decision(
-                    com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ReplayLearning
-                )
-                refreshTrainingActiveState()
-            }
-            actionId == MenuDestinationActionId.setting("practice_communication") -> {
-                closeAllPanels()
-                handleTrainingEvent(TrainingEvent.PracticeCommunication)
-            }
-            actionId == MenuDestinationActionId.setting("practice_navigation") -> {
-                closeAllPanels()
-                handleTrainingEvent(TrainingEvent.PracticeNavigation)
-            }
-            actionId == MenuDestinationActionId.setting("reset_learning") -> {
-                trainingSession.beginAwaitingBrain1Decision(
-                    com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind.ResetLearningProgress
-                )
-                refreshTrainingActiveState()
-            }
-            actionId == MenuDestinationActionId.setting("narration") ->
-                trainingSession.updatePreferences {
-                    it.copy(narrationEnabled = !it.narrationEnabled)
-                }
             actionId.value.startsWith("settings.checklist.") -> {
                 val key = actionId.value.removePrefix("settings.checklist.")
                 toggleChecklistItem(key, uiTestingChecklist.value[key] != true)
@@ -1667,16 +1662,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun moveMenuDestinationHorizontal(direction: Int) {
         when (uiMenuDestinationState.value.selectedActionId) {
-            MenuDestinationActionId.setting("countdown") ->
-                updateActiveProfile {
-                    it.withUpdatedSettings(
-                        uiSettingsState.value.copy(
-                            countdownDurationSec =
-                                (uiSettingsState.value.countdownDurationSec + direction)
-                                    .coerceIn(2, 5)
-                        )
-                    )
-                }
             MenuDestinationActionId.setting("text_size") ->
                 updateActiveProfile {
                     it.withUpdatedSettings(
@@ -1697,22 +1682,41 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         )
                     )
                 }
-            MenuDestinationActionId.setting("narration_speed") ->
-                trainingSession.updatePreferences {
-                    it.copy(
-                        narrationSpeed =
-                            (it.narrationSpeed + direction * 0.1f).coerceIn(0.5f, 1.5f)
-                    )
-                }
-            MenuDestinationActionId.setting("narration_volume") ->
-                trainingSession.updatePreferences {
-                    it.copy(
-                        narrationVolume =
-                            (it.narrationVolume + direction * 0.1f).coerceIn(0.5f, 1f)
-                    )
-                }
             else -> Unit
         }
+    }
+
+    /** Opens the shared Settings & Controls adjustment screen for a primary Settings launcher. */
+    private fun openPrimarySettingAdjustment(itemId: PrimarySettingsAuthority.ItemId) {
+        val kind = when (itemId) {
+            PrimarySettingsAuthority.ItemId.SpeechVolume -> SettingsControlKind.SpeechVolume
+            PrimarySettingsAuthority.ItemId.SpeechSpeed -> SettingsControlKind.SpeechSpeed
+            else -> return
+        }
+        closeAllPanels()
+        val hub = PreferenceAdjustmentController.openSettingsMenu(uiGuidedNavigationState.value)
+        uiGuidedNavigationState.value = PreferenceAdjustmentController.openHubSetting(
+            hub,
+            kind,
+            GuidedCatalogContext(
+                responseTimeSec = uiSequenceProcessingDelaySec.value,
+                sensitivityLevel = uiSensitivityLevel.value,
+                speechVolumeLevel = uiSpeechVolumeLevel.value,
+                speechSpeedLevel = uiSpeechRateLevel.value,
+                listeningPaused = uiListeningPaused.value
+            )
+        )
+        setCommunicationState(LisaCommunicationState.Listening)
+    }
+
+    private fun openSettingsRecalibration() {
+        settingsRecalibrationController.start()
+        openPanel(LisaPanel.Recalibration, LisaPanel.Settings)
+    }
+
+    private fun cancelSettingsRecalibration() {
+        settingsRecalibrationController.cancel()
+        openPanel(LisaPanel.Settings)
     }
 
     private fun confirmMenuDestinationTextEditing() {
@@ -1827,6 +1831,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun backFromMenuDestination() {
+        if (uiActivePanel.value == LisaPanel.Recalibration) {
+            cancelSettingsRecalibration()
+            return
+        }
         val state = uiMenuDestinationState.value
         when (val stage = state.interactionStage) {
             is MenuDestinationInteractionStage.TextEditing,
@@ -2912,8 +2920,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             visibleEntryCap = guidedVisibleEntryCap()
         )
 
-    private fun mappingsForSequenceContinuation(): List<WinkMapping> =
-        if (guidedOverlayActive()) {
+    private fun mappingsForSequenceContinuation(): List<WinkMapping> {
+        // While Menu / destinations / composer own input, never advertise Communication phrases
+        // as continuation targets — that produced STOP / WAITING previews over Main Menu.
+        if (!ModeScopedGestureAuthority.communicationPhraseFeedbackActive(buildGestureContext())) {
+            return activeScopeContinuationMappings()
+        }
+        return if (guidedOverlayActive()) {
             var base = workspaceContinuationMappings()
             // RC7D.25 — explicit continuation protection for the L5 R5 Adjust Settings entry. While
             // the user is still winking toward the full 5×5 sequence (every shorter existing gesture
@@ -2955,6 +2968,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 base
             }
         }
+    }
+
+    /** Continuation mappings owned by the active non-Communication scope (no phrase slots). */
+    private fun activeScopeContinuationMappings(): List<WinkMapping> {
+        val mode = ModeScopedGestureAuthority.activeMode(buildGestureContext())
+        return ModeScopedGestureAuthority.namespaceFor(mode).map { binding ->
+            WinkMapping(
+                binding.left,
+                binding.right,
+                "",
+                isCustom = true,
+                customPhrase = ""
+            )
+        }
+    }
 
     private fun guidedCurrentCategoryPage(): GuidedCategoryPage? =
         GuidedVocabularyCatalog.categoryAt(
@@ -4089,6 +4117,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 faceWidthNormalized = faceWidthNormalized
             )
         }
+        if (settingsRecalibrationController.isActive) {
+            val bounds = face.boundingBox
+            val faceWidthNormalized = if (bounds.width() > 0) {
+                (bounds.width().toFloat() / 1000f).coerceIn(0.05f, 1f)
+            } else {
+                0.35f
+            }
+            settingsRecalibrationController.onFrameSample(
+                leftOpenness = leftProb,
+                rightOpenness = rightProb,
+                faceWidthNormalized = faceWidthNormalized
+            )
+        }
 
         if (countdownActive) {
             handleCountdownWinks(leftProb, rightProb)
@@ -4142,6 +4183,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (startupSession.isActive && !startupSession.eyeControlEnabled) {
                 startupSession.onLeftWinkAccepted(closePeak = leftProb)
                 flashAcceptedBlink(isLeft = true)
+            } else if (settingsRecalibrationController.isActive) {
+                settingsRecalibrationController.onLeftWinkAccepted(closePeak = leftProb)
+                flashAcceptedBlink(isLeft = true)
             } else {
                 if (rejectLessonWrongEyeBlink(isLeft = true)) return
                 flashAcceptedBlink(isLeft = true)
@@ -4155,6 +4199,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (startupSession.isActive && !startupSession.eyeControlEnabled) {
                 startupSession.onRightWinkAccepted(closePeak = rightProb)
                 flashAcceptedBlink(isLeft = false)
+            } else if (settingsRecalibrationController.isActive) {
+                settingsRecalibrationController.onRightWinkAccepted(closePeak = rightProb)
+                flashAcceptedBlink(isLeft = false)
             } else {
                 if (rejectLessonWrongEyeBlink(isLeft = false)) return
                 flashAcceptedBlink(isLeft = false)
@@ -4165,6 +4212,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         if (startupSession.isActive && !startupSession.eyeControlEnabled) {
+            return
+        }
+        if (settingsRecalibrationController.isActive) {
+            // During BlinkThreeTimes, both-eye blinks are observed via onFrameSample.
+            // Left/right wink steps are handled above; do not route into menu navigation.
             return
         }
 
@@ -4245,6 +4297,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 setCommunicationState(LisaCommunicationState.WaitingForNextWink)
                 return
             }
+            // Layered scopes (Main Menu, Settings, …) must never show Communication phrase
+            // previews or WAITING phrase feedback while they own blink input.
+            if (!ModeScopedGestureAuthority.communicationPhraseFeedbackActive(buildGestureContext())) {
+                setCommunicationState(LisaCommunicationState.BuildingMessage)
+                return
+            }
             val partial = if (guidedOverlayActive()) {
                 WorkspacePhraseResolver.visibleEntriesForState(
                     state = uiGuidedNavigationState.value,
@@ -4261,6 +4319,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } else {
                 setCommunicationState(LisaCommunicationState.WaitingForNextWink)
             }
+            return
+        }
+
+        if (!ModeScopedGestureAuthority.communicationPhraseFeedbackActive(buildGestureContext())) {
+            setCommunicationState(LisaCommunicationState.BuildingMessage)
             return
         }
 
@@ -4403,6 +4466,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 handleMenuDestinationSequence(capturedLeft, capturedRight)
                 return
             }
+            GestureRoutingTarget.ScopeUnmatched -> {
+                resetSequence()
+                setCommunicationState(LisaCommunicationState.Listening)
+                return
+            }
             GestureRoutingTarget.GuidedOverlay -> {
                 handleGuidedOverlaySequence(capturedLeft, capturedRight)
                 return
@@ -4417,6 +4485,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             GestureRoutingTarget.Emergency,
             GestureRoutingTarget.FinishTraining,
             GestureRoutingTarget.CommunicationPhrasePath -> Unit
+        }
+
+        // Hard isolation: never evaluate Communication phrases while a layered panel owns input.
+        if (!ModeScopedGestureAuthority.communicationPhraseFeedbackActive(buildGestureContext())) {
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
         }
 
         if (uiListeningPaused.value) {
