@@ -27,12 +27,13 @@ import com.idworx.lisa.features.onboardingguide.ui.LessonEyeStatusPanel
 import com.idworx.lisa.features.onboardingguide.ui.TrainingSensitivityControls
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
-import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaWhite
 
 /**
- * Compact live eye-tracking chrome for Welcome, calibration, readiness, and lessons.
+ * Compact live eye-tracking chrome for Welcome, calibration, readiness, lessons, and startup.
  * Renders [EyeTrackingStatusUiState] from the session authority — never owns a detector.
+ *
+ * Hierarchy: status pill → transparent [BlinkCounterRow] → sensitivity / response time.
  */
 @Composable
 fun CompactEyeTrackingHeader(
@@ -93,8 +94,8 @@ fun CompactEyeTrackingHeader(
 }
 
 /**
- * Expanded panel with camera/face/eyes lines plus live blink counters (readiness / lessons).
- * Uses [LessonEyeStatusPanel] so Guided Learning keeps one coherent status source.
+ * Expanded readiness panel: status → transparent counter → sensitivity → camera/eyes detail.
+ * Blink counts come only from [BlinkCounterRow] (shared Communication visual authority).
  */
 @Composable
 fun ExpandedEyeTrackingStatusPanel(
@@ -116,10 +117,6 @@ fun ExpandedEyeTrackingStatusPanel(
             label = state.statusText.ifBlank { uiStrings.eyeTrackingStatusWatching },
             active = state.trackingActive || (state.cameraActive && state.eyesDetected)
         )
-        LessonEyeStatusPanel(
-            eyeTracking = EyeTrackingStatusUiMapper.toTrainingEyeTracking(state),
-            modifier = Modifier.fillMaxWidth()
-        )
         BlinkCounterRow(
             uiStrings = uiStrings,
             leftBlinkCount = state.leftBlinkCount,
@@ -136,9 +133,23 @@ fun ExpandedEyeTrackingStatusPanel(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        LessonEyeStatusPanel(
+            eyeTracking = EyeTrackingStatusUiMapper.toTrainingEyeTracking(state),
+            showBlinkCounters = false,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
+/**
+ * Canonical shared transparent live blink counter (Communication + pre-Communication).
+ *
+ * Displays physical-left / physical-right counts via [LisaUiStrings.leftDots] /
+ * [LisaUiStrings.rightDots] (● dots; Communication-neutral zero "—").
+ * Background is transparent; labels and dots always use [TransparentBlinkCounterStyle.LabelColor]
+ * ([LisaBlueDark]) for permanent high contrast on any surface.
+ * Does not own blink detection state.
+ */
 @Composable
 fun BlinkCounterRow(
     uiStrings: LisaUiStrings,
@@ -147,15 +158,15 @@ fun BlinkCounterRow(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val style = TransparentBlinkCounterStyle
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
-            .background(LisaBlueLight.copy(alpha = 0.85f))
-            .border(1.dp, LisaBlue.copy(alpha = 0.35f), RoundedCornerShape(if (compact) 10.dp else 12.dp))
+            .clip(RoundedCornerShape(style.CornerRadius))
+            .background(style.Background)
             .padding(
-                horizontal = if (compact) 10.dp else 14.dp,
-                vertical = if (compact) 6.dp else 10.dp
+                horizontal = if (compact) style.CompactHorizontalPadding else style.HorizontalPadding,
+                vertical = if (compact) style.CompactVerticalPadding else style.VerticalPadding
             )
             .semantics {
                 contentDescription =
@@ -166,15 +177,15 @@ fun BlinkCounterRow(
     ) {
         Text(
             text = uiStrings.leftDots(leftBlinkCount),
-            fontSize = if (compact) 14.sp else 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LisaBlueDark
+            fontSize = if (compact) style.CompactFontSize else style.FontSize,
+            fontWeight = style.LabelWeight,
+            color = style.LabelColor
         )
         Text(
             text = uiStrings.rightDots(rightBlinkCount),
-            fontSize = if (compact) 14.sp else 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LisaBlueDark,
+            fontSize = if (compact) style.CompactFontSize else style.FontSize,
+            fontWeight = style.LabelWeight,
+            color = style.LabelColor,
             textAlign = TextAlign.End
         )
     }

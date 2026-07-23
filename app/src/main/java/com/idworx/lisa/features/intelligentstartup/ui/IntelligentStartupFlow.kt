@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.CommunicationLevel
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
+import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
 import com.idworx.lisa.features.intelligentstartup.model.StartupFlowState
 import com.idworx.lisa.features.intelligentstartup.model.StartupPhase
@@ -62,8 +65,7 @@ fun IntelligentStartupFlow(
     uiStrings: LisaUiStrings,
     cameraPermissionGranted: Boolean,
     cameraView: @Composable () -> Unit,
-    eyeTrackingStatus: com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState =
-        com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState(),
+    eyeTrackingStatus: EyeTrackingStatusUiState = EyeTrackingStatusUiState(),
     onCalibrationTimeout: () -> Unit = {},
     onRequestCameraPermission: () -> Unit = {},
     onCreateDraftChange: (name: String?, language: String?, level: String?) -> Unit = { _, _, _ -> },
@@ -90,19 +92,34 @@ fun IntelligentStartupFlow(
                     lookingForFace = state.lookingForFaceMessage || !state.faceDetected,
                     evaluating = state.phase == StartupPhase.EvaluatingCompatibility ||
                         state.phase == StartupPhase.ProfileResolution,
-                    uiStrings = uiStrings
+                    uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus,
+                    onDecreaseSensitivity = onDecreaseSensitivity,
+                    onIncreaseSensitivity = onIncreaseSensitivity,
+                    onDecreaseResponseTime = onDecreaseResponseTime,
+                    onIncreaseResponseTime = onIncreaseResponseTime
                 )
                 StartupPhase.CreatePrimaryUser -> CreatePrimaryUserScreen(
                     state = state,
                     uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus,
                     onDraftChange = onCreateDraftChange,
-                    onConfirm = onConfirmCreatePrimaryUser
+                    onConfirm = onConfirmCreatePrimaryUser,
+                    onDecreaseSensitivity = onDecreaseSensitivity,
+                    onIncreaseSensitivity = onIncreaseSensitivity,
+                    onDecreaseResponseTime = onDecreaseResponseTime,
+                    onIncreaseResponseTime = onIncreaseResponseTime
                 )
                 StartupPhase.ProfileSelection -> StartupProfilePickerScreen(
                     state = state,
                     uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus,
                     onSelectIndex = onSelectProfileIndex,
-                    onConfirm = onConfirmSelectedProfile
+                    onConfirm = onConfirmSelectedProfile,
+                    onDecreaseSensitivity = onDecreaseSensitivity,
+                    onIncreaseSensitivity = onIncreaseSensitivity,
+                    onDecreaseResponseTime = onDecreaseResponseTime,
+                    onIncreaseResponseTime = onIncreaseResponseTime
                 )
                 StartupPhase.QuickCalibration -> {
                     LaunchedEffect(state.calibrationStep) {
@@ -121,11 +138,58 @@ fun IntelligentStartupFlow(
                         onIncreaseResponseTime = onIncreaseResponseTime
                     )
                 }
-                StartupPhase.CalibrationFailure -> CalibrationFailureScreen(uiStrings = uiStrings)
-                StartupPhase.EyeTrackingReady -> EyeTrackingReadyScreen(uiStrings = uiStrings)
+                StartupPhase.CalibrationFailure -> CalibrationFailureScreen(
+                    uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus,
+                    onDecreaseSensitivity = onDecreaseSensitivity,
+                    onIncreaseSensitivity = onIncreaseSensitivity,
+                    onDecreaseResponseTime = onDecreaseResponseTime,
+                    onIncreaseResponseTime = onIncreaseResponseTime
+                )
+                StartupPhase.EyeTrackingReady -> EyeTrackingReadyScreen(
+                    uiStrings = uiStrings,
+                    eyeTrackingStatus = eyeTrackingStatus,
+                    onDecreaseSensitivity = onDecreaseSensitivity,
+                    onIncreaseSensitivity = onIncreaseSensitivity,
+                    onDecreaseResponseTime = onDecreaseResponseTime,
+                    onIncreaseResponseTime = onIncreaseResponseTime
+                )
                 StartupPhase.Complete -> Unit
             }
         }
+    }
+}
+
+/** Shared status → transparent blink counter → sensitivity, then screen content. */
+@Composable
+private fun StartupScreenWithSharedBlinkCounter(
+    uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CompactEyeTrackingHeader(
+            state = eyeTrackingStatus,
+            uiStrings = uiStrings,
+            showSensitivityControls = true,
+            compact = true,
+            onDecreaseSensitivity = onDecreaseSensitivity,
+            onIncreaseSensitivity = onIncreaseSensitivity,
+            onDecreaseResponseTime = onDecreaseResponseTime,
+            onIncreaseResponseTime = onIncreaseResponseTime,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        content()
     }
 }
 
@@ -133,7 +197,12 @@ fun IntelligentStartupFlow(
 private fun FaceDetectionStartupScreen(
     lookingForFace: Boolean,
     evaluating: Boolean,
-    uiStrings: LisaUiStrings
+    uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit
 ) {
     val title = when {
         evaluating -> uiStrings.t("Preparing…", "Berei voor…", "Silungiselela…")
@@ -157,74 +226,98 @@ private fun FaceDetectionStartupScreen(
             "Silungiselela ukulandelela amehlo…"
         )
     }
-    StartupCenteredMessage(title = title, body = body)
+    StartupScreenWithSharedBlinkCounter(
+        uiStrings = uiStrings,
+        eyeTrackingStatus = eyeTrackingStatus,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime
+    ) {
+        StartupCenteredMessage(title = title, body = body, fillRemaining = true)
+    }
 }
 
 @Composable
 private fun CreatePrimaryUserScreen(
     state: StartupFlowState,
     uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
     onDraftChange: (name: String?, language: String?, level: String?) -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    StartupScreenWithSharedBlinkCounter(
+        uiStrings = uiStrings,
+        eyeTrackingStatus = eyeTrackingStatus,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        Text(
-            text = uiStrings.t("Create Primary User", "Skep Primêre Gebruiker", "Dala Umsebenzisi Oyinhloko"),
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = LisaBlueDark,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = uiStrings.t(
-                "Caregiver-assisted setup. Only a name, language, and level are required.",
-                "Versorger-ondersteunde opstelling.",
-                "Ukusetha okusizwa umnakekeli."
-            ),
-            fontSize = 15.sp,
-            color = LisaBlueDark.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(18.dp))
-        TrainingCard {
-            OutlinedTextField(
-                value = state.createNameDraft,
-                onValueChange = { onDraftChange(it, null, null) },
-                label = { Text(uiStrings.nameLabel) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = uiStrings.t("Create Primary User", "Skep Primêre Gebruiker", "Dala Umsebenzisi Oyinhloko"),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(12.dp))
-            Text(uiStrings.preferredLanguageSection, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
-            PreferredLanguage.selectable.forEach { language ->
-                ChoiceChipRow(
-                    label = language.label,
-                    selected = state.createLanguageLabel == language.label,
-                    onClick = { onDraftChange(null, language.label, null) }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = uiStrings.t(
+                    "Caregiver-assisted setup. Only a name, language, and level are required.",
+                    "Versorger-ondersteunde opstelling.",
+                    "Ukusetha okusizwa umnakekeli."
+                ),
+                fontSize = 15.sp,
+                color = LisaBlueDark.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            TrainingCard {
+                OutlinedTextField(
+                    value = state.createNameDraft,
+                    onValueChange = { onDraftChange(it, null, null) },
+                    label = { Text(uiStrings.nameLabel) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(uiStrings.preferredLanguageSection, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
+                PreferredLanguage.selectable.forEach { language ->
+                    ChoiceChipRow(
+                        label = language.label,
+                        selected = state.createLanguageLabel == language.label,
+                        onClick = { onDraftChange(null, language.label, null) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(uiStrings.communicationLevelSection, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
+                CommunicationLevel.entries.forEach { level ->
+                    ChoiceChipRow(
+                        label = level.label,
+                        selected = state.createLevelLabel == level.label,
+                        onClick = { onDraftChange(null, null, level.label) }
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TrainingPrimaryButton(
+                    text = uiStrings.t("Continue", "Gaan voort", "Qhubeka"),
+                    onClick = onConfirm
                 )
             }
-            Spacer(Modifier.height(12.dp))
-            Text(uiStrings.communicationLevelSection, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
-            CommunicationLevel.entries.forEach { level ->
-                ChoiceChipRow(
-                    label = level.label,
-                    selected = state.createLevelLabel == level.label,
-                    onClick = { onDraftChange(null, null, level.label) }
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            TrainingPrimaryButton(
-                text = uiStrings.t("Continue", "Gaan voort", "Qhubeka"),
-                onClick = onConfirm
-            )
         }
     }
 }
@@ -233,45 +326,60 @@ private fun CreatePrimaryUserScreen(
 private fun StartupProfilePickerScreen(
     state: StartupFlowState,
     uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
     onSelectIndex: (Int) -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+    StartupScreenWithSharedBlinkCounter(
+        uiStrings = uiStrings,
+        eyeTrackingStatus = eyeTrackingStatus,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        Text(
-            text = uiStrings.t("Who is using LISA?", "Wie gebruik LISA?", "Ubani osebenzisa i-LISA?"),
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = LisaBlueDark,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = uiStrings.t(
-                "Move Up ${formatWinkSequenceShort(2, 0)}  ·  Move Down ${formatWinkSequenceShort(0, 2)}  ·  Select ${formatWinkSequenceShort(1, 1)}",
-                "Op ${formatWinkSequenceShort(2, 0)}  ·  Af ${formatWinkSequenceShort(0, 2)}  ·  Kies ${formatWinkSequenceShort(1, 1)}",
-                "Phezulu ${formatWinkSequenceShort(2, 0)}  ·  Phansi ${formatWinkSequenceShort(0, 2)}  ·  Khetha ${formatWinkSequenceShort(1, 1)}"
-            ),
-            fontSize = 13.sp,
-            color = LisaBlueDark.copy(alpha = 0.75f),
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(16.dp))
-        state.profileChoices.forEachIndexed { index, choice ->
-            ProfileChoiceCard(
-                choice = choice,
-                selected = index == state.selectedProfileIndex,
-                onClick = {
-                    onSelectIndex(index)
-                    onConfirm()
-                }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = uiStrings.t("Who is using LISA?", "Wie gebruik LISA?", "Ubani osebenzisa i-LISA?"),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Center
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = uiStrings.t(
+                    "Move Up ${formatWinkSequenceShort(2, 0)}  ·  Move Down ${formatWinkSequenceShort(0, 2)}  ·  Select ${formatWinkSequenceShort(1, 1)}",
+                    "Op ${formatWinkSequenceShort(2, 0)}  ·  Af ${formatWinkSequenceShort(0, 2)}  ·  Kies ${formatWinkSequenceShort(1, 1)}",
+                    "Phezulu ${formatWinkSequenceShort(2, 0)}  ·  Phansi ${formatWinkSequenceShort(0, 2)}  ·  Khetha ${formatWinkSequenceShort(1, 1)}"
+                ),
+                fontSize = 13.sp,
+                color = LisaBlueDark.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            state.profileChoices.forEachIndexed { index, choice ->
+                ProfileChoiceCard(
+                    choice = choice,
+                    selected = index == state.selectedProfileIndex,
+                    onClick = {
+                        onSelectIndex(index)
+                        onConfirm()
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
         }
     }
 }
@@ -327,7 +435,7 @@ private fun ChoiceChipRow(label: String, selected: Boolean, onClick: () -> Unit)
 private fun QuickEyeCalibrationScreen(
     state: StartupFlowState,
     uiStrings: LisaUiStrings,
-    eyeTrackingStatus: com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
     onDecreaseSensitivity: () -> Unit,
     onIncreaseSensitivity: () -> Unit,
     onDecreaseResponseTime: () -> Unit,
@@ -367,7 +475,7 @@ private fun QuickEyeCalibrationScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader(
+        CompactEyeTrackingHeader(
             state = calibrationStatus,
             uiStrings = uiStrings,
             showSensitivityControls = true,
@@ -407,44 +515,83 @@ private fun QuickEyeCalibrationScreen(
 }
 
 @Composable
-private fun CalibrationFailureScreen(uiStrings: LisaUiStrings) {
-    StartupCenteredMessage(
-        title = uiStrings.t(
-            "We couldn't calibrate your eyes.",
-            "Ons kon nie jou oë kalibreer nie.",
-            "Asikwazanga ukulungisa amehlo akho."
-        ),
-        body = uiStrings.t(
-            "Please move a little closer to the camera.\nor\nImprove the lighting.",
-            "Beweeg asseblief 'n bietjie nader aan die kamera.\nof\nVerbeter die beligting.",
-            "Sicela usondele kancane ekhamereni.\nnoma\nThuthukisa ukukhanya."
+private fun CalibrationFailureScreen(
+    uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit
+) {
+    StartupScreenWithSharedBlinkCounter(
+        uiStrings = uiStrings,
+        eyeTrackingStatus = eyeTrackingStatus,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime
+    ) {
+        StartupCenteredMessage(
+            title = uiStrings.t(
+                "We couldn't calibrate your eyes.",
+                "Ons kon nie jou oë kalibreer nie.",
+                "Asikwazanga ukulungisa amehlo akho."
+            ),
+            body = uiStrings.t(
+                "Please move a little closer to the camera.\nor\nImprove the lighting.",
+                "Beweeg asseblief 'n bietjie nader aan die kamera.\nof\nVerbeter die beligting.",
+                "Sicela usondele kancane ekhamereni.\nnoma\nThuthukisa ukukhanya."
+            ),
+            fillRemaining = true
         )
-    )
+    }
 }
 
 @Composable
-private fun EyeTrackingReadyScreen(uiStrings: LisaUiStrings) {
-    StartupCenteredMessage(
-        title = uiStrings.t("Eye Tracking Ready", "Oognasporing Gereed", "Ukulandelela Amehlo Sekulungile"),
-        body = uiStrings.t(
-            "You can control LISA with your eyes.",
-            "Jy kan LISA met jou oë beheer.",
-            "Ungalawula i-LISA ngamehlo akho."
+private fun EyeTrackingReadyScreen(
+    uiStrings: LisaUiStrings,
+    eyeTrackingStatus: EyeTrackingStatusUiState,
+    onDecreaseSensitivity: () -> Unit,
+    onIncreaseSensitivity: () -> Unit,
+    onDecreaseResponseTime: () -> Unit,
+    onIncreaseResponseTime: () -> Unit
+) {
+    StartupScreenWithSharedBlinkCounter(
+        uiStrings = uiStrings,
+        eyeTrackingStatus = eyeTrackingStatus,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime
+    ) {
+        StartupCenteredMessage(
+            title = uiStrings.t("Eye Tracking Ready", "Oognasporing Gereed", "Ukulandelela Amehlo Sekulungile"),
+            body = uiStrings.t(
+                "You can control LISA with your eyes.",
+                "Jy kan LISA met jou oë beheer.",
+                "Ungalawula i-LISA ngamehlo akho."
+            ),
+            fillRemaining = true
         )
-    )
+    }
 }
 
 @Composable
-private fun StartupCenteredMessage(title: String, body: String) {
+private fun ColumnScope.StartupCenteredMessage(
+    title: String,
+    body: String,
+    fillRemaining: Boolean = false
+) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(28.dp),
+            .fillMaxWidth()
+            .then(if (fillRemaining) Modifier.weight(1f) else Modifier)
+            .padding(horizontal = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = LisaBlueDark, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Text(body, fontSize = 17.sp, color = LisaBlueDark.copy(alpha = 0.85f), textAlign = TextAlign.Center, lineHeight = 24.sp)
     }
 }

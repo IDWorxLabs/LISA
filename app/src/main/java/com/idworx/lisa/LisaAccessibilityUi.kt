@@ -982,28 +982,12 @@ private fun CompactSensitivityControls(
 
 @Composable
 private fun SequenceProgressDots(uiStrings: LisaUiStrings, leftCount: Int, rightCount: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.32f))
-            .padding(horizontal = 12.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = uiStrings.leftDots(leftCount),
-            color = LisaWhite,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = uiStrings.rightDots(rightCount),
-            color = LisaWhite,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
+    // Shared Communication / pre-Communication transparent blink-counter authority.
+    com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow(
+        uiStrings = uiStrings,
+        leftBlinkCount = leftCount,
+        rightBlinkCount = rightCount
+    )
 }
 
 @Composable

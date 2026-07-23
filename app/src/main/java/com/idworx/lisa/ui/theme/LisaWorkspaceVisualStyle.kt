@@ -58,4 +58,14 @@ object LisaWorkspaceVisualStyle {
     val NavActionPartialHighlight: Color = LisaBlue.copy(alpha = 0.12f)
     val NavActionPrimaryBackground: Color = LisaBlue.copy(alpha = 0.22f)
     val NavActionPrimaryBorder: Color = LisaBlue.copy(alpha = 0.55f)
+
+    /**
+     * Outlined keyboard chrome controls (feedback direction legend + bottom keyboard command bar).
+     * Transparent fill, thin white stroke, high-contrast LISA blue labels.
+     */
+    val OutlinedKeyboardNavBackground: Color = Color.Transparent
+    val OutlinedKeyboardNavBorder: Color = Color.White
+    val OutlinedKeyboardNavContent: Color = LisaBlueDark
+    val OutlinedKeyboardNavCornerRadius = 6.dp
+    val OutlinedKeyboardNavBorderWidth = 1.dp
 }

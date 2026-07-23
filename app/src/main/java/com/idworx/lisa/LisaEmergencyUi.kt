@@ -183,24 +183,11 @@ private fun EmergencyBlinkFeedbackRows(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = uiStrings.leftDots(blinkFeedback.leftWinkCount),
-                color = LisaWhite,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = uiStrings.rightDots(blinkFeedback.rightWinkCount),
-                color = LisaWhite,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow(
+            uiStrings = uiStrings,
+            leftBlinkCount = blinkFeedback.leftWinkCount,
+            rightBlinkCount = blinkFeedback.rightWinkCount
+        )
         blinkFeedback.partialSequenceLabel()?.let { sequence ->
             Text(
                 text = "${uiStrings.phraseComposerPartialSequenceLabel}: $sequence",

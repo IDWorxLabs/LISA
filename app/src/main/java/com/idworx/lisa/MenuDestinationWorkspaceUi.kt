@@ -1,6 +1,8 @@
 package com.idworx.lisa
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.ScrollState
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +39,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
-
 data class MenuDestinationUiBinding(
     val state: MenuDestinationNavigationState,
     val actions: List<MenuDestinationAction>,
@@ -411,6 +413,7 @@ private fun FeedbackKeyboardDirectionLegend(
     uiStrings: LisaUiStrings,
     modifier: Modifier = Modifier
 ) {
+    val chrome = LisaWorkspaceVisualStyle
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(3.dp)
@@ -420,14 +423,19 @@ private fun FeedbackKeyboardDirectionLegend(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(LisaWorkspaceVisualStyle.NavPanelBackground)
+                    .clip(RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius))
+                    .background(chrome.OutlinedKeyboardNavBackground)
+                    .border(
+                        chrome.OutlinedKeyboardNavBorderWidth,
+                        chrome.OutlinedKeyboardNavBorder,
+                        RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius)
+                    )
                     .padding(horizontal = 2.dp, vertical = 4.dp),
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
             ) {
                 Text(
                     text = presentation.title,
-                    color = com.idworx.lisa.ui.theme.LisaWhite,
+                    color = chrome.OutlinedKeyboardNavContent,
                     fontSize = 10.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                     maxLines = 1,
@@ -436,7 +444,7 @@ private fun FeedbackKeyboardDirectionLegend(
                 )
                 Text(
                     text = presentation.sequence,
-                    color = com.idworx.lisa.ui.theme.LisaWhite.copy(alpha = 0.9f),
+                    color = chrome.OutlinedKeyboardNavContent,
                     fontSize = 10.sp,
                     maxLines = 1,
                     textAlign = TextAlign.Center
@@ -509,14 +517,25 @@ private fun KeyboardFocusedCommandBar(
                 uiStrings,
                 keyboardContext = !reviewing
             )
+            val chrome = LisaWorkspaceVisualStyle
             OutlinedButton(
                 onClick = { onCommand(command) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius),
+                border = BorderStroke(
+                    chrome.OutlinedKeyboardNavBorderWidth,
+                    chrome.OutlinedKeyboardNavBorder
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = chrome.OutlinedKeyboardNavBackground,
+                    contentColor = chrome.OutlinedKeyboardNavContent
+                )
             ) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                     Text(
                         presentation.title,
                         fontSize = 11.sp,
+                        color = chrome.OutlinedKeyboardNavContent,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
@@ -524,6 +543,7 @@ private fun KeyboardFocusedCommandBar(
                     Text(
                         presentation.sequence,
                         fontSize = 10.sp,
+                        color = chrome.OutlinedKeyboardNavContent,
                         maxLines = 1
                     )
                 }

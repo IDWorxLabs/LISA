@@ -565,24 +565,12 @@ fun ComposerEyeStatusBar(
                 modifier = Modifier.weight(1f)
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = uiStrings.leftDots(eyeFeedback.leftWinkCount),
-                color = LisaWhite,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = uiStrings.rightDots(eyeFeedback.rightWinkCount),
-                color = LisaWhite,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow(
+            uiStrings = uiStrings,
+            leftBlinkCount = eyeFeedback.leftWinkCount,
+            rightBlinkCount = eyeFeedback.rightWinkCount,
+            compact = true
+        )
         eyeFeedback.partialSequenceLabel()?.let { sequence ->
             Text(
                 text = "${uiStrings.phraseComposerPartialSequenceLabel}: $sequence",

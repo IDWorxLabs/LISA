@@ -164,9 +164,11 @@ fun CommunicationLessonScreen(
                     .fillMaxWidth(0.92f)
                     .padding(bottom = 8.dp)
             )
-            // Detailed left/right counters (LessonEyeStatusPanel) stay visible for lesson feedback.
+            // Shared transparent BlinkCounterRow lives in CompactEyeTrackingHeader.
+            // LessonEyeStatusPanel keeps camera/eyes detail only (no second counter visual).
             LessonEyeStatusPanel(
                 eyeTracking = panelTracking,
+                showBlinkCounters = false,
                 modifier = Modifier
                     .fillMaxWidth(0.82f)
                     .padding(bottom = 4.dp)

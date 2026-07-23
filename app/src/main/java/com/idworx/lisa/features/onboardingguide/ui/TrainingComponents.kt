@@ -385,7 +385,9 @@ fun EyeTrackingStatusPill(
 @Composable
 fun LessonEyeStatusPanel(
     eyeTracking: TrainingEyeTrackingState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** When false, only camera/eyes lines render — blink counts use shared [BlinkCounterRow]. */
+    showBlinkCounters: Boolean = true
 ) {
     Column(
         modifier = modifier
@@ -406,14 +408,16 @@ fun LessonEyeStatusPanel(
                 else -> "Detected"
             }
         )
-        AnimatedBlinkCounterRow(
-            label = "Left blinks",
-            count = eyeTracking.leftBlinkCount
-        )
-        AnimatedBlinkCounterRow(
-            label = "Right blinks",
-            count = eyeTracking.rightBlinkCount
-        )
+        if (showBlinkCounters) {
+            AnimatedBlinkCounterRow(
+                label = "Left blinks",
+                count = eyeTracking.leftBlinkCount
+            )
+            AnimatedBlinkCounterRow(
+                label = "Right blinks",
+                count = eyeTracking.rightBlinkCount
+            )
+        }
     }
 }
 

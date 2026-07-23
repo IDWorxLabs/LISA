@@ -64,7 +64,7 @@ fun TrainingSetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Shared live status (EyeTrackingStatusPill + LessonEyeStatusPanel + BlinkCounterRow).
+            // Shared live status (status pill → transparent BlinkCounterRow → sensitivity → camera/eyes).
             ExpandedEyeTrackingStatusPanel(
                 state = status,
                 uiStrings = uiStrings,
