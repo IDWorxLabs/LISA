@@ -171,9 +171,12 @@ object GuidedPreferencesGestureConsistencyAuditor {
 
     private fun preferencesAdjustmentPanelBody(): String? {
         val file = ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt") ?: return null
-        val start = file.indexOf("private fun PreferencesAdjustmentPanel(")
-        if (start < 0) return null
-        val end = file.indexOf("\n@Composable", start)
+        val startMarkers = listOf(
+            "private fun SharedSettingAdjustmentPanel(",
+            "private fun PreferencesAdjustmentPanel("
+        )
+        val start = startMarkers.map { file.indexOf(it) }.firstOrNull { it >= 0 } ?: return null
+        val end = file.indexOf("\n@Composable", start + 1)
         return if (end > start) file.substring(start, end) else file.substring(start)
     }
 

@@ -180,9 +180,9 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     @Test
     fun settingsMenuOpensSensitivityAndCapturesOriginalValue() {
         val menu = openSettings(vocab(), ctx(sensitivity = 6))
-        // RC7D.27 — L2 R0 opens Sensitivity immediately.
+        // Select (L1 R1) opens the highlighted Sensitivity card.
         val opened = navigate(
-            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu, ctx(sensitivity = 6))
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu, ctx(sensitivity = 6))
         )
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, opened.preferencesAdjustMode)
         assertEquals(6, opened.draftSensitivityLevel)
@@ -193,8 +193,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     fun sensitivityDecreaseIncreaseThroughAdjustmentAuthority() {
         var s = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = 5)),
                 ctx(sensitivity = 5)
             )
@@ -210,8 +210,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     fun sensitivityStaysWithinExistingBounds() {
         var atMin = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = MIN_SENSITIVITY_LEVEL)),
                 ctx(sensitivity = MIN_SENSITIVITY_LEVEL)
             )
@@ -221,8 +221,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
 
         var atMax = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = MAX_SENSITIVITY_LEVEL)),
                 ctx(sensitivity = MAX_SENSITIVITY_LEVEL)
             )
@@ -235,8 +235,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     fun sensitivitySaveEmitsSaveResultAndExits() {
         var s = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = 5)),
                 ctx(sensitivity = 5)
             )
@@ -257,8 +257,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     fun sensitivityCancelRestoresOriginalAndDoesNotPersist() {
         var s = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = 5)),
                 ctx(sensitivity = 5)
             )
@@ -275,29 +275,39 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     @Test
     fun settingsMenuSelectsAndOpensResponseTime() {
         val menu = openSettings(vocab(), ctx(responseSec = 4))
-        // RC7D.27 — L0 R2 opens Response Time immediately.
-        val opened = navigate(
+        // Scroll Down highlights Response Time, then Select opens it.
+        val highlighted = navigate(
             process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu, ctx(responseSec = 4))
+        )
+        assertEquals(1, highlighted.settingsHubSelection)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, highlighted.preferencesAdjustMode)
+        val opened = navigate(
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, highlighted, ctx(responseSec = 4))
         )
         assertEquals(GuidedPreferencesAdjustMode.ResponseTime, opened.preferencesAdjustMode)
         assertEquals(4, opened.draftResponseTimeSec)
     }
 
     @Test
-    fun responseTimeAndSensitivityOpenDirectlyWithoutHighlightStep() {
+    fun responseTimeAndSensitivityOpenViaSelectWithoutRailFallthrough() {
         val menu = openSettings(vocab())
-        val response = navigate(process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu))
+        val highlighted = navigate(process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu))
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, highlighted.preferencesAdjustMode)
+        val response = navigate(process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, highlighted))
         assertEquals(GuidedPreferencesAdjustMode.ResponseTime, response.preferencesAdjustMode)
         val back = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, response))
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, back.preferencesAdjustMode)
-        val sensitivity = navigate(process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, back))
+        val sensitivity = navigate(process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, back))
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, sensitivity.preferencesAdjustMode)
     }
 
     private fun openResponseTimeAdjust(responseSec: Int): GuidedNavigationState {
         val menu = openSettings(vocab(), ctx(responseSec = responseSec))
-        return navigate(
+        val highlighted = navigate(
             process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu, ctx(responseSec = responseSec))
+        )
+        return navigate(
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, highlighted, ctx(responseSec = responseSec))
         )
     }
 
@@ -370,7 +380,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         // MainActivity applies through the one authority. Decrease/Increase only edit the draft.
         val menu = openSettings(vocab(), ctx(sensitivity = 5))
         val opened = navigate(
-            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu, ctx(sensitivity = 5))
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu, ctx(sensitivity = 5))
         )
         val confirming = navigate(
             process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, opened)
@@ -408,17 +418,20 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         // A category shortcut (L3 R1 = Medical in the menu) must NOT open a category from the sub-mode.
         val shortcut = process(3, 1, menu)
         assertTrue("Category shortcut must be inert in the settings sub-mode", shortcut is GuidedSequenceResult.Unmatched)
-        // Categories gesture is likewise inert here.
-        val categories = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, menu)
-        assertTrue(categories is GuidedSequenceResult.Unmatched)
+        // Categories (L3 R0) escapes Settings & Controls into the Category Menu.
+        val categories = navigate(
+            process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, menu)
+        )
+        assertEquals(GuidedOverlayScreenMode.CategoryMenu, categories.screenMode)
+        assertEquals(GuidedPreferencesAdjustMode.None, categories.preferencesAdjustMode)
     }
 
     @Test
     fun selectEntersSaveConfirmationRatherThanOpeningPhraseAndBackCancelsToSettingsMenu() {
         val opened = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = 5)),
                 ctx(sensitivity = 5)
             )
@@ -441,8 +454,8 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         // In value-adjustment, L3 R1 / L1 R3 are Decrease/Increase — not the Medical/Family shortcuts.
         val opened = navigate(
             process(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
                 openSettings(vocab(), ctx(sensitivity = 5)),
                 ctx(sensitivity = 5)
             )
@@ -472,7 +485,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         // L5 R5 while inside the sub-mode is not a second entry — it is simply unmatched.
         assertTrue(process(entryLeft, entryRight, menu) is GuidedSequenceResult.Unmatched)
         val opened = navigate(
-            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu)
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu)
         )
         assertTrue(process(entryLeft, entryRight, opened) is GuidedSequenceResult.Unmatched)
     }
@@ -508,16 +521,15 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     @Test
     fun settingsMenuPanelRendersAllOptionsWithCanonicalLabels() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
-        assertTrue(ui.contains("fun SettingsMenuPanel("))
+        assertTrue(ui.contains("fun SettingsAndControlsHubPanel(") || ui.contains("fun SettingsMenuPanel("))
         assertTrue(ui.contains("guidedAdjustSettingsTitle"))
         assertTrue(ui.contains("guidedSelectSensitivitySetting"))
         assertTrue(ui.contains("guidedSelectResponseTimeSetting"))
-        // RC7D.27 — Open Selected Setting removed; menu opens each setting directly.
-        assertFalse(ui.contains("guidedOpenSelectedSetting"))
+        // Selection model: rail Select uses guidedOpenSelectedSetting; no Setting 1/2 indicator.
+        assertTrue(ui.contains("PanelContext.SettingsHub") || ui.contains("settingsHubSelection"))
         assertFalse(ui.contains("guidedSettingIndicator"))
-        // Option labels use the canonical L2 R0 / L0 R2 / L2 R2 constants.
-        assertTrue(ui.contains("GuidedModeNavigation.PREVIOUS_LEFT"))
-        assertTrue(ui.contains("GuidedModeNavigation.NEXT_LEFT"))
+        assertTrue(ui.contains("SettingsAndControlsHubSequences") || ui.contains("GuidedModeNavigation.PREVIOUS_LEFT"))
+        assertTrue(ui.contains("SettingsControlKind.Sensitivity") || ui.contains("GuidedModeNavigation.NEXT_LEFT"))
     }
 
     @Test
@@ -538,7 +550,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         assertEquals("Response time saved: 5 seconds", english.guidedResponseTimeSaved(5))
         assertEquals("Sensitivity changes cancelled", english.guidedSensitivityChangesCancelled)
         assertEquals("Response time changes cancelled", english.guidedResponseTimeChangesCancelled)
-        assertEquals("Adjust Settings", english.guidedAdjustSettingsTitle)
+        assertEquals("Settings & Controls", english.guidedAdjustSettingsTitle)
         assertEquals("Cancel / Back", english.guidedCancelBack)
         assertFalse(english.guidedCancelBack.contains("Preferences", ignoreCase = true))
     }

@@ -898,6 +898,9 @@ object NavigationReachabilityAuthorityV1 {
                     a.entry.phrase == b.entry.phrase
                 a is GuidedSequenceResult.SystemAction && b is GuidedSequenceResult.SystemAction ->
                     a.entry.phrase == b.entry.phrase
+                a is GuidedSequenceResult.SettingsControlAction &&
+                    b is GuidedSequenceResult.SettingsControlAction ->
+                    a.kind == b.kind
                 else -> false
             }
     }

@@ -12,14 +12,15 @@ class Rc7B2PreserveCategoryShortcutsTest {
 
     private val english = LisaUiStrings.forLanguage(PreferredLanguage.English)
 
-    /** Category shortcuts before RC7B.1 (six categories). */
-    private val preRc7B1Shortcuts = listOf(
+    /** Category shortcuts for visible destinations after Settings & Controls migration. */
+    private val visibleCategoryShortcuts = listOf(
         "L2 R1" to GuidedVocabularyCategory.Conversation,
         "L1 R2" to GuidedVocabularyCategory.BasicNeeds,
         "L3 R1" to GuidedVocabularyCategory.Medical,
         "L1 R3" to GuidedVocabularyCategory.Family,
-        "L3 R2" to GuidedVocabularyCategory.BasicSystemControls,
-        "L2 R3" to GuidedVocabularyCategory.Preferences
+        "L3 R2" to GuidedVocabularyCategory.Preferences,
+        "L2 R3" to GuidedVocabularyCategory.Custom,
+        "L3 R3" to GuidedVocabularyCategory.PhraseManagement
     )
 
     private fun pagesWith(
@@ -40,7 +41,6 @@ class Rc7B2PreserveCategoryShortcutsTest {
                 GuidedVocabularyCategory.BasicNeeds,
                 GuidedVocabularyCategory.Medical,
                 GuidedVocabularyCategory.Family,
-                GuidedVocabularyCategory.BasicSystemControls,
                 GuidedVocabularyCategory.Preferences,
                 GuidedVocabularyCategory.Custom,
                 GuidedVocabularyCategory.PhraseManagement,
@@ -54,16 +54,16 @@ class Rc7B2PreserveCategoryShortcutsTest {
 
     @Test
     fun totalPageCountIncludesPhraseManagement() {
-        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(9, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(9, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
-    // 3. Every pre-RC7B.1 category shortcut matches its original value.
+    // 3. Visible category shortcuts match the post-migration ordered list.
 
     @Test
     fun preRc7B1CategoryShortcutsArePreserved() {
-        preRc7B1Shortcuts.forEachIndexed { index, (expectedLabel, category) ->
+        visibleCategoryShortcuts.forEachIndexed { index, (expectedLabel, category) ->
             assertEquals(category, GuidedVocabularyCategory.ordered[index])
             assertEquals(expectedLabel, GuidedCategoryShortcuts.sequenceLabelForCategory(index))
             val (left, right) = GuidedCategoryShortcuts.gestureForCategory(index)
@@ -71,34 +71,33 @@ class Rc7B2PreserveCategoryShortcutsTest {
         }
     }
 
-    // 4. System Controls shortcut is restored.
+    // 4. Basic System Controls removed; Preferences inherits former L3 R2 slot index.
 
     @Test
     fun systemControlsShortcutRestoredToL3R2() {
-        val index = GuidedVocabularyCategory.ordered.indexOf(GuidedVocabularyCategory.BasicSystemControls)
-        assertEquals(4, index)
-        assertEquals("L3 R2", GuidedCategoryShortcuts.sequenceLabelForCategory(index))
+        assertFalse(GuidedVocabularyCategory.ordered.contains(GuidedVocabularyCategory.BasicSystemControls))
+        assertEquals(4, GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        assertEquals("L3 R2", GuidedCategoryShortcuts.sequenceLabelForCategory(4))
     }
 
-    // 5. Preferences shortcut is restored.
+    // 5. Preferences shortcut after migration.
 
     @Test
     fun preferencesShortcutRestoredToL2R3() {
-        assertEquals(5, GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
-        assertEquals("L2 R3", GuidedCategoryShortcuts.sequenceLabelForCategory(5))
+        assertEquals(4, GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        assertEquals("L3 R2", GuidedCategoryShortcuts.sequenceLabelForCategory(4))
     }
 
-    // 6. Custom receives a new safe shortcut via slot-at-index policy.
+    // 6. Custom receives a safe shortcut via slot-at-index policy.
 
     @Test
     fun customReceivesNewSafeShortcutOnFinalSlot() {
-        assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
-        val customShortcut = GuidedCategoryShortcuts.sequenceLabelForCategory(6)
-        assertEquals("L3 R3", customShortcut)
-        assertTrue(preRc7B1Shortcuts.none { it.first == customShortcut })
+        assertEquals(5, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        val customShortcut = GuidedCategoryShortcuts.sequenceLabelForCategory(5)
+        assertEquals("L2 R3", customShortcut)
         assertTrue(GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation())
-        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(6)
-        assertEquals(6, GuidedCategoryShortcuts.categoryIndexForGesture(left, right))
+        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(5)
+        assertEquals(5, GuidedCategoryShortcuts.categoryIndexForGesture(left, right))
     }
 
     // 7. Custom remains reachable through page navigation.
@@ -226,7 +225,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicNeeds])
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.Medical])
         assertEquals(10, sizesByCategory[GuidedVocabularyCategory.Family])
-        assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
+        assertEquals(null, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
         assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.Custom])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
@@ -238,7 +237,7 @@ class Rc7B2PreserveCategoryShortcutsTest {
     @Test
     fun noCategoryNavigationConflicts() {
         val gestures = GuidedCategoryShortcuts.allGestures()
-        assertEquals(9, gestures.size)
+        assertEquals(8, gestures.size)
         assertEquals(gestures.size, gestures.distinct().size)
         assertTrue(GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation())
         assertTrue(GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots())
@@ -278,11 +277,10 @@ class Rc7B2PreserveCategoryShortcutsTest {
                 "Basic Needs",
                 "Medical",
                 "Family",
-                "Basic System Controls",
                 "Preferences",
                 "Customize Phrases",
                 "Phrase Management",
-                "Adjust Settings"
+                "Settings & Controls"
             ),
             titles
         )

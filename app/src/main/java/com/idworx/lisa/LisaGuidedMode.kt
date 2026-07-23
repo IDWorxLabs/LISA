@@ -265,14 +265,20 @@ enum class GuidedOverlayScreenMode {
 
 enum class GuidedPreferencesAdjustMode {
     None,
-    /** RC7D.25/RC7D.27 — Adjust Settings menu (choose a setting; each choice opens immediately). */
+    /** Settings & Controls hub (formerly Adjust Settings menu). */
     SettingsMenu,
     ResponseTime,
     Sensitivity,
+    SpeechVolume,
+    SpeechSpeed,
+    /** Listening pause/resume — state control, not a numeric adjustment. */
+    Listening,
     /** RC7D.27 — save confirmation for the Sensitivity draft (not yet persisted). */
     ConfirmSaveSensitivity,
     /** RC7D.27 — save confirmation for the Response Time draft (not yet persisted). */
-    ConfirmSaveResponseTime
+    ConfirmSaveResponseTime,
+    ConfirmSaveSpeechVolume,
+    ConfirmSaveSpeechSpeed
 }
 
 /**
@@ -289,25 +295,33 @@ enum class GuidedVocabularyCategory {
     BasicNeeds,
     Medical,
     Family,
+    /**
+     * Legacy enum member retained for storage/migration compatibility only.
+     * Controls were migrated into Settings & Controls; excluded from [ordered].
+     */
     BasicSystemControls,
     Preferences,
     Custom,
     /** Management destination — not a communication phrase category. */
     PhraseManagement,
     /**
-     * RC7D.26 — navigation destination for blink/touch Adjust Settings. Not a phrase category;
-     * never used for saved-phrase assignment or storage keys.
+     * RC7D.26 — navigation destination for Settings & Controls (formerly Adjust Settings).
+     * Not a phrase category; never used for saved-phrase assignment or storage keys.
      */
     AdjustSettings;
 
     companion object {
-        val ordered: List<GuidedVocabularyCategory> = entries.toList()
-        const val PAGE_COUNT: Int = 9
+        /**
+         * Visible category-menu destinations. Basic System Controls is omitted after migration
+         * into Settings & Controls — paging and shortcuts derive from this list only.
+         */
+        val ordered: List<GuidedVocabularyCategory> = entries.filter { it != BasicSystemControls }
+        const val PAGE_COUNT: Int = 8
         const val STANDARD_ENTRIES_PER_PAGE: Int = 10
-        const val PREFERENCES_CATEGORY_INDEX: Int = 5
-        const val CUSTOM_CATEGORY_INDEX: Int = 6
-        const val PHRASE_MANAGEMENT_INDEX: Int = 7
-        const val ADJUST_SETTINGS_INDEX: Int = 8
+        const val PREFERENCES_CATEGORY_INDEX: Int = 4
+        const val CUSTOM_CATEGORY_INDEX: Int = 5
+        const val PHRASE_MANAGEMENT_INDEX: Int = 6
+        const val ADJUST_SETTINGS_INDEX: Int = 7
     }
 }
 
@@ -389,10 +403,16 @@ data class GuidedNavigationState(
     val preferencesAdjustMode: GuidedPreferencesAdjustMode = GuidedPreferencesAdjustMode.None,
     val draftResponseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val draftSensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    val draftSpeechVolumeLevel: Int = SpeechVolumeAuthority.DEFAULT_LEVEL,
+    val draftSpeechSpeedLevel: Int = SpeechSpeedAuthority.DEFAULT_LEVEL,
     /** RC7D.27 — value captured when the current adjustment opened (for confirmation + cancel restore). */
     val adjustmentOriginalSensitivity: Int = DEFAULT_SENSITIVITY_LEVEL,
     val adjustmentOriginalResponseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
+    val adjustmentOriginalSpeechVolumeLevel: Int = SpeechVolumeAuthority.DEFAULT_LEVEL,
+    val adjustmentOriginalSpeechSpeedLevel: Int = SpeechSpeedAuthority.DEFAULT_LEVEL,
     val adjustmentScrollStep: Int = 0,
+    /** Selection index within the Settings & Controls hub (0 = Sensitivity … 3 = Speech Speed). */
+    val settingsHubSelection: Int = 0,
     // RC7D.22 — explicit category-list VIEWPORT page, independent of which category is selected.
     // The viewport page is what the caregiver perceives as "Page 1 / Page 2" (a scroll window),
     // never selectionIndex / pageSize. [categoryViewportPageCount] is measured by the Compose layer
@@ -408,9 +428,17 @@ data class GuidedNavigationState(
         phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
         draftResponseTimeSec = SequenceProcessingDelay.coerce(draftResponseTimeSec),
         draftSensitivityLevel = draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+        draftSpeechVolumeLevel = SpeechVolumeAuthority.coerce(draftSpeechVolumeLevel),
+        draftSpeechSpeedLevel = SpeechSpeedAuthority.coerce(draftSpeechSpeedLevel),
         adjustmentOriginalSensitivity = adjustmentOriginalSensitivity.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
         adjustmentOriginalResponseTimeSec = SequenceProcessingDelay.coerce(adjustmentOriginalResponseTimeSec),
+        adjustmentOriginalSpeechVolumeLevel = SpeechVolumeAuthority.coerce(adjustmentOriginalSpeechVolumeLevel),
+        adjustmentOriginalSpeechSpeedLevel = SpeechSpeedAuthority.coerce(adjustmentOriginalSpeechSpeedLevel),
         adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0),
+        settingsHubSelection = settingsHubSelection.coerceIn(
+            0,
+            (SettingsAndControlsHubSequences.HUB_SETTING_KINDS.size - 1).coerceAtLeast(0)
+        ),
         categoryViewportPageCount = categoryViewportPageCount.coerceAtLeast(1),
         categoryViewportPage = categoryViewportPage.coerceIn(0, (categoryViewportPageCount.coerceAtLeast(1) - 1))
     )
@@ -418,19 +446,26 @@ data class GuidedNavigationState(
     val isPreferencesAdjustmentActive: Boolean
         get() = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
 
-    /** Adjust Settings menu (level 1) — no value changing yet. */
+    /** Settings & Controls hub (level 1) — no value changing yet. */
     val isSettingsMenuActive: Boolean
         get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
 
-    /** Level 2: a specific setting is open and its draft value is being adjusted. */
+    /** Level 2: a specific numeric setting is open and its draft value is being adjusted. */
     val isValueAdjustmentActive: Boolean
         get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime ||
-            preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.SpeechVolume ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.SpeechSpeed
+
+    val isListeningControlActive: Boolean
+        get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.Listening
 
     /** RC7D.27 — save confirmation is showing (draft not yet persisted). */
     val isSaveConfirmationActive: Boolean
         get() = preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ||
-            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed
 
     fun displayResponseTimeSec(savedSec: Int): Int = when (preferencesAdjustMode) {
         GuidedPreferencesAdjustMode.ResponseTime,
@@ -444,6 +479,20 @@ data class GuidedNavigationState(
         GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
             draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         else -> savedLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+    }
+
+    fun displaySpeechVolumeLevel(savedLevel: Int): Int = when (preferencesAdjustMode) {
+        GuidedPreferencesAdjustMode.SpeechVolume,
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+            SpeechVolumeAuthority.coerce(draftSpeechVolumeLevel)
+        else -> SpeechVolumeAuthority.coerce(savedLevel)
+    }
+
+    fun displaySpeechSpeedLevel(savedLevel: Int): Int = when (preferencesAdjustMode) {
+        GuidedPreferencesAdjustMode.SpeechSpeed,
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+            SpeechSpeedAuthority.coerce(draftSpeechSpeedLevel)
+        else -> SpeechSpeedAuthority.coerce(savedLevel)
     }
 }
 
@@ -497,7 +546,9 @@ object GuidedNavigationPanelSpec {
     enum class PanelContext {
         Vocabulary,
         CategoryMenu,
-        Adjustment
+        Adjustment,
+        /** Settings & Controls hub — Scroll Up/Down move selection; Select opens the highlighted setting. */
+        SettingsHub
     }
 
     fun panelActions(uiStrings: LisaUiStrings, context: PanelContext): List<GuidedNavPanelAction> {
@@ -505,21 +556,25 @@ object GuidedNavigationPanelSpec {
             PanelContext.Vocabulary -> uiStrings.guidedPreviousPhrasePage
             PanelContext.CategoryMenu -> uiStrings.guidedMoveUpCategory
             PanelContext.Adjustment -> uiStrings.guidedScrollUp
+            PanelContext.SettingsHub -> uiStrings.guidedScrollUp
         }
         val selectTitle = when (context) {
             PanelContext.Vocabulary -> uiStrings.guidedSelectEnter
             PanelContext.CategoryMenu -> uiStrings.guidedOpenSelectedCategory
             PanelContext.Adjustment -> uiStrings.guidedSaveSelectedValue
+            PanelContext.SettingsHub -> uiStrings.guidedOpenSelectedSetting
         }
         val backTitle = when (context) {
             PanelContext.Vocabulary -> uiStrings.guidedBack
             PanelContext.CategoryMenu -> uiStrings.guidedBackToPhrases
             PanelContext.Adjustment -> uiStrings.guidedCancelAdjustment
+            PanelContext.SettingsHub -> uiStrings.guidedBack
         }
         val scrollDownTitle = when (context) {
             PanelContext.Vocabulary -> uiStrings.guidedNextPhrasePage
             PanelContext.CategoryMenu -> uiStrings.guidedMoveDownCategory
             PanelContext.Adjustment -> uiStrings.guidedScrollDown
+            PanelContext.SettingsHub -> uiStrings.guidedScrollDown
         }
         // Every sequenceLabel is derived directly from the same GuidedModeNavigation/emergency
         // constants the real gesture handlers check against — never a separately hardcoded copy —
@@ -630,6 +685,9 @@ object GuidedTouchNavigationSpec {
 data class GuidedCatalogContext(
     val responseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    val speechVolumeLevel: Int = SpeechVolumeAuthority.DEFAULT_LEVEL,
+    val speechSpeedLevel: Int = SpeechSpeedAuthority.DEFAULT_LEVEL,
+    val listeningPaused: Boolean = false,
     val caregiverCustomPhrases: List<CustomPhraseEngine.CaregiverCustomPhraseEntry> = emptyList()
 )
 
@@ -637,10 +695,14 @@ sealed class GuidedSequenceResult {
     data class Navigate(val newState: GuidedNavigationState) : GuidedSequenceResult()
     data class Speak(val entry: GuidedVocabularyEntry) : GuidedSequenceResult()
     data class SystemAction(val entry: GuidedVocabularyEntry) : GuidedSequenceResult()
+    /** Hub / Listening direct actions that are not vocabulary phrase entries. */
+    data class SettingsControlAction(val kind: SettingsControlKind) : GuidedSequenceResult()
     data class SavePreferencesAdjustment(
         val newState: GuidedNavigationState,
         val responseTimeSec: Int? = null,
-        val sensitivityLevel: Int? = null
+        val sensitivityLevel: Int? = null,
+        val speechVolumeLevel: Int? = null,
+        val speechSpeedLevel: Int? = null
     ) : GuidedSequenceResult()
     object Unmatched : GuidedSequenceResult()
 }
@@ -660,13 +722,14 @@ object PreferenceAdjustmentBarSpec {
 object PreferenceAdjustmentController {
 
     /**
-     * Open the Adjust Settings menu. Does not touch stored values. The underlying screen
+     * Open the Settings & Controls hub. Does not touch stored values. The underlying screen
      * (Vocabulary / Category Menu) is preserved so backing out of the menu returns there.
      */
     fun openSettingsMenu(state: GuidedNavigationState): GuidedNavigationState =
         state.normalized().copy(
             preferencesAdjustMode = GuidedPreferencesAdjustMode.SettingsMenu,
-            adjustmentScrollStep = 0
+            adjustmentScrollStep = 0,
+            settingsHubSelection = 0
         )
 
     fun openResponseTimeAdjust(state: GuidedNavigationState, currentSec: Int): GuidedNavigationState {
@@ -689,6 +752,71 @@ object PreferenceAdjustmentController {
         )
     }
 
+    fun openSpeechVolumeAdjust(state: GuidedNavigationState, currentLevel: Int): GuidedNavigationState {
+        val coerced = SpeechVolumeAuthority.coerce(currentLevel)
+        return state.normalized().copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechVolume,
+            draftSpeechVolumeLevel = coerced,
+            adjustmentOriginalSpeechVolumeLevel = coerced,
+            adjustmentScrollStep = 0
+        )
+    }
+
+    fun openSpeechSpeedAdjust(state: GuidedNavigationState, currentLevel: Int): GuidedNavigationState {
+        val coerced = SpeechSpeedAuthority.coerce(currentLevel)
+        return state.normalized().copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechSpeed,
+            draftSpeechSpeedLevel = coerced,
+            adjustmentOriginalSpeechSpeedLevel = coerced,
+            adjustmentScrollStep = 0
+        )
+    }
+
+    fun moveHubSelectionUp(state: GuidedNavigationState): GuidedNavigationState {
+        val max = SettingsAndControlsHubSequences.HUB_SETTING_KINDS.lastIndex
+        return state.copy(
+            settingsHubSelection = (state.settingsHubSelection - 1).coerceIn(0, max)
+        )
+    }
+
+    fun moveHubSelectionDown(state: GuidedNavigationState): GuidedNavigationState {
+        val max = SettingsAndControlsHubSequences.HUB_SETTING_KINDS.lastIndex
+        return state.copy(
+            settingsHubSelection = (state.settingsHubSelection + 1).coerceIn(0, max)
+        )
+    }
+
+    fun openSelectedHubSetting(
+        state: GuidedNavigationState,
+        catalogContext: GuidedCatalogContext
+    ): GuidedNavigationState {
+        val kind = SettingsAndControlsHubSequences.HUB_SETTING_KINDS
+            .getOrElse(state.settingsHubSelection) { SettingsControlKind.Sensitivity }
+        return openHubSetting(state, kind, catalogContext)
+    }
+
+    fun openHubSetting(
+        state: GuidedNavigationState,
+        kind: SettingsControlKind,
+        catalogContext: GuidedCatalogContext
+    ): GuidedNavigationState = when (kind) {
+        SettingsControlKind.Sensitivity ->
+            openSensitivityAdjust(state, catalogContext.sensitivityLevel)
+        SettingsControlKind.ResponseTime ->
+            openResponseTimeAdjust(state, catalogContext.responseTimeSec)
+        SettingsControlKind.SpeechVolume ->
+            openSpeechVolumeAdjust(state, catalogContext.speechVolumeLevel)
+        SettingsControlKind.SpeechSpeed ->
+            openSpeechSpeedAdjust(state, catalogContext.speechSpeedLevel)
+        else -> state
+    }
+
+    fun openListeningControl(state: GuidedNavigationState): GuidedNavigationState =
+        state.normalized().copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.Listening,
+            adjustmentScrollStep = 0
+        )
+
     fun decreaseDraft(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
         GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
             draftResponseTimeSec = SequenceProcessingDelay.coerce(state.draftResponseTimeSec - 1)
@@ -696,6 +824,12 @@ object PreferenceAdjustmentController {
         GuidedPreferencesAdjustMode.Sensitivity -> state.copy(
             draftSensitivityLevel = (state.draftSensitivityLevel - 1)
                 .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+        )
+        GuidedPreferencesAdjustMode.SpeechVolume -> state.copy(
+            draftSpeechVolumeLevel = SpeechVolumeAuthority.coerce(state.draftSpeechVolumeLevel - 1)
+        )
+        GuidedPreferencesAdjustMode.SpeechSpeed -> state.copy(
+            draftSpeechSpeedLevel = SpeechSpeedAuthority.coerce(state.draftSpeechSpeedLevel - 1)
         )
         else -> state
     }
@@ -708,6 +842,12 @@ object PreferenceAdjustmentController {
             draftSensitivityLevel = (state.draftSensitivityLevel + 1)
                 .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
         )
+        GuidedPreferencesAdjustMode.SpeechVolume -> state.copy(
+            draftSpeechVolumeLevel = SpeechVolumeAuthority.coerce(state.draftSpeechVolumeLevel + 1)
+        )
+        GuidedPreferencesAdjustMode.SpeechSpeed -> state.copy(
+            draftSpeechSpeedLevel = SpeechSpeedAuthority.coerce(state.draftSpeechSpeedLevel + 1)
+        )
         else -> state
     }
 
@@ -718,6 +858,12 @@ object PreferenceAdjustmentController {
         )
         GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
             preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
+        )
+        GuidedPreferencesAdjustMode.SpeechVolume -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume
+        )
+        GuidedPreferencesAdjustMode.SpeechSpeed -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed
         )
         else -> state
     }
@@ -730,18 +876,24 @@ object PreferenceAdjustmentController {
         GuidedPreferencesAdjustMode.ConfirmSaveResponseTime -> state.copy(
             preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
         )
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechVolume
+        )
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed -> state.copy(
+            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechSpeed
+        )
         else -> state
     }
 
     /**
-     * Exit Adjust Settings entirely (Back from the Settings menu).
+     * Exit Settings & Controls entirely (Back from the hub).
      */
     fun exitSettingsMenu(state: GuidedNavigationState): GuidedNavigationState =
         state.copy(preferencesAdjustMode = GuidedPreferencesAdjustMode.None)
 
     /**
      * RC7D.27 — Cancel / Back from an individual adjustment (or from confirmation via L2 R2 is
-     * blocked): discard the draft and return to the Adjust Settings menu.
+     * blocked): discard the draft and return to the Settings & Controls hub.
      */
     fun cancelAdjustment(state: GuidedNavigationState): GuidedNavigationState =
         when (state.preferencesAdjustMode) {
@@ -762,7 +914,19 @@ object PreferenceAdjustmentController {
                 newState = openSettingsMenu(state),
                 sensitivityLevel = state.draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
             )
-            GuidedPreferencesAdjustMode.SettingsMenu, GuidedPreferencesAdjustMode.None ->
+            GuidedPreferencesAdjustMode.SpeechVolume,
+            GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume -> GuidedSequenceResult.SavePreferencesAdjustment(
+                newState = openSettingsMenu(state),
+                speechVolumeLevel = SpeechVolumeAuthority.coerce(state.draftSpeechVolumeLevel)
+            )
+            GuidedPreferencesAdjustMode.SpeechSpeed,
+            GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed -> GuidedSequenceResult.SavePreferencesAdjustment(
+                newState = openSettingsMenu(state),
+                speechSpeedLevel = SpeechSpeedAuthority.coerce(state.draftSpeechSpeedLevel)
+            )
+            GuidedPreferencesAdjustMode.SettingsMenu,
+            GuidedPreferencesAdjustMode.Listening,
+            GuidedPreferencesAdjustMode.None ->
                 GuidedSequenceResult.SavePreferencesAdjustment(newState = state)
         }
 }
@@ -1144,9 +1308,11 @@ object GuidedNavigationController {
     }
 
     /**
-     * RC7D.25 / RC7D.27 — preference-adjustment gesture routing:
-     *   • SettingsMenu — L2 R0 / L0 R2 open a setting directly; L2 R2 exits the menu.
-     *   • Sensitivity / ResponseTime — decrease / increase / enter save confirmation / cancel to menu.
+     * Settings & Controls gesture routing:
+     *   • SettingsMenu — hub cards open settings or fire control actions; L2 R2 exits.
+     *   • Sensitivity / ResponseTime / SpeechVolume / SpeechSpeed — decrease / increase /
+     *     enter save confirmation / cancel to hub.
+     *   • Listening — toggle pause/resume; Back returns to hub.
      *   • ConfirmSave* — L1 R1 persists; R1 L1 returns to editing; other commands blocked.
      * Emergency (L6 R0) is matched upstream of this controller and therefore always takes priority.
      */
@@ -1160,31 +1326,93 @@ object GuidedNavigationController {
         GuidedPreferencesAdjustMode.SettingsMenu ->
             processSettingsMenuGesture(left, right, state, catalogContext)
         GuidedPreferencesAdjustMode.ConfirmSaveSensitivity,
-        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime,
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume,
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
             processSaveConfirmationGesture(left, right, state, blinkOrder)
         GuidedPreferencesAdjustMode.Sensitivity,
-        GuidedPreferencesAdjustMode.ResponseTime ->
+        GuidedPreferencesAdjustMode.ResponseTime,
+        GuidedPreferencesAdjustMode.SpeechVolume,
+        GuidedPreferencesAdjustMode.SpeechSpeed ->
             processValueAdjustmentGesture(left, right, state, blinkOrder)
+        GuidedPreferencesAdjustMode.Listening ->
+            processListeningControlGesture(left, right, state)
         GuidedPreferencesAdjustMode.None -> GuidedSequenceResult.Unmatched
     }
 
-    /** RC7D.27 — Adjust Settings menu: each setting opens immediately on its own sequence. */
+    /**
+     * Settings & Controls hub:
+     *   • L2 R0 / L0 R2 move the highlighted card (Scroll Up / Down) — never open a setting
+     *   • L1 R1 opens the highlighted setting (Select)
+     *   • L1 R2 / L3 R2 open Speech Volume / Speed directly (card shortcuts)
+     *   • L2 R2 exits; L3 R0 opens Categories
+     */
     private fun processSettingsMenuGesture(
         left: Int,
         right: Int,
         state: GuidedNavigationState,
         catalogContext: GuidedCatalogContext
+    ): GuidedSequenceResult {
+        if (GuidedModeNavigation.isBackSequence(left, right)) {
+            return GuidedSequenceResult.Navigate(PreferenceAdjustmentController.exitSettingsMenu(state))
+        }
+        if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
+            return GuidedSequenceResult.Navigate(openCategoryMenuEscapingAdjustment(state))
+        }
+        if (GuidedModeNavigation.isPreviousSequence(left, right)) {
+            return if (state.settingsHubSelection > 0) {
+                GuidedSequenceResult.Navigate(PreferenceAdjustmentController.moveHubSelectionUp(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
+        }
+        if (GuidedModeNavigation.isNextSequence(left, right)) {
+            val last = SettingsAndControlsHubSequences.HUB_SETTING_KINDS.lastIndex
+            return if (state.settingsHubSelection < last) {
+                GuidedSequenceResult.Navigate(PreferenceAdjustmentController.moveHubSelectionDown(state))
+            } else {
+                GuidedSequenceResult.Unmatched
+            }
+        }
+        if (GuidedModeNavigation.isSelectSequence(left, right)) {
+            return GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openSelectedHubSetting(state, catalogContext)
+            )
+        }
+        return when (SettingsAndControlsHubSequences.hubDirectOpenKindForGesture(left, right)) {
+            SettingsControlKind.SpeechVolume -> GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openHubSetting(
+                    state,
+                    SettingsControlKind.SpeechVolume,
+                    catalogContext
+                )
+            )
+            SettingsControlKind.SpeechSpeed -> GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openHubSetting(
+                    state,
+                    SettingsControlKind.SpeechSpeed,
+                    catalogContext
+                )
+            )
+            else -> GuidedSequenceResult.Unmatched
+        }
+    }
+
+    private fun processListeningControlGesture(
+        left: Int,
+        right: Int,
+        state: GuidedNavigationState
     ): GuidedSequenceResult = when {
-        GuidedModeNavigation.isPreviousSequence(left, right) ->
-            GuidedSequenceResult.Navigate(
-                PreferenceAdjustmentController.openSensitivityAdjust(state, catalogContext.sensitivityLevel)
-            )
-        GuidedModeNavigation.isNextSequence(left, right) ->
-            GuidedSequenceResult.Navigate(
-                PreferenceAdjustmentController.openResponseTimeAdjust(state, catalogContext.responseTimeSec)
-            )
         GuidedModeNavigation.isBackSequence(left, right) ->
-            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.exitSettingsMenu(state))
+            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelAdjustment(state))
+        GuidedModeNavigation.isSelectSequence(left, right) ||
+            (left == SettingsAndControlsHubSequences.LISTENING.first &&
+                right == SettingsAndControlsHubSequences.LISTENING.second) ||
+            (left == SettingsAndControlsHubSequences.LISTENING_ALT.first &&
+                right == SettingsAndControlsHubSequences.LISTENING_ALT.second) ->
+            GuidedSequenceResult.SettingsControlAction(SettingsControlKind.Listening)
+        GuidedModeNavigation.isCategoriesSequence(left, right) ->
+            GuidedSequenceResult.Navigate(openCategoryMenuEscapingAdjustment(state))
         else -> GuidedSequenceResult.Unmatched
     }
 
@@ -1425,21 +1653,7 @@ object GuidedVocabularyCatalog {
                 CatalogEntrySpec.Phrase("i_want_to_talk")
             )
         ),
-        CatalogSpec(
-            category = GuidedVocabularyCategory.BasicSystemControls,
-            entries = listOf(
-                CatalogEntrySpec.System("repeat_last", systemAction = SystemCommandAction.RepeatLastPhrase),
-                CatalogEntrySpec.System("increase_volume", guidedAction = GuidedOverlayAction.IncreaseSensitivity),
-                CatalogEntrySpec.System("decrease_volume", systemAction = SystemCommandAction.DecreaseSensitivity),
-                CatalogEntrySpec.System("slower_speech", systemAction = SystemCommandAction.SetSpeedSlow),
-                CatalogEntrySpec.System("faster_speech", systemAction = SystemCommandAction.SetSpeedFast),
-                CatalogEntrySpec.System("pause_listening", guidedAction = GuidedOverlayAction.TogglePauseListening),
-                CatalogEntrySpec.System("resume_listening", guidedAction = GuidedOverlayAction.TogglePauseListening),
-                CatalogEntrySpec.System("open_menu", guidedAction = GuidedOverlayAction.OpenMenu),
-                CatalogEntrySpec.System("reset_sequence", guidedAction = GuidedOverlayAction.ResetSequence),
-                CatalogEntrySpec.System("help", guidedAction = GuidedOverlayAction.ShowHelp)
-            )
-        ),
+        // Basic System Controls migrated into Settings & Controls — no longer a phrase category.
         CatalogSpec(
             category = GuidedVocabularyCategory.Preferences,
             entries = listOf(
@@ -1459,7 +1673,7 @@ object GuidedVocabularyCatalog {
             category = GuidedVocabularyCategory.PhraseManagement,
             entries = emptyList()
         ),
-        // Adjust Settings: navigation destination only — opens settings sub-mode (RC7D.26).
+        // Settings & Controls: navigation destination only — opens settings hub (RC7D.26+).
         CatalogSpec(
             category = GuidedVocabularyCategory.AdjustSettings,
             entries = emptyList()
@@ -1471,7 +1685,8 @@ object GuidedVocabularyCatalog {
         uiStrings: LisaUiStrings,
         catalogContext: GuidedCatalogContext = GuidedCatalogContext()
     ): List<GuidedCategoryPage> =
-        catalog.map { spec ->
+        GuidedVocabularyCategory.ordered.mapNotNull { category ->
+            val spec = catalog.firstOrNull { it.category == category } ?: return@mapNotNull null
             val builtInEntries = spec.entries.mapIndexedNotNull { index, entrySpec ->
                 resolveEntry(
                     spec = entrySpec,
@@ -1887,12 +2102,16 @@ object GuidedVocabularyCatalogValidation {
         }
     }
 
-    fun preferencesAppearsAfterBasicSystemControls(): Boolean {
+    fun preferencesAppearsAfterFamily(): Boolean {
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(
             LisaUiStrings.forLanguage(PreferredLanguage.English)
         )
-        return titles.indexOf("Basic System Controls") < titles.indexOf("Preferences")
+        return titles.indexOf("Family") < titles.indexOf("Preferences") &&
+            "Basic System Controls" !in titles
     }
+
+    @Deprecated("Basic System Controls removed from category menu; use preferencesAppearsAfterFamily()")
+    fun preferencesAppearsAfterBasicSystemControls(): Boolean = preferencesAppearsAfterFamily()
 
     fun preferencesEntriesOnlyOnPreferencesPage(): Boolean {
         val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
@@ -1960,8 +2179,7 @@ object GuidedVocabularyCatalogValidation {
             "L3 R2",
             "L2 R3",
             "L3 R3",
-            "L4 R1",
-            // RC7D.26 — Adjust Settings uses the canonical entry sequence, not the next page slot.
+            // Settings & Controls uses the canonical entry sequence, not the next page slot.
             formatWinkSequenceShort(
                 GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
                 GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT

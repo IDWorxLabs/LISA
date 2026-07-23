@@ -469,7 +469,7 @@ class Rc7D_21CategorySelectionViewportCenteringTest {
     fun categoryShortcutsRemainValid() {
         assertEquals(
             listOf(
-                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3, 4 to 1,
+                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3,
                 GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
             ),
             GuidedCategoryShortcuts.allGestures()

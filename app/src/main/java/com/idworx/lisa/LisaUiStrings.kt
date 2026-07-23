@@ -228,7 +228,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         GuidedVocabularyCategory.BasicSystemControls -> t("Basic System Controls", "Basiese Stelselkontroles", "Izilawuli Zesistimu Eziyisisekelo")
         GuidedVocabularyCategory.Preferences -> t("Preferences", "Voorkeure", "Okuncanyelwayo")
         GuidedVocabularyCategory.PhraseManagement -> t("Phrase Management", "Frasebestuur", "Ukuphathwa Kwebinzana")
-        GuidedVocabularyCategory.AdjustSettings -> t("Adjust Settings", "Verstel Instellings", "Lungisa Izilungiselelo")
+        GuidedVocabularyCategory.AdjustSettings -> t("Settings & Controls", "Instellings & Kontroles", "Izilungiselelo Nezilawuli")
     }
 
     val guidedCustomEmptyTitle: String get() = t(
@@ -294,17 +294,39 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     fun guidedAdjustmentCurrentValueSensitivity(level: Int): String =
         t("Current value: $level", "Huidige waarde: $level", "Inani lamanje: $level")
 
-    // RC7D.25 / RC7D.26 — Adjust Settings sub-mode (blink-accessible Sensitivity / Response Time).
-    val guidedAdjustSettingsTitle: String get() = t("Adjust Settings", "Verstel Instellings", "Lungisa Izilungiselelo")
-    val guidedOpenSelectedSetting: String get() = t("Open Selected Setting", "Open Gekose Instelling", "Vula Isilungiselelo Esikhethiwe")
+    // Settings & Controls hub (formerly Adjust Settings — Sensitivity / Response Time plus migrated system controls).
+    val guidedAdjustSettingsTitle: String get() = t("Settings & Controls", "Instellings & Kontroles", "Izilungiselelo Nezilawuli")
+    val guidedOpenSelectedSetting: String get() = t("Select Setting", "Kies Instelling", "Khetha Isilungiselelo")
     val guidedSelectSensitivitySetting: String get() = t("Sensitivity", "Sensitiwiteit", "Ukuzwela")
     val guidedSelectResponseTimeSetting: String get() = t("Response Time", "Reaksietyd", "Isikhathi Sokuphendula")
+    val guidedSelectSpeechVolumeSetting: String get() = t("Speech Volume", "Spraakvolume", "Ivolumu Yokukhuluma")
+    val guidedSelectSpeechSpeedSetting: String get() = t("Speech Speed", "Spraakspoed", "Isivinini Sokukhuluma")
+    val guidedSelectListeningSetting: String get() = t("Listening", "Luister", "Ukulalela")
+    val guidedRepeatLastMessageAction: String get() = t("Repeat Last Message", "Herhaal Laaste Boodskap", "Phinda Umlayezo Wakamuva")
+    val guidedResetSequenceAction: String get() = t("Reset My Input", "Herstel My Invoer", "Setha Kabusha Okokufaka")
+    val guidedShowHelpAction: String get() = t("Show Help", "Wys Hulp", "Bonisa Usizo")
+    val guidedCommunicationControlsSection: String get() = t("Communication Controls", "Kommunikasie-kontroles", "Izilawuli Zokuxhumana")
     fun guidedSettingIndicator(current: Int, total: Int): String =
         t("Setting $current / $total", "Instelling $current / $total", "Isilungiselelo $current / $total")
     val guidedSensitivityAdjustmentTitle: String
         get() = t("Sensitivity Adjustment", "Sensitiwiteit-verstelling", "Ukulungiswa Kokuzwela")
     val guidedResponseTimeAdjustmentTitle: String
         get() = t("Response Time Adjustment", "Reaksietyd-verstelling", "Ukulungiswa Kwesikhathi Sokuphendula")
+    val guidedSpeechVolumeAdjustmentTitle: String
+        get() = t("Speech Volume Adjustment", "Spraakvolume-verstelling", "Ukulungiswa Kwevolumu Yokukhuluma")
+    val guidedSpeechSpeedAdjustmentTitle: String
+        get() = t("Speech Speed Adjustment", "Spraakspoed-verstelling", "Ukulungiswa Kwesivinini Sokukhuluma")
+    val guidedListeningControlTitle: String
+        get() = t("Listening Control", "Luister-kontrole", "Ukulawula Ukulalela")
+    val guidedListeningActiveStatus: String
+        get() = t("Listening active", "Luister aktief", "Ukulalela kuyasebenza")
+    val guidedListeningPausedStatus: String
+        get() = t("Listening paused", "Luister gepouseer", "Ukulalela kumisiwe")
+    val guidedPauseListeningAction: String get() = t("Pause Listening", "Pouseer Luister", "Misa Ukulalela")
+    val guidedResumeListeningAction: String get() = t("Resume Listening", "Hervat Luister", "Qhubeka Ukulalela")
+    val guidedSpeechSpeedSlow: String get() = t("Slow", "Stadig", "Kancane")
+    val guidedSpeechSpeedNormal: String get() = t("Normal", "Normaal", "Okujwayelekile")
+    val guidedSpeechSpeedFast: String get() = t("Fast", "Vinnig", "Ngokushesha")
     val guidedDecreaseShort: String get() = t("Decrease", "Verminder", "Nciphisa")
     val guidedIncreaseShort: String get() = t("Increase", "Verhoog", "Khulisa")
     val guidedResponseTimeMeterHint: String get() = t(
@@ -312,6 +334,22 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Laer = vinniger bevestiging. Hoër = meer tyd om die reeks te voltooi.",
         "Okuphansi = ukuqinisekisa okusheshayo. Okuphezulu = isikhathi esengeziwe sokuqeda uchungechunge."
     )
+    fun guidedCurrentSpeechVolume(level: Int): String {
+        val pct = SpeechVolumeAuthority.percentLabel(level)
+        return t("Current volume: $pct", "Huidige volume: $pct", "Ivolumu yamanje: $pct")
+    }
+    fun guidedCurrentSpeechSpeed(level: Int): String {
+        val label = SpeechSpeedAuthority.displayLabel(level, this)
+        return t("Current speech speed: $label", "Huidige spraakspoed: $label", "Isivinini sokukhuluma samanje: $label")
+    }
+    fun guidedSpeechVolumeSaved(level: Int): String {
+        val pct = SpeechVolumeAuthority.percentLabel(level)
+        return t("Speech volume saved: $pct", "Spraakvolume gestoor: $pct", "Ivolumu yokukhuluma ilondoloziwe: $pct")
+    }
+    fun guidedSpeechSpeedSaved(level: Int): String {
+        val label = SpeechSpeedAuthority.displayLabel(level, this)
+        return t("Speech speed saved: $label", "Spraakspoed gestoor: $label", "Isivinini sokukhuluma silondoloziwe: $label")
+    }
     fun guidedSensitivitySaved(level: Int): String =
         t("Sensitivity saved: $level", "Sensitiwiteit gestoor: $level", "Ukuzwela kulondoloziwe: $level")
     fun guidedResponseTimeSaved(seconds: Int): String =
@@ -328,6 +366,25 @@ data class LisaUiStrings(val language: PreferredLanguage) {
             "Reaksietyd-veranderinge gekanselleer",
             "Izinguquko zesikhathi sokuphendula zikhanseliwe"
         )
+    val guidedSpeechVolumeChangesCancelled: String
+        get() = t("Speech volume changes cancelled", "Spraakvolume-veranderinge gekanselleer", "Izinguquko zevolumu zikhanseliwe")
+    val guidedSpeechSpeedChangesCancelled: String
+        get() = t("Speech speed changes cancelled", "Spraakspoed-veranderinge gekanselleer", "Izinguquko zesivinini zikhanseliwe")
+
+    fun guidedSaveSpeechVolumeConfirmTitle(): String =
+        t("Save speech volume?", "Stoor spraakvolume?", "Londoloza ivolumu yokukhuluma?")
+    fun guidedSaveSpeechSpeedConfirmTitle(): String =
+        t("Save speech speed?", "Stoor spraakspoed?", "Londoloza isivinini sokukhuluma?")
+    fun guidedSaveConfirmOriginalSpeechVolume(level: Int): String =
+        t("Original: ${SpeechVolumeAuthority.percentLabel(level)}", "Oorspronklik: ${SpeechVolumeAuthority.percentLabel(level)}", "Okokuqala: ${SpeechVolumeAuthority.percentLabel(level)}")
+    fun guidedSaveConfirmNewSpeechVolume(level: Int): String =
+        t("New: ${SpeechVolumeAuthority.percentLabel(level)}", "Nuut: ${SpeechVolumeAuthority.percentLabel(level)}", "Okusha: ${SpeechVolumeAuthority.percentLabel(level)}")
+    fun guidedSaveConfirmOriginalSpeechSpeed(level: Int): String =
+        t("Original: ${SpeechSpeedAuthority.displayLabel(level, this)}", "Oorspronklik: ${SpeechSpeedAuthority.displayLabel(level, this)}", "Okokuqala: ${SpeechSpeedAuthority.displayLabel(level, this)}")
+    fun guidedSaveConfirmNewSpeechSpeed(level: Int): String =
+        t("New: ${SpeechSpeedAuthority.displayLabel(level, this)}", "Nuut: ${SpeechSpeedAuthority.displayLabel(level, this)}", "Okusha: ${SpeechSpeedAuthority.displayLabel(level, this)}")
+    val guidedSaveSpeechVolume: String get() = t("Save speech volume", "Stoor spraakvolume", "Londoloza ivolumu yokukhuluma")
+    val guidedSaveSpeechSpeed: String get() = t("Save speech speed", "Stoor spraakspoed", "Londoloza isivinini sokukhuluma")
 
     fun listeningStatusLine(sensitivityLevel: Int, responseTimeSec: Int): String =
         t(

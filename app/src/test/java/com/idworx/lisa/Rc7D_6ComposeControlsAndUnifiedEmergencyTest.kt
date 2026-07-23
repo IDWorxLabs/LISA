@@ -79,26 +79,50 @@ class Rc7D_6ComposeControlsAndUnifiedEmergencyTest {
 
     @Test
     fun emergencyArmedOverlayShowsLeftAndRightBlinkFeedback() {
+        // Canonical path: ComposerEyeFeedback → shared BlinkCounterRow (not legacy leftDots/rightDots calls).
         val emergency = readSource("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
-        assertTrue(emergency.contains("leftDots(blinkFeedback.leftWinkCount)"))
-        assertTrue(emergency.contains("rightDots(blinkFeedback.rightWinkCount)"))
+        assertTrue(emergency.contains("BlinkCounterRow("))
+        assertTrue(emergency.contains("leftBlinkCount = blinkFeedback.leftWinkCount"))
+        assertTrue(emergency.contains("rightBlinkCount = blinkFeedback.rightWinkCount"))
+        // Physical left/right mapping is preserved through the shared counter labels.
+        assertEquals("Left: ●", english.leftDots(1))
+        assertEquals("Right: ●●", english.rightDots(2))
+        assertEquals("Left: —", english.leftDots(0))
+        assertEquals("Right: —", english.rightDots(0))
     }
 
     @Test
     fun emergencyArmedOverlayShowsPartialSequenceFeedback() {
         val emergency = readSource("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
         assertTrue(emergency.contains("partialSequenceLabel()"))
-        assertEquals("L1", ComposerEyeFeedback(EyeTrackingBannerContext(), 1, 0, 5, 5).partialSequenceLabel())
-        assertEquals("L1 R1", ComposerEyeFeedback(EyeTrackingBannerContext(), 1, 1, 5, 5).partialSequenceLabel())
+        assertTrue(emergency.contains("phraseComposerPartialSequenceLabel"))
+        // Behavioural coverage of zero / left-only / right-only / both sides.
+        assertEquals(null, feedback(0, 0).partialSequenceLabel())
+        assertEquals("L1", feedback(1, 0).partialSequenceLabel())
+        assertEquals("R2", feedback(0, 2).partialSequenceLabel())
+        assertEquals("L1 R1", feedback(1, 1).partialSequenceLabel())
+        // Left-only progress toward L6 R0 shows L6 until a right wink is counted.
+        assertEquals("L6", feedback(6, 0).partialSequenceLabel())
+        assertEquals("L6 R0", formatWinkSequenceShort(6, 0))
     }
 
     @Test
     fun emergencyFeedbackUsesCanonicalBlinkState() {
         val root = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")
+        val emergency = readSource("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
         assertTrue(root.contains("blinkFeedback = composerEyeFeedback"))
         assertTrue(main.contains("leftWinkCount = uiDiagLeftCount.value"))
         assertTrue(main.contains("rightWinkCount = uiDiagRightCount.value"))
+        // Emergency must not invent a second blink detector or parallel counter state.
+        assertFalse(emergency.contains("mutableStateOf"))
+        assertFalse(emergency.contains("uiDiagLeftCount"))
+        assertFalse(emergency.contains("uiDiagRightCount"))
+        assertEquals(1, Regex("BlinkCounterRow\\(").findAll(emergency).count())
+        assertEquals(0, feedback(0, 0).leftWinkCount)
+        assertEquals(0, feedback(0, 0).rightWinkCount)
+        assertEquals(3, feedback(3, 0).leftWinkCount)
+        assertEquals(4, feedback(0, 4).rightWinkCount)
     }
 
     @Test
@@ -124,7 +148,7 @@ class Rc7D_6ComposeControlsAndUnifiedEmergencyTest {
 
     @Test
     fun blinkFeedbackResetsAfterCancellation() {
-        assertEquals(null, ComposerEyeFeedback(EyeTrackingBannerContext(), 0, 0, 5, 5).partialSequenceLabel())
+        assertEquals(null, feedback(0, 0).partialSequenceLabel())
         assertFalse(emergencyAwaitingConfirm(Brain1DecisionState()))
     }
 
@@ -240,6 +264,9 @@ class Rc7D_6ComposeControlsAndUnifiedEmergencyTest {
         assertTrue(ModeScopedGestureAuthorityAudit.passes())
         assertTrue(PhraseComposerCommandAudit.passes())
     }
+
+    private fun feedback(left: Int, right: Int): ComposerEyeFeedback =
+        ComposerEyeFeedback(EyeTrackingBannerContext(), left, right, 5, 5)
 
     private fun readSource(relativePath: String): String {
         val normalized = relativePath.replace('/', java.io.File.separatorChar)

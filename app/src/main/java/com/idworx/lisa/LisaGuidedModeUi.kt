@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -92,6 +94,11 @@ fun GuidedVocabularyOverlay(
     confirmedRight: Int?,
     visible: Boolean,
     emergencyAwaitingConfirm: Boolean = false,
+    sensitivityLevel: Int = DEFAULT_SENSITIVITY_LEVEL,
+    responseTimeSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
+    speechVolumeLevel: Int = SpeechVolumeAuthority.DEFAULT_LEVEL,
+    speechSpeedLevel: Int = SpeechSpeedAuthority.DEFAULT_LEVEL,
+    listeningPaused: Boolean = false,
     onNavigateUp: () -> Unit,
     onSelectEnter: () -> Unit,
     onCancelSaveConfirmation: () -> Unit = {},
@@ -103,6 +110,7 @@ fun GuidedVocabularyOverlay(
     onNextCategoryPage: () -> Unit = {},
     onDecreaseValue: () -> Unit,
     onIncreaseValue: () -> Unit,
+    onSettingsControl: (SettingsControlKind) -> Unit = {},
     onPhraseEntry: (GuidedVocabularyEntry) -> Unit,
     onCategoryRow: (Int) -> Unit,
     onCategoryViewportPageState: (pageCount: Int, currentPage: Int) -> Unit = { _, _ -> },
@@ -203,10 +211,14 @@ fun GuidedVocabularyOverlay(
                 // screen mode, so the entry gesture works identically from the Category Menu and any
                 // phrase category page. Backing out restores the untouched underlying screen.
                 if (safeState.isSettingsMenuActive) {
-                    SettingsMenuPanel(
+                    SettingsAndControlsHubPanel(
                         uiStrings = uiStrings,
-                        onOpenSensitivity = onNavigateUp,
-                        onOpenResponseTime = onNavigateDown,
+                        sensitivityLevel = sensitivityLevel,
+                        responseTimeSec = responseTimeSec,
+                        speechVolumeLevel = speechVolumeLevel,
+                        speechSpeedLevel = speechSpeedLevel,
+                        selectedIndex = safeState.settingsHubSelection,
+                        onOpenControl = onSettingsControl,
                         onBack = onBack,
                         onEmergency = onEmergency,
                         modifier = Modifier.weight(1f)
@@ -217,19 +229,34 @@ fun GuidedVocabularyOverlay(
                         adjustMode = preferencesAdjustMode,
                         originalSensitivity = safeState.adjustmentOriginalSensitivity,
                         originalResponseTimeSec = safeState.adjustmentOriginalResponseTimeSec,
+                        originalSpeechVolumeLevel = safeState.adjustmentOriginalSpeechVolumeLevel,
+                        originalSpeechSpeedLevel = safeState.adjustmentOriginalSpeechSpeedLevel,
                         draftSensitivity = safeState.draftSensitivityLevel,
                         draftResponseTimeSec = safeState.draftResponseTimeSec,
+                        draftSpeechVolumeLevel = safeState.draftSpeechVolumeLevel,
+                        draftSpeechSpeedLevel = safeState.draftSpeechSpeedLevel,
                         onConfirm = onSelectEnter,
                         onCancelConfirmation = onCancelSaveConfirmation,
                         onEmergency = onEmergency,
                         modifier = Modifier.weight(1f)
                     )
+                } else if (safeState.isListeningControlActive) {
+                    ListeningControlPanel(
+                        uiStrings = uiStrings,
+                        listeningPaused = listeningPaused,
+                        onToggle = { onSettingsControl(SettingsControlKind.Listening) },
+                        onBack = onBack,
+                        onEmergency = onEmergency,
+                        modifier = Modifier.weight(1f)
+                    )
                 } else if (safeState.isValueAdjustmentActive) {
-                    PreferencesAdjustmentPanel(
+                    SharedSettingAdjustmentPanel(
                         uiStrings = uiStrings,
                         adjustMode = preferencesAdjustMode,
                         draftResponseTimeSec = safeState.draftResponseTimeSec,
                         draftSensitivityLevel = safeState.draftSensitivityLevel,
+                        draftSpeechVolumeLevel = safeState.draftSpeechVolumeLevel,
+                        draftSpeechSpeedLevel = safeState.draftSpeechSpeedLevel,
                         scrollStep = safeState.adjustmentScrollStep,
                         onDecrease = onDecreaseValue,
                         onIncrease = onIncreaseValue,
@@ -446,23 +473,35 @@ fun GuidedVocabularyOverlay(
             GuidedModeNavigationPanel(
                 uiStrings = uiStrings,
                 panelContext = when {
-                    isAdjusting -> GuidedNavigationPanelSpec.PanelContext.Adjustment
+                    safeState.isSettingsMenuActive -> GuidedNavigationPanelSpec.PanelContext.SettingsHub
+                    safeState.isValueAdjustmentActive ||
+                        safeState.isSaveConfirmationActive ||
+                        safeState.isListeningControlActive -> GuidedNavigationPanelSpec.PanelContext.Adjustment
                     screenMode == GuidedOverlayScreenMode.CategoryMenu -> GuidedNavigationPanelSpec.PanelContext.CategoryMenu
                     else -> GuidedNavigationPanelSpec.PanelContext.Vocabulary
                 },
                 canGoPrevious = when {
-                    isAdjusting -> true
+                    safeState.isSettingsMenuActive -> safeState.settingsHubSelection > 0
+                    safeState.isValueAdjustmentActive ||
+                        safeState.isSaveConfirmationActive ||
+                        safeState.isListeningControlActive -> true
                     screenMode == GuidedOverlayScreenMode.Vocabulary -> phrasePageIndex > 0
                     else -> categoryMenuSelection > 0
                 },
                 canGoNext = when {
-                    isAdjusting -> true
+                    safeState.isSettingsMenuActive ->
+                        safeState.settingsHubSelection < SettingsAndControlsHubSequences.HUB_SETTING_KINDS.lastIndex
+                    safeState.isValueAdjustmentActive ||
+                        safeState.isSaveConfirmationActive ||
+                        safeState.isListeningControlActive -> true
                     screenMode == GuidedOverlayScreenMode.Vocabulary -> phrasePageIndex < phrasePageCount - 1
                     else -> categoryMenuSelection < GuidedVocabularyCategory.PAGE_COUNT - 1
                 },
                 canGoPreviousCategoryPage = screenMode == GuidedOverlayScreenMode.CategoryMenu &&
+                    !safeState.isPreferencesAdjustmentActive &&
                     CategoryViewportPaging.canGoToPreviousPage(categoryViewportPage),
                 canGoNextCategoryPage = screenMode == GuidedOverlayScreenMode.CategoryMenu &&
+                    !safeState.isPreferencesAdjustmentActive &&
                     CategoryViewportPaging.canGoToNextPage(categoryViewportPage, categoryViewportPageCount),
                 onNavigateUp = onNavigateUp,
                 onSelectEnter = onSelectEnter,
@@ -498,6 +537,14 @@ private fun GuidedOverlayHeader(
         preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity ||
             preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
             uiStrings.guidedSensitivityAdjustmentTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.SpeechVolume ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+            uiStrings.guidedSpeechVolumeAdjustmentTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.SpeechSpeed ||
+            preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+            uiStrings.guidedSpeechSpeedAdjustmentTitle
+        preferencesAdjustMode == GuidedPreferencesAdjustMode.Listening ->
+            uiStrings.guidedListeningControlTitle
         screenMode == GuidedOverlayScreenMode.Vocabulary -> uiStrings.guidedVocabularyTitle
         else -> uiStrings.guidedCategoryMenuMode
     }
@@ -939,13 +986,165 @@ internal fun GuidedNavigationActionButton(
 }
 
 /**
- * RC7D.27 — Adjust Settings menu. Each setting opens immediately on touch or its blink sequence.
+ * Settings & Controls hub — four adjustable settings with rail-driven selection.
+ * Primary heading lives in [GuidedOverlayHeader]; this panel lists cards only.
  */
 @Composable
-private fun SettingsMenuPanel(
+private fun SettingsAndControlsHubPanel(
     uiStrings: LisaUiStrings,
-    onOpenSensitivity: () -> Unit,
-    onOpenResponseTime: () -> Unit,
+    sensitivityLevel: Int,
+    responseTimeSec: Int,
+    speechVolumeLevel: Int,
+    speechSpeedLevel: Int,
+    selectedIndex: Int,
+    onOpenControl: (SettingsControlKind) -> Unit,
+    onBack: () -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cards = listOf(
+        Triple(
+            SettingsControlKind.Sensitivity,
+            uiStrings.guidedSelectSensitivitySetting,
+            sensitivityLevel.toString()
+        ),
+        Triple(
+            SettingsControlKind.ResponseTime,
+            uiStrings.guidedSelectResponseTimeSetting,
+            "${responseTimeSec}s"
+        ),
+        Triple(
+            SettingsControlKind.SpeechVolume,
+            uiStrings.guidedSelectSpeechVolumeSetting,
+            SpeechVolumeAuthority.percentLabel(speechVolumeLevel)
+        ),
+        Triple(
+            SettingsControlKind.SpeechSpeed,
+            uiStrings.guidedSelectSpeechSpeedSetting,
+            SpeechSpeedAuthority.displayLabel(speechSpeedLevel, uiStrings)
+        )
+    )
+    val hubScroll = rememberScrollState()
+    // Keep the highlighted card in view when font scale pushes content past the viewport.
+    LaunchedEffect(selectedIndex) {
+        val approxCard = 110
+        val target = (selectedIndex * approxCard).coerceAtMost(hubScroll.maxValue)
+        hubScroll.animateScrollTo(target)
+    }
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Do not weight individual cards — weight + clip previously shrank slots below
+        // title+value intrinsic height and clipped the status line. Cards wrap to content
+        // and SpaceEvenly distributes remaining vertical space as gaps.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(hubScroll),
+            verticalArrangement = Arrangement.SpaceEvenly
+        ) {
+            cards.forEachIndexed { index, (kind, title, status) ->
+                SettingsHubCard(
+                    title = title,
+                    status = status,
+                    sequenceLabel = SettingsAndControlsHubSequences.sequenceLabel(kind),
+                    selected = index == selectedIndex,
+                    onClick = { onOpenControl(kind) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
+            gestureHint = uiStrings.guidedBackHint,
+            title = uiStrings.guidedBack,
+            onClick = onBack
+        )
+        AdjustmentInstructionRow(
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            gestureHint = uiStrings.guidedEmergencyNavTitle,
+            title = uiStrings.guidedEmergencyNavTitle,
+            onClick = onEmergency,
+            emergency = true
+        )
+    }
+}
+
+@Composable
+private fun SettingsHubCard(
+    title: String,
+    status: String?,
+    sequenceLabel: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Shape via background/border only — never a clipping modifier with a height smaller than
+    // content. Row wraps to intrinsic height so title + value + padding always fit.
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 88.dp)
+            .wrapContentHeight()
+            .background(
+                color = if (selected) CategoryMenuHighlight else EntryBackground,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .border(
+                width = if (selected) 2.dp else 0.dp,
+                color = if (selected) LisaBlue else Color.Transparent,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
+            )
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = LisaBlueDark,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (status != null) {
+                Text(
+                    text = status,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = LisaBlueDark.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Text(
+            text = sequenceLabel,
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            color = LisaBlueDark,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun ListeningControlPanel(
+    uiStrings: LisaUiStrings,
+    listeningPaused: Boolean,
+    onToggle: () -> Unit,
     onBack: () -> Unit,
     onEmergency: () -> Unit,
     modifier: Modifier = Modifier
@@ -957,33 +1156,47 @@ private fun SettingsMenuPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = uiStrings.guidedAdjustSettingsTitle,
+            text = uiStrings.workspaceCommunicationTitle,
+            fontSize = 13.sp,
+            color = LisaWhite.copy(alpha = 0.75f)
+        )
+        Text(
+            text = uiStrings.guidedListeningControlTitle,
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             color = LisaWhite
         )
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.PREVIOUS_LEFT,
-                GuidedModeNavigation.PREVIOUS_RIGHT
-            ),
-            gestureHint = uiStrings.guidedSelectSensitivitySetting,
-            title = uiStrings.guidedSelectSensitivitySetting,
-            onClick = onOpenSensitivity
+        Text(
+            text = if (listeningPaused) {
+                uiStrings.guidedListeningPausedStatus
+            } else {
+                uiStrings.guidedListeningActiveStatus
+            },
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = LisaWhite
         )
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(
-                GuidedModeNavigation.NEXT_LEFT,
-                GuidedModeNavigation.NEXT_RIGHT
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT
             ),
-            gestureHint = uiStrings.guidedSelectResponseTimeSetting,
-            title = uiStrings.guidedSelectResponseTimeSetting,
-            onClick = onOpenResponseTime
+            gestureHint = if (listeningPaused) {
+                uiStrings.guidedResumeListeningAction
+            } else {
+                uiStrings.guidedPauseListeningAction
+            },
+            title = if (listeningPaused) {
+                uiStrings.guidedResumeListeningAction
+            } else {
+                uiStrings.guidedPauseListeningAction
+            },
+            onClick = onToggle
         )
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
             gestureHint = uiStrings.guidedBackHint,
-            title = uiStrings.guidedBack,
+            title = uiStrings.guidedCancelBack,
             onClick = onBack
         )
         AdjustmentInstructionRow(
@@ -1002,14 +1215,46 @@ private fun SaveConfirmationPanel(
     adjustMode: GuidedPreferencesAdjustMode,
     originalSensitivity: Int,
     originalResponseTimeSec: Int,
+    originalSpeechVolumeLevel: Int,
+    originalSpeechSpeedLevel: Int,
     draftSensitivity: Int,
     draftResponseTimeSec: Int,
+    draftSpeechVolumeLevel: Int,
+    draftSpeechSpeedLevel: Int,
     onConfirm: () -> Unit,
     onCancelConfirmation: () -> Unit,
     onEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isSensitivity = adjustMode == GuidedPreferencesAdjustMode.ConfirmSaveSensitivity
+    val title = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity -> uiStrings.guidedSaveSensitivityConfirmTitle()
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime -> uiStrings.guidedSaveResponseTimeConfirmTitle()
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume -> uiStrings.guidedSaveSpeechVolumeConfirmTitle()
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed -> uiStrings.guidedSaveSpeechSpeedConfirmTitle()
+        else -> uiStrings.guidedConfirmSave
+    }
+    val originalLine = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
+            uiStrings.guidedSaveConfirmOriginalSensitivity(originalSensitivity)
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+            uiStrings.guidedSaveConfirmOriginalResponseTime(originalResponseTimeSec)
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+            uiStrings.guidedSaveConfirmOriginalSpeechVolume(originalSpeechVolumeLevel)
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+            uiStrings.guidedSaveConfirmOriginalSpeechSpeed(originalSpeechSpeedLevel)
+        else -> ""
+    }
+    val newLine = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
+            uiStrings.guidedSaveConfirmNewSensitivity(draftSensitivity)
+        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+            uiStrings.guidedSaveConfirmNewResponseTime(draftResponseTimeSec)
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+            uiStrings.guidedSaveConfirmNewSpeechVolume(draftSpeechVolumeLevel)
+        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+            uiStrings.guidedSaveConfirmNewSpeechSpeed(draftSpeechSpeedLevel)
+        else -> ""
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1017,31 +1262,19 @@ private fun SaveConfirmationPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = if (isSensitivity) {
-                uiStrings.guidedSaveSensitivityConfirmTitle()
-            } else {
-                uiStrings.guidedSaveResponseTimeConfirmTitle()
-            },
+            text = title,
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             color = LisaWhite
         )
         Text(
-            text = if (isSensitivity) {
-                uiStrings.guidedSaveConfirmOriginalSensitivity(originalSensitivity)
-            } else {
-                uiStrings.guidedSaveConfirmOriginalResponseTime(originalResponseTimeSec)
-            },
+            text = originalLine,
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             color = LisaWhite
         )
         Text(
-            text = if (isSensitivity) {
-                uiStrings.guidedSaveConfirmNewSensitivity(draftSensitivity)
-            } else {
-                uiStrings.guidedSaveConfirmNewResponseTime(draftResponseTimeSec)
-            },
+            text = newLine,
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             color = LisaWhite
@@ -1072,11 +1305,13 @@ private fun SaveConfirmationPanel(
 }
 
 @Composable
-private fun PreferencesAdjustmentPanel(
+private fun SharedSettingAdjustmentPanel(
     uiStrings: LisaUiStrings,
     adjustMode: GuidedPreferencesAdjustMode,
     draftResponseTimeSec: Int,
     draftSensitivityLevel: Int,
+    draftSpeechVolumeLevel: Int,
+    draftSpeechSpeedLevel: Int,
     scrollStep: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
@@ -1090,6 +1325,32 @@ private fun PreferencesAdjustmentPanel(
         scrollState.animateScrollTo((scrollStep * 72).coerceAtMost(scrollState.maxValue))
     }
 
+    val title = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeAdjustmentTitle
+        GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSensitivityAdjustmentTitle
+        GuidedPreferencesAdjustMode.SpeechVolume -> uiStrings.guidedSpeechVolumeAdjustmentTitle
+        GuidedPreferencesAdjustMode.SpeechSpeed -> uiStrings.guidedSpeechSpeedAdjustmentTitle
+        else -> ""
+    }
+    val currentValueText = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ResponseTime ->
+            uiStrings.guidedCurrentResponseTime(draftResponseTimeSec)
+        GuidedPreferencesAdjustMode.Sensitivity ->
+            uiStrings.guidedCurrentSensitivity(draftSensitivityLevel)
+        GuidedPreferencesAdjustMode.SpeechVolume ->
+            uiStrings.guidedCurrentSpeechVolume(draftSpeechVolumeLevel)
+        GuidedPreferencesAdjustMode.SpeechSpeed ->
+            uiStrings.guidedCurrentSpeechSpeed(draftSpeechSpeedLevel)
+        else -> ""
+    }
+    val saveTitle = when (adjustMode) {
+        GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedSaveResponseTime
+        GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSaveSensitivity
+        GuidedPreferencesAdjustMode.SpeechVolume -> uiStrings.guidedSaveSpeechVolume
+        GuidedPreferencesAdjustMode.SpeechSpeed -> uiStrings.guidedSaveSpeechSpeed
+        else -> uiStrings.guidedSaveSelectedValue
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -1097,23 +1358,18 @@ private fun PreferencesAdjustmentPanel(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedResponseTimeAdjustmentTitle
-                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSensitivityAdjustmentTitle
-                else -> ""
-            },
+            text = uiStrings.workspaceCommunicationTitle,
+            fontSize = 13.sp,
+            color = LisaWhite.copy(alpha = 0.75f)
+        )
+        Text(
+            text = title,
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             color = LisaWhite
         )
         Text(
-            text = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime ->
-                    uiStrings.guidedCurrentResponseTime(draftResponseTimeSec)
-                GuidedPreferencesAdjustMode.Sensitivity ->
-                    uiStrings.guidedCurrentSensitivity(draftSensitivityLevel)
-                else -> ""
-            },
+            text = currentValueText,
             fontWeight = FontWeight.SemiBold,
             fontSize = 16.sp,
             color = LisaWhite
@@ -1165,21 +1421,51 @@ private fun PreferencesAdjustmentPanel(
                 onDecrease = onDecrease,
                 onIncrease = onIncrease
             )
+            GuidedPreferencesAdjustMode.SpeechVolume -> SettingAdjustmentMeter(
+                label = uiStrings.guidedSelectSpeechVolumeSetting,
+                currentValueLabel = SpeechVolumeAuthority.percentLabel(draftSpeechVolumeLevel),
+                minimumValue = SpeechVolumeAuthority.MIN_LEVEL,
+                maximumValue = SpeechVolumeAuthority.MAX_LEVEL,
+                currentValue = draftSpeechVolumeLevel,
+                decreaseLabel = uiStrings.guidedDecreaseShort,
+                decreaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.DECREASE_VALUE_LEFT,
+                    GuidedModeNavigation.DECREASE_VALUE_RIGHT
+                ),
+                increaseLabel = uiStrings.guidedIncreaseShort,
+                increaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.INCREASE_VALUE_LEFT,
+                    GuidedModeNavigation.INCREASE_VALUE_RIGHT
+                ),
+                onDecrease = onDecrease,
+                onIncrease = onIncrease
+            )
+            GuidedPreferencesAdjustMode.SpeechSpeed -> SettingAdjustmentMeter(
+                label = uiStrings.guidedSelectSpeechSpeedSetting,
+                currentValueLabel = SpeechSpeedAuthority.displayLabel(draftSpeechSpeedLevel, uiStrings),
+                minimumValue = SpeechSpeedAuthority.MIN_LEVEL,
+                maximumValue = SpeechSpeedAuthority.MAX_LEVEL,
+                currentValue = draftSpeechSpeedLevel,
+                decreaseLabel = uiStrings.guidedDecreaseShort,
+                decreaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.DECREASE_VALUE_LEFT,
+                    GuidedModeNavigation.DECREASE_VALUE_RIGHT
+                ),
+                increaseLabel = uiStrings.guidedIncreaseShort,
+                increaseSequence = formatWinkSequenceShort(
+                    GuidedModeNavigation.INCREASE_VALUE_LEFT,
+                    GuidedModeNavigation.INCREASE_VALUE_RIGHT
+                ),
+                onDecrease = onDecrease,
+                onIncrease = onIncrease
+            )
             else -> Unit
         }
 
-        // Every sequenceLabel below is derived from the exact same GuidedModeNavigation/emergency
-        // constants processPreferencesAdjustmentGesture checks against — never a separately
-        // hardcoded copy — so this panel can never drift out of sync with what a gesture does.
-        // RC7D.27 — Categories is intentionally omitted here; it remains on the right nav panel.
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
             gestureHint = uiStrings.guidedSelectEnterHint,
-            title = when (adjustMode) {
-                GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedSaveResponseTime
-                GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSaveSensitivity
-                else -> uiStrings.guidedSaveSelectedValue
-            },
+            title = saveTitle,
             onClick = onSave
         )
         AdjustmentInstructionRow(
@@ -1198,8 +1484,72 @@ private fun PreferencesAdjustmentPanel(
     }
 }
 
+/** @deprecated Replaced by [SettingsAndControlsHubPanel]. Kept for source audits that search the old name. */
+@Suppress("unused")
+@Composable
+private fun SettingsMenuPanel(
+    uiStrings: LisaUiStrings,
+    onOpenSensitivity: () -> Unit,
+    onOpenResponseTime: () -> Unit,
+    onBack: () -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SettingsAndControlsHubPanel(
+        uiStrings = uiStrings,
+        sensitivityLevel = DEFAULT_SENSITIVITY_LEVEL,
+        responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
+        speechVolumeLevel = SpeechVolumeAuthority.DEFAULT_LEVEL,
+        speechSpeedLevel = SpeechSpeedAuthority.DEFAULT_LEVEL,
+        selectedIndex = 0,
+        onOpenControl = { kind ->
+            when (kind) {
+                SettingsControlKind.Sensitivity -> onOpenSensitivity()
+                SettingsControlKind.ResponseTime -> onOpenResponseTime()
+                else -> Unit
+            }
+        },
+        onBack = onBack,
+        onEmergency = onEmergency,
+        modifier = modifier
+    )
+}
+
+/** @deprecated Replaced by [SharedSettingAdjustmentPanel]. */
+@Suppress("unused")
+@Composable
+private fun PreferencesAdjustmentPanel(
+    uiStrings: LisaUiStrings,
+    adjustMode: GuidedPreferencesAdjustMode,
+    draftResponseTimeSec: Int,
+    draftSensitivityLevel: Int,
+    scrollStep: Int,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    onEmergency: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SharedSettingAdjustmentPanel(
+        uiStrings = uiStrings,
+        adjustMode = adjustMode,
+        draftResponseTimeSec = draftResponseTimeSec,
+        draftSensitivityLevel = draftSensitivityLevel,
+        draftSpeechVolumeLevel = SpeechVolumeAuthority.DEFAULT_LEVEL,
+        draftSpeechSpeedLevel = SpeechSpeedAuthority.DEFAULT_LEVEL,
+        scrollStep = scrollStep,
+        onDecrease = onDecrease,
+        onIncrease = onIncrease,
+        onSave = onSave,
+        onCancel = onCancel,
+        onEmergency = onEmergency,
+        modifier = modifier
+    )
+}
+
 /**
- * RC7D.26 — reusable visual level meter for Sensitivity and Response Time adjustment.
+ * RC7D.26 — reusable visual level meter for shared Settings & Controls adjustments.
  * Discrete command control (touch sides / blink sequences), never a drag slider.
  */
 @Composable

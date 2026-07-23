@@ -159,6 +159,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiDiagLeftCount = mutableStateOf(0)
     private val uiDiagRightCount = mutableStateOf(0)
     private val uiSensitivityLevel = mutableStateOf(DEFAULT_SENSITIVITY_LEVEL)
+    private val uiSpeechVolumeLevel = mutableStateOf(SpeechVolumeAuthority.DEFAULT_LEVEL)
+    private val uiSpeechRateLevel = mutableStateOf(SpeechSpeedAuthority.DEFAULT_LEVEL)
     private val uiPendingPhrase = mutableStateOf<String?>(null)
     private val uiCountdown = mutableStateOf<Int?>(null)
     private val uiDeveloperMode = mutableStateOf(false)
@@ -614,6 +616,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         practiceItemIndex = uiPracticeItemIndex.value,
                         practiceFeedback = uiPracticeFeedback.value,
                         listeningPaused = uiListeningPaused.value,
+                        speechVolumeLevel = uiGuidedNavigationState.value.displaySpeechVolumeLevel(uiSpeechVolumeLevel.value),
+                        speechSpeedLevel = uiGuidedNavigationState.value.displaySpeechSpeedLevel(uiSpeechRateLevel.value),
                         onResponseSpeedChange = { speed -> setResponseSpeed(speed) },
                         onQuickControlsClose = { closeQuickControls() },
                         onQuickControlsDecreaseSensitivity = { changeSensitivity(-1) },
@@ -664,6 +668,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onGuidedDecreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT) },
                         onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
+                        onGuidedSettingsControl = { kind ->
+                            val (left, right) = when (kind) {
+                                SettingsControlKind.Sensitivity -> SettingsAndControlsHubSequences.SENSITIVITY
+                                SettingsControlKind.ResponseTime -> SettingsAndControlsHubSequences.RESPONSE_TIME
+                                SettingsControlKind.SpeechVolume -> SettingsAndControlsHubSequences.SPEECH_VOLUME
+                                SettingsControlKind.SpeechSpeed -> SettingsAndControlsHubSequences.SPEECH_SPEED
+                                SettingsControlKind.Listening ->
+                                    if (uiGuidedNavigationState.value.isListeningControlActive) {
+                                        GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT
+                                    } else {
+                                        SettingsAndControlsHubSequences.LISTENING
+                                    }
+                                SettingsControlKind.RepeatLastMessage -> SettingsAndControlsHubSequences.REPEAT_LAST
+                                SettingsControlKind.ResetSequence -> SettingsAndControlsHubSequences.RESET_SEQUENCE
+                                SettingsControlKind.ShowHelp -> SettingsAndControlsHubSequences.SHOW_HELP
+                            }
+                            applyGuidedTouchNavigation(left, right)
+                        },
                         onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
                         onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
                         onGuidedCategoryViewportPageState = { pageCount, currentPage ->
@@ -839,6 +861,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun speakTranslatedPhrase(text: String) {
         if (!LisaSpeechPolicy.allowsPhraseTranslation()) return
         val params = Bundle()
+        params.putFloat(
+            TextToSpeech.Engine.KEY_PARAM_VOLUME,
+            SpeechVolumeAuthority.toTtsVolume(uiSpeechVolumeLevel.value)
+        )
+        tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(uiSpeechRateLevel.value))
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_SPEAK")
     }
 
@@ -2414,6 +2441,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         saveDeveloperMode(this, profile.developerMode)
         countdownDurationSec = profile.confirmationCountdownSec
         applySequenceProcessingDelay(profile.sequenceProcessingDelaySec, persist = false)
+        uiSpeechVolumeLevel.value = SpeechVolumeAuthority.coerce(profile.speechVolumeLevel)
+        uiSpeechRateLevel.value = SpeechSpeedAuthority.coerce(profile.speechRateLevel)
+        tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(uiSpeechRateLevel.value))
         uiTextSizeScale.value = profile.textSizeScale
         emergencyAlarmController.setAlarmVolume(profile.emergencyVolume)
         uiSettingsState.value = profile.toSettingsUiState()
@@ -2487,8 +2517,49 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         GuidedCatalogContext(
             responseTimeSec = uiSequenceProcessingDelaySec.value,
             sensitivityLevel = uiSensitivityLevel.value,
+            speechVolumeLevel = uiSpeechVolumeLevel.value,
+            speechSpeedLevel = uiSpeechRateLevel.value,
+            listeningPaused = uiListeningPaused.value,
             caregiverCustomPhrases = CustomPhraseEngine.toCatalogEntries(mappingsState.filter { it.isCustom })
         )
+
+    private fun applySpeechVolumeLevel(level: Int, persist: Boolean = true) {
+        val coerced = SpeechVolumeAuthority.coerce(level)
+        uiSpeechVolumeLevel.value = coerced
+        if (persist) {
+            updateActiveProfile { it.copy(speechVolumeLevel = coerced) }
+        }
+    }
+
+    private fun applySpeechRateLevel(level: Int, persist: Boolean = true) {
+        val coerced = SpeechSpeedAuthority.coerce(level)
+        uiSpeechRateLevel.value = coerced
+        tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(coerced))
+        if (persist) {
+            updateActiveProfile { it.copy(speechRateLevel = coerced) }
+        }
+    }
+
+    private fun previewSpeechVolumeDraft(level: Int) {
+        // Preview only — persistence happens on confirmed Save.
+        uiSpeechVolumeLevel.value = SpeechVolumeAuthority.coerce(level)
+    }
+
+    private fun previewSpeechSpeedDraft(level: Int) {
+        val coerced = SpeechSpeedAuthority.coerce(level)
+        uiSpeechRateLevel.value = coerced
+        tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(coerced))
+    }
+
+    private fun restoreSpeechVolumeOriginal(level: Int) {
+        uiSpeechVolumeLevel.value = SpeechVolumeAuthority.coerce(level)
+    }
+
+    private fun restoreSpeechSpeedOriginal(level: Int) {
+        val coerced = SpeechSpeedAuthority.coerce(level)
+        uiSpeechRateLevel.value = coerced
+        tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(coerced))
+    }
 
     private fun saveCaregiverPhrase(
         category: CustomPhraseEngine.CaregiverPhraseCategory,
@@ -3380,7 +3451,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             resetSequence()
             return
         }
-        if (uiListeningPaused.value && !GuidedModeNavigation.isGlobalNavigationSequence(left, right)) {
+        if (uiListeningPaused.value &&
+            !GuidedModeNavigation.isGlobalNavigationSequence(left, right) &&
+            !GuidedModeNavigation.isAdjustSettingsEntrySequence(left, right) &&
+            !uiGuidedNavigationState.value.isPreferencesAdjustmentActive
+        ) {
             resetSequence()
             updateReadyOrWaitingState()
             return
@@ -3431,7 +3506,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     uiGuidedConfirmedLeft.value = null
                     uiGuidedConfirmedRight.value = null
                 } else {
+                    val priorOriginalSpeechVolume =
+                        uiGuidedNavigationState.value.adjustmentOriginalSpeechVolumeLevel
+                    val priorOriginalSpeechSpeed =
+                        uiGuidedNavigationState.value.adjustmentOriginalSpeechSpeedLevel
                     uiGuidedNavigationState.value = result.newState
+                    when (result.newState.preferencesAdjustMode) {
+                        GuidedPreferencesAdjustMode.SpeechVolume,
+                        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+                            previewSpeechVolumeDraft(result.newState.draftSpeechVolumeLevel)
+                        GuidedPreferencesAdjustMode.SpeechSpeed,
+                        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+                            previewSpeechSpeedDraft(result.newState.draftSpeechSpeedLevel)
+                        else -> Unit
+                    }
                     when {
                     GuidedModeNavigation.isSelectSequence(left, right) &&
                         result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu -> {
@@ -3466,6 +3554,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                 priorAdjustMode == GuidedPreferencesAdjustMode.ResponseTime &&
                                 result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu ->
                                 uiStrings.guidedResponseTimeChangesCancelled
+                            GuidedModeNavigation.isBackSequence(left, right) &&
+                                priorAdjustMode == GuidedPreferencesAdjustMode.SpeechVolume &&
+                                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu -> {
+                                restoreSpeechVolumeOriginal(priorOriginalSpeechVolume)
+                                uiStrings.guidedSpeechVolumeChangesCancelled
+                            }
+                            GuidedModeNavigation.isBackSequence(left, right) &&
+                                priorAdjustMode == GuidedPreferencesAdjustMode.SpeechSpeed &&
+                                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu -> {
+                                restoreSpeechSpeedOriginal(priorOriginalSpeechSpeed)
+                                uiStrings.guidedSpeechSpeedChangesCancelled
+                            }
                             else -> null
                         }
                         if (cancelMessage != null) {
@@ -3515,13 +3615,43 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 // duplicate mutation path — blink and touch share one source of truth.
                 result.responseTimeSec?.let { setSequenceProcessingDelay(it) }
                 result.sensitivityLevel?.let { applySensitivityLevel(it) }
+                result.speechVolumeLevel?.let { applySpeechVolumeLevel(it) }
+                result.speechSpeedLevel?.let { applySpeechRateLevel(it) }
                 uiGuidedConfirmedPhrase.value = when {
                     result.sensitivityLevel != null -> uiStrings.guidedSensitivitySaved(result.sensitivityLevel)
                     result.responseTimeSec != null -> uiStrings.guidedResponseTimeSaved(result.responseTimeSec)
+                    result.speechVolumeLevel != null -> uiStrings.guidedSpeechVolumeSaved(result.speechVolumeLevel)
+                    result.speechSpeedLevel != null -> uiStrings.guidedSpeechSpeedSaved(result.speechSpeedLevel)
                     else -> uiStrings.guidedActionConfirmed
                 }
                 uiGuidedConfirmedLeft.value = GuidedModeNavigation.SELECT_LEFT
                 uiGuidedConfirmedRight.value = GuidedModeNavigation.SELECT_RIGHT
+                setCommunicationState(LisaCommunicationState.Listening)
+                mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
+                mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)
+            }
+            is GuidedSequenceResult.SettingsControlAction -> {
+                when (result.kind) {
+                    SettingsControlKind.RepeatLastMessage ->
+                        executeGuidedOverlayAction(GuidedOverlayAction.RepeatLastPhrase)
+                    SettingsControlKind.ResetSequence ->
+                        executeGuidedOverlayAction(GuidedOverlayAction.ResetSequence)
+                    SettingsControlKind.ShowHelp ->
+                        executeGuidedOverlayAction(GuidedOverlayAction.ShowHelp)
+                    SettingsControlKind.Listening -> toggleListeningPaused()
+                    else -> Unit
+                }
+                uiGuidedConfirmedPhrase.value = when (result.kind) {
+                    SettingsControlKind.Listening ->
+                        if (uiListeningPaused.value) uiStrings.guidedListeningPausedStatus
+                        else uiStrings.guidedListeningActiveStatus
+                    SettingsControlKind.RepeatLastMessage -> uiStrings.guidedRepeatLastMessageAction
+                    SettingsControlKind.ResetSequence -> uiStrings.guidedResetSequenceAction
+                    SettingsControlKind.ShowHelp -> uiStrings.guidedShowHelpAction
+                    else -> uiStrings.guidedActionConfirmed
+                }
+                uiGuidedConfirmedLeft.value = left
+                uiGuidedConfirmedRight.value = right
                 setCommunicationState(LisaCommunicationState.Listening)
                 mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
                 mainHandler.postDelayed(guidedConfirmationClearRunnable, 1500L)

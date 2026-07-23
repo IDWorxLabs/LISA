@@ -73,12 +73,12 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertTrue(compact.contains("\${uiStrings.responseTime}: \${responseTimeSec}s"))
     }
 
-    // ------------------------------------------------------------------ B. Direct setting entry
+    // ------------------------------------------------------------------ B. Hub selection model
 
     @Test
-    fun l2r0DirectlyOpensSensitivityAdjustment() {
+    fun selectOpensHighlightedSensitivityAdjustment() {
         val opened = navigate(
-            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu(), ctx(7))
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu(), ctx(7))
         )
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, opened.preferencesAdjustMode)
         assertEquals(7, opened.draftSensitivityLevel)
@@ -86,9 +86,14 @@ class Rc7D_27SimplifiedSettingsFlowTest {
     }
 
     @Test
-    fun l0r2DirectlyOpensResponseTimeAdjustment() {
-        val opened = navigate(
+    fun scrollDownThenSelectOpensResponseTimeAdjustment() {
+        val highlighted = navigate(
             process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu(), ctx(responseSec = 6))
+        )
+        assertEquals(1, highlighted.settingsHubSelection)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, highlighted.preferencesAdjustMode)
+        val opened = navigate(
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, highlighted, ctx(responseSec = 6))
         )
         assertEquals(GuidedPreferencesAdjustMode.ResponseTime, opened.preferencesAdjustMode)
         assertEquals(6, opened.draftResponseTimeSec)
@@ -96,18 +101,21 @@ class Rc7D_27SimplifiedSettingsFlowTest {
     }
 
     @Test
-    fun settingsMenuHasNoOpenSelectedOrSelectionState() {
+    fun settingsHubUsesSelectionAndSelectDoesNotFallThroughFromScroll() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
-        assertTrue(ui.contains("fun SettingsMenuPanel("))
-        assertFalse(ui.contains("guidedOpenSelectedSetting"))
-        assertFalse(ui.contains("guidedSettingIndicator"))
-        assertFalse(ui.contains("settingsMenuSelection"))
-        val unmatched = process(
-            GuidedModeNavigation.SELECT_LEFT,
-            GuidedModeNavigation.SELECT_RIGHT,
-            menu()
+        assertTrue(ui.contains("fun SettingsMenuPanel(") || ui.contains("SettingsAndControlsHubPanel"))
+        assertTrue(ui.contains("guidedOpenSelectedSetting") || ui.contains("PanelContext.SettingsHub"))
+        assertTrue(ui.contains("settingsHubSelection"))
+        // Scroll Up at first card does not open Sensitivity.
+        assertTrue(
+            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu())
+                is GuidedSequenceResult.Unmatched
         )
-        assertTrue(unmatched is GuidedSequenceResult.Unmatched)
+        // Select opens the highlighted Sensitivity card.
+        val opened = navigate(
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu())
+        )
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, opened.preferencesAdjustMode)
     }
 
     // ------------------------------------------------------------------ C. Cancel label and behaviour
@@ -118,8 +126,8 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertEquals("Cancel / Back", english.guidedCancelToPreferences)
         assertFalse(english.guidedCancelBack.contains("Preferences", ignoreCase = true))
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
-        val panel = ui.substringAfter("fun PreferencesAdjustmentPanel(")
-            .substringBefore("\n/**\n * RC7D.26")
+        val panel = ui.substringAfter("fun SharedSettingAdjustmentPanel(")
+            .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
         assertTrue(panel.contains("guidedCancelBack"))
         assertFalse(panel.contains("Back to Preferences"))
     }
@@ -220,8 +228,8 @@ class Rc7D_27SimplifiedSettingsFlowTest {
     @Test
     fun adjustmentContentOmitsCategoriesCardButPanelRetainsIt() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
-        val panel = ui.substringAfter("fun PreferencesAdjustmentPanel(")
-            .substringBefore("\n/**\n * RC7D.26")
+        val panel = ui.substringAfter("fun SharedSettingAdjustmentPanel(")
+            .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
         assertFalse(panel.contains("guidedCategoriesNavTitle"))
         assertFalse(panel.contains("CATEGORIES_LEFT"))
         assertTrue(ui.contains("GuidedPanelActionKind.Categories"))
@@ -238,7 +246,7 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertEquals(1 to 3, GuidedModeNavigation.INCREASE_VALUE_LEFT to GuidedModeNavigation.INCREASE_VALUE_RIGHT)
         assertEquals(5 to 5, GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT)
         assertEquals(6 to 0, EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS)
-        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[8])
+        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[7])
     }
 
     @Test

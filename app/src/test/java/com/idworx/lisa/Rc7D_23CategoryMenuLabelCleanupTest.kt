@@ -162,19 +162,19 @@ class Rc7D_23CategoryMenuLabelCleanupTest {
         assertTrue(titles.contains("Customize Phrases"))
     }
 
-    @Test // B3 — category 7 remains in the same position
+    @Test // B3 — Customize Phrases remains in the same relative position after Basic System migration
     fun category7RemainsInSamePosition() {
-        assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertEquals(5, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         assertEquals(
             GuidedVocabularyCategory.Custom,
             GuidedVocabularyCategory.ordered[GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX]
         )
     }
 
-    @Test // B4 — category 7 shortcut remains L3 R3
+    @Test // B4 — Customize Phrases shortcut after migration
     fun category7ShortcutRemainsL3R3() {
         assertEquals(
-            "L3 R3",
+            "L2 R3",
             GuidedCategoryShortcuts.sequenceLabelForCategory(
                 GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX
             )
@@ -201,9 +201,9 @@ class Rc7D_23CategoryMenuLabelCleanupTest {
         assertTrue(main.contains("openComposeModeFromCustom"))
     }
 
-    @Test // B7 — Phrase Management remains category 8
+    @Test // B7 — Phrase Management remains reachable after migration
     fun phraseManagementRemainsCategory8() {
-        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
         assertEquals(
             GuidedVocabularyCategory.PhraseManagement,
             GuidedVocabularyCategory.ordered[GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX]

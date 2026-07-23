@@ -40,7 +40,6 @@ class Rc7B1CustomCategoryTest {
                 GuidedVocabularyCategory.BasicNeeds,
                 GuidedVocabularyCategory.Medical,
                 GuidedVocabularyCategory.Family,
-                GuidedVocabularyCategory.BasicSystemControls,
                 GuidedVocabularyCategory.Preferences,
                 GuidedVocabularyCategory.Custom,
                 GuidedVocabularyCategory.PhraseManagement,
@@ -48,9 +47,9 @@ class Rc7B1CustomCategoryTest {
             ),
             GuidedVocabularyCategory.ordered
         )
-        assertEquals(6, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
-        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
-        assertEquals(8, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
+        assertEquals(5, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(7, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
     }
 
     @Test
@@ -137,9 +136,9 @@ class Rc7B1CustomCategoryTest {
 
     @Test
     fun communicationPageCountIsSeven() {
-        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(9, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(9, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
     // 7. Previous/next navigation still reaches all pages.
@@ -166,17 +165,17 @@ class Rc7B1CustomCategoryTest {
         }
     }
 
-    // 8. System Controls remains reachable.
+    // 8. Settings & Controls remains reachable (Basic System Controls migrated away).
 
     @Test
     fun systemControlsRemainsReachable() {
-        val index = GuidedVocabularyCategory.ordered.indexOf(GuidedVocabularyCategory.BasicSystemControls)
+        assertFalse(GuidedVocabularyCategory.ordered.contains(GuidedVocabularyCategory.BasicSystemControls))
+        val index = GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX
         val opened = GuidedNavigationController.openCategoryDirectly(GuidedNavigationState(), index)
         assertEquals(index, opened.categoryIndex)
         val page = GuidedVocabularyCatalog.categoryAt(index, PreferredLanguage.English, english)
         assertNotNull(page)
-        assertEquals(GuidedVocabularyCategory.BasicSystemControls, page!!.category)
-        assertTrue(page.entries.isNotEmpty())
+        assertEquals(GuidedVocabularyCategory.AdjustSettings, page!!.category)
         val shortcut = GuidedCategoryShortcuts.gestureForCategory(index)
         assertEquals(index, GuidedCategoryShortcuts.categoryIndexForGesture(shortcut.first, shortcut.second))
     }
@@ -259,7 +258,7 @@ class Rc7B1CustomCategoryTest {
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.Custom])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.AdjustSettings])
-        assertEquals(10, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
+        assertEquals(null, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
         assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
         val familyPage = pages.first { it.category == GuidedVocabularyCategory.Family }
         assertEquals("I want to see my mom.", familyPage.entries.first().phrase)

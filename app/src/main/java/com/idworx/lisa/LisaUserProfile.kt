@@ -45,6 +45,10 @@ data class LisaUserProfile(
     val sequenceProcessingDelaySec: Int = SequenceProcessingDelay.DEFAULT_SECONDS,
     val sequenceTimeoutSec: Float = SequenceProcessingDelay.DEFAULT_SECONDS.toFloat(),
     val emergencyVolume: Float = 1.0f,
+    /** Communication TTS speaking volume level (1–10). Canonical source for Speech Volume. */
+    val speechVolumeLevel: Int = SpeechVolumeAuthority.DEFAULT_LEVEL,
+    /** Communication TTS speech-rate level (1–5). Canonical source for Speech Speed. */
+    val speechRateLevel: Int = SpeechSpeedAuthority.DEFAULT_LEVEL,
     val developerMode: Boolean = false,
     val selectedTtsVoiceName: String? = null,
     /** RC7D.34 — local per-profile Quick Eye Calibration payload. */
@@ -101,6 +105,8 @@ data class LisaUserProfile(
         put("sequenceProcessingDelaySec", sequenceProcessingDelaySec)
         put("sequenceTimeoutSec", sequenceProcessingDelaySec.toDouble())
         put("emergencyVolume", emergencyVolume.toDouble())
+        put("speechVolumeLevel", speechVolumeLevel)
+        put("speechRateLevel", speechRateLevel)
         put("developerMode", developerMode)
         if (selectedTtsVoiceName != null) {
             put("selectedTtsVoiceName", selectedTtsVoiceName)
@@ -169,6 +175,12 @@ data class LisaUserProfile(
                 )
             ).toFloat(),
             emergencyVolume = obj.optDouble("emergencyVolume", 1.0).toFloat().coerceIn(0.5f, 1f),
+            speechVolumeLevel = SpeechVolumeAuthority.coerce(
+                obj.optInt("speechVolumeLevel", SpeechVolumeAuthority.DEFAULT_LEVEL)
+            ),
+            speechRateLevel = SpeechSpeedAuthority.coerce(
+                obj.optInt("speechRateLevel", SpeechSpeedAuthority.DEFAULT_LEVEL)
+            ),
             developerMode = obj.optBoolean("developerMode", false),
             selectedTtsVoiceName = obj.optString("selectedTtsVoiceName").takeIf { it.isNotBlank() },
             eyeCalibration = obj.optJSONObject("eyeCalibration")?.let { cal ->

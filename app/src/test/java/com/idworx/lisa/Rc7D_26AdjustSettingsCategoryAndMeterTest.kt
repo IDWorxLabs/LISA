@@ -78,12 +78,12 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
 
     @Test
     fun adjustSettingsIsDestinationNine() {
-        assertEquals(8, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
-        assertEquals(9, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[8])
-        assertEquals(GuidedVocabularyCategory.PhraseManagement, GuidedVocabularyCategory.ordered[7])
-        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
-        assertEquals("Adjust Settings", english.guidedCategoryTitle(GuidedVocabularyCategory.AdjustSettings))
+        assertEquals(7, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
+        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[7])
+        assertEquals(GuidedVocabularyCategory.PhraseManagement, GuidedVocabularyCategory.ordered[6])
+        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals("Settings & Controls", english.guidedCategoryTitle(GuidedVocabularyCategory.AdjustSettings))
     }
 
     @Test
@@ -159,17 +159,23 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
     fun settingsSubModeOpensSettingsDirectly() {
         val menu = navigate(process(entryLeft, entryRight, categoryMenu()))
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, menu.preferencesAdjustMode)
-        // RC7D.27 — L0 R2 / L2 R0 open immediately; no highlight/selection step.
-        val response = navigate(
+        // Selection model: Scroll Down highlights Response Time; Select opens it.
+        val highlighted = navigate(
             process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, menu)
+        )
+        assertEquals(1, highlighted.settingsHubSelection)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, highlighted.preferencesAdjustMode)
+        val response = navigate(
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, highlighted)
         )
         assertEquals(GuidedPreferencesAdjustMode.ResponseTime, response.preferencesAdjustMode)
         val backToMenu = navigate(
             process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, response)
         )
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, backToMenu.preferencesAdjustMode)
+        // Default selection is Sensitivity — Select opens it without needing Scroll Up.
         val sensitivity = navigate(
-            process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, backToMenu)
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, backToMenu)
         )
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, sensitivity.preferencesAdjustMode)
         val cancelled = navigate(
@@ -181,7 +187,7 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
     @Test
     fun settingsHeaderUsesSettingsTerminologyNotPhrases() {
         // RC7D.27 — selection indicator removed; title remains Adjust Settings.
-        assertEquals("Adjust Settings", english.guidedAdjustSettingsTitle)
+        assertEquals("Settings & Controls", english.guidedAdjustSettingsTitle)
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
         assertFalse(ui.contains("guidedSettingIndicator"))
         assertTrue(ui.contains("guidedAdjustSettingsTitle"))
@@ -343,7 +349,7 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
 
     @Test
     fun phraseManagementRemainsDestinationEight() {
-        assertEquals(7, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
         assertEquals(
             "Phrase Management",
             english.guidedCategoryTitle(GuidedVocabularyCategory.PhraseManagement)
