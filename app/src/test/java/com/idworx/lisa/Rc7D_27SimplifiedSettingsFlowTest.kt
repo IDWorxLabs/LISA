@@ -62,15 +62,17 @@ class Rc7D_27SimplifiedSettingsFlowTest {
     @Test
     fun sharedHeaderRemovesCombinedSummaryLine() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
-        val compact = ui.substringAfter("fun CompactSensitivityControls(")
-            .substringBefore("\n@Composable\nprivate fun SequenceProgressDots")
-        assertFalse(compact.contains("listeningStatusLine"))
-        assertTrue(compact.contains("sensitivityDecrease"))
-        assertTrue(compact.contains("sensitivityIncrease"))
-        assertTrue(compact.contains("responseTimeDecrease"))
-        assertTrue(compact.contains("responseTimeIncrease"))
-        assertTrue(compact.contains("\${uiStrings.sensitivity}: \$sensitivityLevel"))
-        assertTrue(compact.contains("\${uiStrings.responseTime}: \${responseTimeSec}s"))
+        val universal = readSource(
+            "app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt"
+        )
+        assertFalse(universal.contains("listeningStatusLine"))
+        assertTrue(universal.contains("uiStrings.sensitivityDecrease"))
+        assertTrue(universal.contains("uiStrings.sensitivityIncrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeDecrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeIncrease"))
+        assertTrue(universal.contains("\${uiStrings.sensitivity}: \$safeSensitivity"))
+        assertTrue(universal.contains("\${uiStrings.responseTime}: \${safeResponse}s"))
+        assertTrue(ui.contains("guidedResponseTimeControlsVisible = guidedWorkspaceTrainingActive"))
     }
 
     // ------------------------------------------------------------------ B. Hub selection model

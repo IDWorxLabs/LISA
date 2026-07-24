@@ -17,7 +17,7 @@ object GuidedTrainingClarityAndTimingAuthorityV1 {
                 "GTCT_001",
                 "Response time can be adjusted independently of sensitivity",
                 GuidedTrainingClarityAndTimingAuditor.responseTimeAdjustableIndependentlyOfSensitivity(),
-                "Add Response Time +/- controls next to Sensitivity in TrainingSensitivityControls and CompactSensitivityControls."
+                "Add Response Time +/- controls next to Sensitivity in UniversalEyeTrackingHeader."
             ),
             check(
                 "GTCT_002",

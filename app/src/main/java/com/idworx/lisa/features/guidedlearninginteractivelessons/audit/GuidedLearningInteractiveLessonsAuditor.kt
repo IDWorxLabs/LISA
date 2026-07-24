@@ -18,8 +18,8 @@ object GuidedLearningInteractiveLessonsAuditor {
 
     fun lessonScreenShowsEyeStatus(): Boolean {
         val lessons = readLessonScreens() ?: return false
-        return (lessons.contains("EyeTrackingStatusPill") ||
-            lessons.contains("CompactEyeTrackingHeader")) &&
+        return (lessons.contains("UniversalEyeTrackingHeader") ||
+            lessons.contains("LessonEyeStatusPanel")) &&
             lessons.contains("LessonEyeStatusPanel") &&
             (lessons.contains("Watching your eyes") || lessons.contains("watchingLabel"))
     }

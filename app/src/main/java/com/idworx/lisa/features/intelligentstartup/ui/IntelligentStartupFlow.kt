@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.CommunicationLevel
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
-import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
 import com.idworx.lisa.features.intelligentstartup.model.StartupFlowState
@@ -171,7 +171,7 @@ fun IntelligentStartupFlow(
     }
 }
 
-/** Shared status → transparent blink counter → sensitivity, then screen content. */
+/** Shared universal eye-tracking header, then screen content. */
 @Composable
 private fun StartupScreenWithSharedBlinkCounter(
     uiStrings: LisaUiStrings,
@@ -188,7 +188,7 @@ private fun StartupScreenWithSharedBlinkCounter(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CompactEyeTrackingHeader(
+        UniversalEyeTrackingHeader(
             state = eyeTrackingStatus,
             uiStrings = uiStrings,
             showSensitivityControls = true,
@@ -649,7 +649,7 @@ private fun QuickEyeCalibrationScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
-        CompactEyeTrackingHeader(
+        UniversalEyeTrackingHeader(
             state = calibrationStatus,
             uiStrings = uiStrings,
             showSensitivityControls = true,

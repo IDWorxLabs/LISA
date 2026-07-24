@@ -337,6 +337,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         )
         startupSession.start()
+        com.idworx.lisa.features.universalsequenceexecution.UniversalSequenceExecutionDebugValidator
+            .runIfDebug(
+                isDebugBuild = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            ) { message ->
+                android.util.Log.w("LisaSequenceParity", message)
+            }
         settingsRecalibrationController = SettingsRecalibrationController(
             persistCalibration = { calibration ->
                 updateActiveProfile { it.copy(eyeCalibration = calibration) }
@@ -2305,6 +2311,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             refreshTrainingActiveState()
             return
         }
+        if (trainingSession.handleSetupReadinessInteraction(left, right, order)) {
+            refreshTrainingActiveState()
+            return
+        }
         if (trainingSession.isNavigationTrainingActive()) {
             handleNavigationTrainingSequence(left, right)
             refreshTrainingActiveState()
@@ -4251,7 +4261,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (startupSession.isActive && !startupSession.eyeControlEnabled) {
                 startupSession.onLeftWinkAccepted(closePeak = leftProb)
                 flashAcceptedBlink(isLeft = true)
-            } else if (settingsRecalibrationController.isActive) {
+            } else if (settingsRecalibrationController.isActive &&
+                settingsRecalibrationController.state.outcome == SettingsRecalibrationOutcome.InProgress
+            ) {
                 settingsRecalibrationController.onLeftWinkAccepted(closePeak = leftProb)
                 flashAcceptedBlink(isLeft = true)
             } else {
@@ -4267,7 +4279,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (startupSession.isActive && !startupSession.eyeControlEnabled) {
                 startupSession.onRightWinkAccepted(closePeak = rightProb)
                 flashAcceptedBlink(isLeft = false)
-            } else if (settingsRecalibrationController.isActive) {
+            } else if (settingsRecalibrationController.isActive &&
+                settingsRecalibrationController.state.outcome == SettingsRecalibrationOutcome.InProgress
+            ) {
                 settingsRecalibrationController.onRightWinkAccepted(closePeak = rightProb)
                 flashAcceptedBlink(isLeft = false)
             } else {
@@ -4282,7 +4296,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (startupSession.isActive && !startupSession.eyeControlEnabled) {
             return
         }
-        if (settingsRecalibrationController.isActive) {
+        // RC8.12 — while recalibration is InProgress, winks feed the calibration engine only.
+        // Failed Retry (L1 R1) must fall through so blink matches touch onRetry.
+        if (settingsRecalibrationController.isActive &&
+            settingsRecalibrationController.state.outcome == SettingsRecalibrationOutcome.InProgress
+        ) {
             // During BlinkThreeTimes, both-eye blinks are observed via onFrameSample.
             // Left/right wink steps are handled above; do not route into menu navigation.
             return
@@ -4421,6 +4439,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        // RC8.12 — Settings recalibration Failed Retry shares touch onRetry (L1 R1).
+        if (settingsRecalibrationController.isActive &&
+            settingsRecalibrationController.state.outcome == SettingsRecalibrationOutcome.Failed &&
+            com.idworx.lisa.features.universalsequenceexecution.SettingsRecalibrationRetrySequenceAuthority
+                .matches(capturedLeft, capturedRight)
+        ) {
+            com.idworx.lisa.features.universalsequenceexecution.SettingsRecalibrationRetrySequenceAuthority
+                .invokeRetry { settingsRecalibrationController.retry() }
+            resetSequence()
+            updateReadyOrWaitingState()
+            return
+        }
+
         setCommunicationState(LisaCommunicationState.ProcessingSequence)
 
         if (isEmergencySequence(capturedLeft, capturedRight)) {
@@ -4478,10 +4509,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
-        if (trainingSession.shouldShowTraining() &&
-            (trainingSession.state.progress.currentPhase == TrainingPhase.CommunicationLesson ||
-                trainingSession.state.progress.currentPhase == TrainingPhase.CommunicationMastery)
-        ) {
+        // RC8.12 — every training phase that shows sequence-labelled actions (including Setup
+        // readiness) must share handleTrainingSequence with touch. Navigation already returned.
+        if (trainingSession.shouldShowTraining()) {
             handleTrainingSequence(capturedLeft, capturedRight)
             resetSequence()
             setCommunicationState(LisaCommunicationState.Listening)

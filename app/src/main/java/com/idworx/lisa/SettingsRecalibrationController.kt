@@ -175,7 +175,9 @@ class SettingsRecalibrationController(
         const val LOOK_NATURALLY_MIN_MS: Long = 1200L
         const val SUCCESS_HANDOFF_MS: Long = 1200L
         /** Retry uses Select (L1 R1) when failure is shown — same as Confirm elsewhere. */
-        val RETRY_LEFT: Int = GuidedModeNavigation.SELECT_LEFT
-        val RETRY_RIGHT: Int = GuidedModeNavigation.SELECT_RIGHT
+        val RETRY_LEFT: Int =
+            com.idworx.lisa.features.universalsequenceexecution.SettingsRecalibrationRetrySequenceAuthority.RETRY_LEFT
+        val RETRY_RIGHT: Int =
+            com.idworx.lisa.features.universalsequenceexecution.SettingsRecalibrationRetrySequenceAuthority.RETRY_RIGHT
     }
 }

@@ -226,16 +226,10 @@ fun GuidedTrainingFlow(
                 onEvent(TrainingEvent.CompleteSetup)
             },
             onBack = {
-                onSetupStepChange(TrainingSessionController.SETUP_STEP_EYE_DETECTION)
+                // RC8.9 — readiness Back returns to Welcome destination selection.
+                onEvent(TrainingEvent.ReturnToWelcomeDestination)
             },
-            eyeTrackingStatus = eyeTrackingStatus,
-            learningPreferences = progress.preferences,
-            learningProgress = progress,
-            onReplayTutorial = onReplayTutorial,
-            onPracticeCommunication = onPracticeCommunication,
-            onPracticeNavigation = onPracticeNavigation,
-            onResetProgress = onResetLearningProgress,
-            onLearningPreferencesChange = onLearningPreferencesChange
+            eyeTrackingStatus = eyeTrackingStatus
         )
 
         TrainingPhase.Calibration -> TrainingCalibrationScreen(

@@ -83,7 +83,8 @@ object TransparentBlinkCounterAuthority {
             styleObject.contains("val LabelColor:")
     }
     fun communicationUsesSharedCounter(accessibilityUi: String, keyboardUi: String): Boolean =
-        accessibilityUi.contains("BlinkCounterRow(") &&
+        (accessibilityUi.contains("BlinkCounterRow(") ||
+            accessibilityUi.contains("UniversalEyeTrackingHeader(")) &&
             keyboardUi.contains("BlinkCounterRow(")
 
     fun noDuplicateBlinkSourceInSurfaces(source: String): Boolean =

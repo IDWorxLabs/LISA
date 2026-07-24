@@ -22,19 +22,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.LisaUiStrings
-import com.idworx.lisa.features.onboardingguide.ui.EyeTrackingStatusPill
 import com.idworx.lisa.features.onboardingguide.ui.LessonEyeStatusPanel
-import com.idworx.lisa.features.onboardingguide.ui.TrainingSensitivityControls
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaWhite
 
 /**
- * Compact live eye-tracking chrome for Welcome, calibration, readiness, lessons, and startup.
- * Renders [EyeTrackingStatusUiState] from the session authority — never owns a detector.
- *
- * Hierarchy: status pill → transparent [BlinkCounterRow] → sensitivity / response time.
+ * @deprecated Prefer [UniversalEyeTrackingHeader] — retained as a thin alias so older call sites
+ * and auditors resolve to the single Communication-style visual authority.
  */
+@Deprecated(
+    message = "Use UniversalEyeTrackingHeader",
+    replaceWith = ReplaceWith(
+        "UniversalEyeTrackingHeader(state, uiStrings, onDecreaseSensitivity, onIncreaseSensitivity, " +
+            "onDecreaseResponseTime, onIncreaseResponseTime, showSensitivityControls, compact, " +
+            "modifier = modifier)",
+        "com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader"
+    )
+)
 @Composable
 fun CompactEyeTrackingHeader(
     state: EyeTrackingStatusUiState,
@@ -47,55 +52,22 @@ fun CompactEyeTrackingHeader(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    UniversalEyeTrackingHeader(
+        state = state,
+        uiStrings = uiStrings,
+        showSensitivityControls = showSensitivityControls,
+        onDecreaseSensitivity = onDecreaseSensitivity,
+        onIncreaseSensitivity = onIncreaseSensitivity,
+        onDecreaseResponseTime = onDecreaseResponseTime,
+        onIncreaseResponseTime = onIncreaseResponseTime,
+        compact = compact,
         modifier = modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription = buildString {
-                    append(state.statusText)
-                    append(". Left blinks ")
-                    append(state.leftBlinkCount)
-                    append(". Right blinks ")
-                    append(state.rightBlinkCount)
-                }
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp)
-    ) {
-        EyeTrackingStatusPill(
-            label = state.statusText.ifBlank {
-                if (state.calibrationInProgress) {
-                    uiStrings.eyeTrackingStatusCalibrating
-                } else {
-                    uiStrings.eyeTrackingStatusWatching
-                }
-            },
-            active = state.trackingActive || (state.cameraActive && state.eyesDetected)
-        )
-        BlinkCounterRow(
-            uiStrings = uiStrings,
-            leftBlinkCount = state.leftBlinkCount,
-            rightBlinkCount = state.rightBlinkCount,
-            compact = compact
-        )
-        if (showSensitivityControls) {
-            TrainingSensitivityControls(
-                sensitivityLevel = state.sensitivity,
-                onDecrease = onDecreaseSensitivity,
-                onIncrease = onIncreaseSensitivity,
-                responseTimeSec = state.responseTimeSeconds,
-                onDecreaseResponseTime = onDecreaseResponseTime,
-                onIncreaseResponseTime = onIncreaseResponseTime,
-                compact = compact,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
+    )
 }
 
 /**
- * Expanded readiness panel: status → transparent counter → sensitivity → camera/eyes detail.
- * Blink counts come only from [BlinkCounterRow] (shared Communication visual authority).
+ * Readiness panel: universal Communication-style header + optional camera/eyes detail.
+ * Blink counts live only inside [UniversalEyeTrackingHeader].
  */
 @Composable
 fun ExpandedEyeTrackingStatusPanel(
@@ -113,26 +85,16 @@ fun ExpandedEyeTrackingStatusPanel(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        EyeTrackingStatusPill(
-            label = state.statusText.ifBlank { uiStrings.eyeTrackingStatusWatching },
-            active = state.trackingActive || (state.cameraActive && state.eyesDetected)
-        )
-        BlinkCounterRow(
+        UniversalEyeTrackingHeader(
+            state = state,
             uiStrings = uiStrings,
-            leftBlinkCount = state.leftBlinkCount,
-            rightBlinkCount = state.rightBlinkCount
+            showSensitivityControls = showSensitivityControls,
+            onDecreaseSensitivity = onDecreaseSensitivity,
+            onIncreaseSensitivity = onIncreaseSensitivity,
+            onDecreaseResponseTime = onDecreaseResponseTime,
+            onIncreaseResponseTime = onIncreaseResponseTime,
+            modifier = Modifier.fillMaxWidth()
         )
-        if (showSensitivityControls) {
-            TrainingSensitivityControls(
-                sensitivityLevel = state.sensitivity,
-                onDecrease = onDecreaseSensitivity,
-                onIncrease = onIncreaseSensitivity,
-                responseTimeSec = state.responseTimeSeconds,
-                onDecreaseResponseTime = onDecreaseResponseTime,
-                onIncreaseResponseTime = onIncreaseResponseTime,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
         LessonEyeStatusPanel(
             eyeTracking = EyeTrackingStatusUiMapper.toTrainingEyeTracking(state),
             showBlinkCounters = false,
@@ -142,13 +104,11 @@ fun ExpandedEyeTrackingStatusPanel(
 }
 
 /**
- * Canonical shared transparent live blink counter (Communication + pre-Communication).
+ * Shared Left/Right blink counter row for surfaces that already sit under
+ * [UniversalEyeTrackingHeader] chrome (keyboard / emergency) and only need the count strip.
  *
  * Displays physical-left / physical-right counts via [LisaUiStrings.leftDots] /
- * [LisaUiStrings.rightDots] (● dots; Communication-neutral zero "—").
- * Background is transparent; labels and dots always use [TransparentBlinkCounterStyle.LabelColor]
- * ([LisaBlueDark]) for permanent high contrast on any surface.
- * Does not own blink detection state.
+ * [LisaUiStrings.rightDots]. Does not own blink detection state.
  */
 @Composable
 fun BlinkCounterRow(
@@ -207,10 +167,14 @@ fun CalibrationEyeTrackingStatusStrip(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CompactEyeTrackingHeader(
+        UniversalEyeTrackingHeader(
             state = state,
             uiStrings = uiStrings,
             showSensitivityControls = true,
+            onDecreaseSensitivity = {},
+            onIncreaseSensitivity = {},
+            onDecreaseResponseTime = {},
+            onIncreaseResponseTime = {},
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(4.dp))

@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.features.experiencepolish.patientcommunicationcoach.model.CoachUiState
-import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.onboardingguide.coach.CaregiverProgressSnapshot
@@ -151,8 +151,8 @@ fun CommunicationLessonScreen(
             verticalArrangement = Arrangement.Top
         ) {
             // RC7D.36 — shared compact blink counter is mandatory on every Guided Learning lesson.
-            // CompactEyeTrackingHeader renders EyeTrackingStatusPill + BlinkCounterRow + sensitivity.
-            CompactEyeTrackingHeader(
+            // UniversalEyeTrackingHeader — Communication-style status + live counts + sensitivity.
+            UniversalEyeTrackingHeader(
                 state = status,
                 uiStrings = uiStrings,
                 showSensitivityControls = true,
@@ -164,7 +164,7 @@ fun CommunicationLessonScreen(
                     .fillMaxWidth(0.92f)
                     .padding(bottom = 8.dp)
             )
-            // Shared transparent BlinkCounterRow lives in CompactEyeTrackingHeader.
+            // Live Left/Right counts are inside UniversalEyeTrackingHeader.
             // LessonEyeStatusPanel keeps camera/eyes detail only (no second counter visual).
             LessonEyeStatusPanel(
                 eyeTracking = panelTracking,

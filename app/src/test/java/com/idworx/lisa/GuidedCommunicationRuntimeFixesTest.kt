@@ -22,18 +22,23 @@ class GuidedCommunicationRuntimeFixesTest {
         ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
             ?: error("LisaAccessibilityUi.kt not found")
 
+    private fun universalHeaderImplementation(): String =
+        (ZeroTouchFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt"
+        ) ?: error("UniversalEyeTrackingHeader.kt not found"))
+            .substringAfter("fun UniversalEyeTrackingHeader(\n    uiStrings: LisaUiStrings,")
+
     // --- C. Response-time +/- controls, same style as Sensitivity -----------------------------
 
     @Test
     fun responseTimeControls_addedNextToSensitivity_sameOutlinedButtonStyle() {
-        val ui = accessibilityUiSource()
-        val block = ui.substringAfter("private fun CompactSensitivityControls(")
+        val block = universalHeaderImplementation()
         assertTrue("expected a dedicated response time -/+ row", block.contains("onDecreaseResponseTime"))
         assertTrue(block.contains("onIncreaseResponseTime"))
         assertTrue(block.contains("uiStrings.responseTimeDecrease"))
         assertTrue(block.contains("uiStrings.responseTimeIncrease"))
-        assertTrue(block.contains("responseTimeSec > SequenceProcessingDelay.MIN_SECONDS"))
-        assertTrue(block.contains("responseTimeSec < SequenceProcessingDelay.MAX_SECONDS"))
+        assertTrue(block.contains("safeResponse > SequenceProcessingDelay.MIN_SECONDS"))
+        assertTrue(block.contains("safeResponse < SequenceProcessingDelay.MAX_SECONDS"))
     }
 
     @Test
@@ -43,20 +48,19 @@ class GuidedCommunicationRuntimeFixesTest {
         // mutually exclusive branches of the same if/else, so exactly one ever renders — the guided
         // row while guidedResponseTimeControlsVisible is true (it's the value actually driving
         // gesture timing then), otherwise the everyday workspace row.
-        val ui = accessibilityUiSource()
-        val block = ui.substringAfter("private fun CompactSensitivityControls(")
+        val block = universalHeaderImplementation()
             .substringAfter("if (guidedResponseTimeControlsVisible) {")
         val guidedRow = block.substringBefore("} else {")
-        val workspaceRow = block.substringAfter("} else {").substringBefore("\n    }\n}")
-        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onClick = onDecreaseGuidedResponseTime"))
-        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onClick = onIncreaseGuidedResponseTime"))
+        val workspaceRow = block.substringAfter("} else {").substringBefore("\n                }")
+        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onDecrease = onDecreaseGuidedResponseTime"))
+        assertTrue("guided row must use the labelled onClick handler", guidedRow.contains("onIncrease = onIncreaseGuidedResponseTime"))
         assertTrue("guided row must be clearly labelled, not bare -/+ symbols", guidedRow.contains("uiStrings.responseTimeDecrease"))
         assertTrue("guided row must be clearly labelled, not bare -/+ symbols", guidedRow.contains("uiStrings.responseTimeIncrease"))
-        assertTrue(workspaceRow.contains("onClick = onDecreaseResponseTime"))
-        assertTrue(workspaceRow.contains("onClick = onIncreaseResponseTime"))
+        assertTrue(workspaceRow.contains("onDecrease = onDecreaseResponseTime"))
+        assertTrue(workspaceRow.contains("onIncrease = onIncreaseResponseTime"))
         // Never both rows' onClick handlers appearing outside their own exclusive branch.
-        assertTrue("workspace row's own handler must not leak into the guided branch", !guidedRow.contains("onClick = onDecreaseResponseTime"))
-        assertTrue("guided row's own handler must not leak into the workspace branch", !workspaceRow.contains("onClick = onDecreaseGuidedResponseTime"))
+        assertTrue("workspace row's own handler must not leak into the guided branch", !guidedRow.contains("onDecrease = onDecreaseResponseTime"))
+        assertTrue("guided row's own handler must not leak into the workspace branch", !workspaceRow.contains("onDecrease = onDecreaseGuidedResponseTime"))
     }
 
     @Test

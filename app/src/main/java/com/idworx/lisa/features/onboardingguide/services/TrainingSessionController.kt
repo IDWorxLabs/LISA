@@ -2,6 +2,8 @@ package com.idworx.lisa.features.onboardingguide.services
 
 import com.idworx.lisa.LisaCoreVocabulary
 import com.idworx.lisa.PreferredLanguage
+import com.idworx.lisa.GuidedModeNavigation
+import com.idworx.lisa.features.brain1interactionstandard.model.UniversalInteractionGestures
 import com.idworx.lisa.features.onboardingguide.audio.OnboardingNarrationController
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
@@ -496,6 +498,53 @@ class TrainingSessionController(
         onPersist(state)
     }
 
+    /**
+     * RC8.9 — readiness Back returns to Welcome destination selection without restarting
+     * startup, recalibration, or the eye-tracking session. Profile / sensitivity / response
+     * time remain as loaded.
+     */
+    fun returnToWelcomeDestinationFromReadiness() {
+        val reduced = navigator.reduce(state.progress, TrainingEvent.ReturnToWelcomeDestination)
+        setupStep = 0
+        state = state.copy(
+            progress = reduced,
+            setupStep = 0,
+            welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.DestinationSelection,
+            brain1Decision = state.brain1Decision.clear(),
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
+        )
+        store.save(state.progress)
+        onPersist(state)
+    }
+
+    /**
+     * RC8.9 / RC8.12 — Setup readiness blink routing matches touch via
+     * [com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority]:
+     * L2 R2 → Welcome destination selection; L1 R1 → Continue to first lesson.
+     */
+    fun handleSetupReadinessInteraction(
+        left: Int,
+        right: Int,
+        blinkOrder: List<Boolean> = emptyList()
+    ): Boolean {
+        if (state.progress.currentPhase != TrainingPhase.Setup) return false
+        if (setupStep != SETUP_STEP_READY) return false
+        return com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority
+            .invokeFromBlink(
+                left = left,
+                right = right,
+                blinkOrder = blinkOrder,
+                onBack = { dispatch(TrainingEvent.ReturnToWelcomeDestination) },
+                onContinue = {
+                    if (setupFaceAnnounced || setupStep == SETUP_STEP_READY) {
+                        dispatch(TrainingEvent.CompleteSetup)
+                    }
+                }
+            )
+    }
+
     private fun clearWelcomeGestureResidue() {
         state = state.copy(
             brain1Decision = state.brain1Decision.clear(),
@@ -583,6 +632,10 @@ class TrainingSessionController(
             }
             TrainingEvent.WelcomeBackToIntroduction -> {
                 returnWelcomeToIntroduction()
+                return
+            }
+            TrainingEvent.ReturnToWelcomeDestination -> {
+                returnToWelcomeDestinationFromReadiness()
                 return
             }
             TrainingEvent.ConfirmSkip -> {

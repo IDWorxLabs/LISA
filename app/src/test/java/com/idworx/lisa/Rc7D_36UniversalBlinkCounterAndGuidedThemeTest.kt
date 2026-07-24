@@ -53,7 +53,7 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
         assertTrue(state.eyesDetected)
         assertTrue(state.statusText.isNotBlank())
         val calUi = readFile("features/intelligentstartup/ui/IntelligentStartupFlow.kt")
-        assertTrue(calUi.contains("CompactEyeTrackingHeader"))
+        assertTrue(calUi.contains("UniversalEyeTrackingHeader"))
         assertTrue(calUi.contains("eyeTrackingStatus"))
     }
 
@@ -72,7 +72,7 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
     @Test
     fun welcomeReceivesLiveSharedEyeTrackingState() {
         val welcome = readFile("features/onboardingguide/ui/TrainingWelcomeScreen.kt")
-        assertTrue(welcome.contains("CompactEyeTrackingHeader"))
+        assertTrue(welcome.contains("UniversalEyeTrackingHeader"))
         assertTrue(welcome.contains("eyeTrackingStatus"))
         val state = EyeTrackingStatusUiMapper.fromComposerFeedback(
             uiStrings = uiStrings,
@@ -195,7 +195,7 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
     @Test
     fun guidedLearningLessonHostAlwaysIncludesSharedCompactBlinkCounter() {
         val lessons = readFile("features/onboardingguide/ui/TrainingLessonScreens.kt")
-        assertTrue(lessons.contains("CompactEyeTrackingHeader"))
+        assertTrue(lessons.contains("UniversalEyeTrackingHeader"))
         val flow = readFile("features/onboardingguide/ui/GuidedTrainingFlow.kt")
         assertTrue(flow.contains("eyeTrackingStatus = eyeTrackingStatus"))
         assertTrue(flow.contains("CommunicationLessonScreen("))
@@ -204,7 +204,7 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
     @Test
     fun keyboardComposerLessonsCannotOmitBlinkCounter() {
         val lessons = readFile("features/onboardingguide/ui/TrainingLessonScreens.kt")
-        assertTrue(lessons.contains("CompactEyeTrackingHeader"))
+        assertTrue(lessons.contains("UniversalEyeTrackingHeader"))
         assertTrue(lessons.contains("LessonEyeStatusPanel"))
         val composer = readFile("EyeControlledKeyboard.kt")
         assertTrue(composer.contains("ComposerEyeStatusBar"))

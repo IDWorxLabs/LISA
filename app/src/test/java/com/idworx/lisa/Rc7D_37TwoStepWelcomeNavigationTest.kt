@@ -303,10 +303,10 @@ class Rc7D_37TwoStepWelcomeNavigationTest {
     @Test
     fun bothStagesUseSharedLiveEyeTrackingState() {
         val welcome = readWelcome()
-        assertTrue(welcome.contains("CompactEyeTrackingHeader"))
+        assertTrue(welcome.contains("UniversalEyeTrackingHeader"))
         assertEquals(
             2,
-            Regex("CompactEyeTrackingHeader\\(").findAll(welcome).count()
+            Regex("UniversalEyeTrackingHeader\\(").findAll(welcome).count()
         )
         val state = EyeTrackingStatusUiMapper.fromComposerFeedback(
             uiStrings = uiStrings,
@@ -328,7 +328,7 @@ class Rc7D_37TwoStepWelcomeNavigationTest {
     fun bothStagesExposeLiveLeftAndRightBlinkCounts() {
         val welcome = readWelcome()
         assertTrue(welcome.contains("eyeTrackingStatus"))
-        assertTrue(welcome.contains("CompactEyeTrackingHeader"))
+        assertTrue(welcome.contains("UniversalEyeTrackingHeader"))
     }
 
     @Test

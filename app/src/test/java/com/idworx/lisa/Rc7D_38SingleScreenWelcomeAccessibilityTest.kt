@@ -44,13 +44,13 @@ class Rc7D_38SingleScreenWelcomeAccessibilityTest {
 
     @Test
     fun sharedEyeTrackingStatusRemainsPresent() {
-        assertTrue(introBlock().contains("CompactEyeTrackingHeader"))
+        assertTrue(introBlock().contains("UniversalEyeTrackingHeader"))
         assertTrue(introBlock().contains("eyeTrackingStatus"))
     }
 
     @Test
     fun leftAndRightBlinkCountersRemainPresent() {
-        assertTrue(introBlock().contains("CompactEyeTrackingHeader"))
+        assertTrue(introBlock().contains("UniversalEyeTrackingHeader"))
         val surfaces = readFile("features/eyetrackingstatus/EyeTrackingStatusSurfaces.kt")
         assertTrue(surfaces.contains("BlinkCounterRow"))
         assertTrue(surfaces.contains("leftBlinkCount"))

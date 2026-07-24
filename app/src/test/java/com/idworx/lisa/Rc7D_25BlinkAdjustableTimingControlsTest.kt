@@ -498,11 +498,14 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         assertFalse(ui.contains("guidedAdjustSettingsDiscoverabilityLabel"))
         assertFalse(ui.contains("Adjust: "))
         assertFalse(ui.contains("onOpenAdjustSettings"))
-        // Four touch controls and values remain in CompactSensitivityControls.
-        assertTrue(ui.contains("sensitivityDecrease"))
-        assertTrue(ui.contains("sensitivityIncrease"))
-        assertTrue(ui.contains("responseTimeDecrease"))
-        assertTrue(ui.contains("responseTimeIncrease"))
+        // Four touch controls and values remain in UniversalEyeTrackingHeader.
+        val universal = readSource(
+            "app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt"
+        )
+        assertTrue(universal.contains("uiStrings.sensitivityDecrease"))
+        assertTrue(universal.contains("uiStrings.sensitivityIncrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeDecrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeIncrease"))
         // The normal header must NOT permanently print the L3 R1 / L1 R3 adjustment sequences.
         assertFalse(ui.contains("\"L3 R1\""))
         assertFalse(ui.contains("\"L1 R3\""))

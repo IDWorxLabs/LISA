@@ -31,7 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.LisaUiStrings
-import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.intelligentstartup.authority.WelcomeEyeNavigationAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage
@@ -110,7 +110,7 @@ private fun WelcomeBlinkSequenceIntroductionScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // TOP — live tracking chrome (compact). No decorative LISA logo (RC7D.38).
-            CompactEyeTrackingHeader(
+            UniversalEyeTrackingHeader(
                 state = eyeTrackingStatus,
                 uiStrings = uiStrings,
                 showSensitivityControls = true,
@@ -237,7 +237,7 @@ private fun WelcomeDestinationSelectionScreen(
                 .padding(top = style.ScreenTopPadding, bottom = style.ScreenBottomPadding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CompactEyeTrackingHeader(
+            UniversalEyeTrackingHeader(
                 state = eyeTrackingStatus,
                 uiStrings = uiStrings,
                 showSensitivityControls = true,

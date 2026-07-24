@@ -54,6 +54,7 @@ import com.idworx.lisa.features.onboardingguide.ui.GuidedWorkspaceLessonCard
 import com.idworx.lisa.features.onboardingguide.ui.trainingBlocksMainUi
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
@@ -497,43 +498,49 @@ fun LisaRootUI(
                 Spacer(Modifier.height(4.dp))
             }
 
-            EverydayCommunicationPanel(
-                uiStrings = uiStrings,
-                userDisplay = userDisplay,
-                countdownActive = countdownActive,
-                onEditCountdown = onEditCountdown
-            )
+            // RC8.11 — UniversalEyeTrackingHeader owns passive eye-tracking banners
+            // ("Watching your eyes", calibrating, no face, etc.). EverydayCommunicationPanel
+            // only renders active communication timeline content (phrase / countdown / progress).
+            val passiveEyeTrackingOwnedByUniversalHeader =
+                !countdownActive &&
+                    userDisplay.phrase == null &&
+                    userDisplay.countdown == null &&
+                    !userDisplay.showCountdownHints &&
+                    userDisplay.subtitle.isBlank() &&
+                    isPassiveEyeTrackingHeadline(userDisplay.headline, uiStrings)
+            if (!passiveEyeTrackingOwnedByUniversalHeader) {
+                EverydayCommunicationPanel(
+                    uiStrings = uiStrings,
+                    userDisplay = userDisplay,
+                    countdownActive = countdownActive,
+                    onEditCountdown = onEditCountdown
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
-            Spacer(Modifier.height(4.dp))
-            CompactSensitivityControls(
+            // Universal Communication-style header: blue status + dark panel with live
+            // Left/Right counts, Sensitivity, and Response time (shared with Welcome / Guided Learning).
+            UniversalEyeTrackingHeader(
                 uiStrings = uiStrings,
+                statusText = when {
+                    passiveEyeTrackingOwnedByUniversalHeader ->
+                        userDisplay.headline.ifBlank { uiStrings.eyeTrackingStatusWatching }
+                    else -> uiStrings.eyeTrackingStatusWatching
+                },
+                leftBlinkCount = userDisplay.leftWinkDots,
+                rightBlinkCount = userDisplay.rightWinkDots,
                 sensitivityLevel = sensitivityLevel,
                 responseTimeSec = responseTimeSec,
-                onDecrease = onSensitivityDecrease,
-                onIncrease = onSensitivityIncrease,
+                onDecreaseSensitivity = onSensitivityDecrease,
+                onIncreaseSensitivity = onSensitivityIncrease,
                 onDecreaseResponseTime = onResponseTimeDecrease,
                 onIncreaseResponseTime = onResponseTimeIncrease,
                 guidedResponseTimeControlsVisible = guidedWorkspaceTrainingActive,
                 guidedResponseTimeSec = guidedTrainingState.progress.preferences.guidedResponseTimeSec,
                 onDecreaseGuidedResponseTime = onTrainingDecreaseResponseTime,
-                onIncreaseGuidedResponseTime = onTrainingIncreaseResponseTime
+                onIncreaseGuidedResponseTime = onTrainingIncreaseResponseTime,
+                compact = phraseManagementActive
             )
-
-            // During Phrase Management / Details, always show Left/Right counters so blink
-            // progress stays visible even at zero (RC7D.18). Workspace idle behaviour unchanged.
-            if (!developerMode && (
-                    phraseManagementActive ||
-                        userDisplay.leftWinkDots > 0 ||
-                        userDisplay.rightWinkDots > 0
-                    )
-            ) {
-                Spacer(Modifier.height(4.dp))
-                SequenceProgressDots(
-                    uiStrings = uiStrings,
-                    leftCount = userDisplay.leftWinkDots,
-                    rightCount = userDisplay.rightWinkDots
-                )
-            }
 
             if (developerMode) {
                 Spacer(Modifier.height(4.dp))
@@ -893,134 +900,6 @@ data class DeveloperPanelInfo(
 )
 
 @Composable
-private fun CompactSensitivityControls(
-    uiStrings: LisaUiStrings,
-    sensitivityLevel: Int,
-    responseTimeSec: Int,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    /** Everyday Communication Workspace response time — same visual style as Sensitivity's row. */
-    onDecreaseResponseTime: () -> Unit = {},
-    onIncreaseResponseTime: () -> Unit = {},
-    /**
-     * During Guided Training's Navigation Lesson, this replaces the everyday workspace row above
-     * (rather than adding a second one) so its own, separately adjustable settle time is what's
-     * shown — the two rows share a backing value that never applies at the same time
-     * ([MainActivity.effectiveSequenceIdleTimeoutMs] only reads the guided one while training is
-     * active), so showing both together was a genuine duplicate, not just a visual one.
-     */
-    guidedResponseTimeControlsVisible: Boolean = false,
-    guidedResponseTimeSec: Int = SequenceProcessingDelay.GUIDED_DEFAULT_SECONDS,
-    onDecreaseGuidedResponseTime: () -> Unit = {},
-    onIncreaseGuidedResponseTime: () -> Unit = {}
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.35f))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            OutlinedButton(
-                onClick = onDecrease,
-                enabled = sensitivityLevel > MIN_SENSITIVITY_LEVEL,
-                modifier = Modifier.height(30.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-            ) { Text(uiStrings.sensitivityDecrease, fontSize = 10.sp) }
-            Text(
-                text = "${uiStrings.sensitivity}: $sensitivityLevel",
-                color = LisaWhite,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            OutlinedButton(
-                onClick = onIncrease,
-                enabled = sensitivityLevel < MAX_SENSITIVITY_LEVEL,
-                modifier = Modifier.height(30.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-            ) { Text(uiStrings.sensitivityIncrease, fontSize = 10.sp) }
-        }
-        // Exactly one response-time row is ever shown — the Guided Training row while a Navigation
-        // Lesson is active (it's the value actually used for gesture timing then), otherwise the
-        // everyday workspace row. Both use the identical labelled +/- style so the control is always
-        // clearly named, never a second, bare-symbol duplicate underneath.
-        if (guidedResponseTimeControlsVisible) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = onDecreaseGuidedResponseTime,
-                    enabled = guidedResponseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
-                    modifier = Modifier.height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
-                Text(
-                    text = "${uiStrings.responseTime}: ${guidedResponseTimeSec}s",
-                    color = LisaWhite,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                OutlinedButton(
-                    onClick = onIncreaseGuidedResponseTime,
-                    enabled = guidedResponseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
-                    modifier = Modifier.height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                OutlinedButton(
-                    onClick = onDecreaseResponseTime,
-                    enabled = responseTimeSec > SequenceProcessingDelay.MIN_SECONDS,
-                    modifier = Modifier.height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text(uiStrings.responseTimeDecrease, fontSize = 10.sp) }
-                Text(
-                    text = "${uiStrings.responseTime}: ${responseTimeSec}s",
-                    color = LisaWhite,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                OutlinedButton(
-                    onClick = onIncreaseResponseTime,
-                    enabled = responseTimeSec < SequenceProcessingDelay.MAX_SECONDS,
-                    modifier = Modifier.height(30.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaWhite)
-                ) { Text(uiStrings.responseTimeIncrease, fontSize = 10.sp) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SequenceProgressDots(uiStrings: LisaUiStrings, leftCount: Int, rightCount: Int) {
-    // Shared Communication / pre-Communication transparent blink-counter authority.
-    com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow(
-        uiStrings = uiStrings,
-        leftBlinkCount = leftCount,
-        rightBlinkCount = rightCount
-    )
-}
-
-@Composable
 private fun IntentPreviewCard(
     phrase: String,
     compact: Boolean = false,
@@ -1078,6 +957,20 @@ private fun IntentPreviewCard(
             )
         }
     }
+}
+
+/**
+ * RC8.11 — Passive eye-tracking banner headlines owned exclusively by
+ * [UniversalEyeTrackingHeader]. When true, EverydayCommunicationPanel must not
+ * emit a second “Watching your eyes” (or related) status strip.
+ */
+private fun isPassiveEyeTrackingHeadline(headline: String, uiStrings: LisaUiStrings): Boolean {
+    if (headline.isBlank()) return true
+    return headline.equals(uiStrings.eyeTrackingStatusWatching, ignoreCase = true) ||
+        headline.equals(uiStrings.eyeTrackingStatusCalibrating, ignoreCase = true) ||
+        headline.equals(uiStrings.eyeTrackingStatusTrackingLost, ignoreCase = true) ||
+        headline.equals(uiStrings.eyeTrackingStatusNoFace, ignoreCase = true) ||
+        headline.equals(uiStrings.eyeTrackingStatusLookAtCamera, ignoreCase = true)
 }
 
 @Composable

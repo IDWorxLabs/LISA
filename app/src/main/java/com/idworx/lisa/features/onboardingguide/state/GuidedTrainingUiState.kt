@@ -98,6 +98,11 @@ sealed class TrainingEvent {
     data object WelcomeContinueToDestination : TrainingEvent()
     /** RC7D.37 — Destination selection → blink-sequence introduction (L2 R2 / Back). */
     data object WelcomeBackToIntroduction : TrainingEvent()
+    /**
+     * RC8.9 — Guided Learning readiness Back returns to Welcome destination selection
+     * without restarting startup, calibration, or the eye-tracking session.
+     */
+    data object ReturnToWelcomeDestination : TrainingEvent()
     data object ReturnToTutorial : TrainingEvent()
     data object AdvanceSetup : TrainingEvent()
     data object CompleteSetup : TrainingEvent()

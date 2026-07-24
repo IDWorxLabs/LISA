@@ -25,6 +25,16 @@ class GuidedLearningEmergencyAndResponseTimeFixesTest {
         ZeroTouchFileProbe.readProjectFile("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
             ?: error("LisaAccessibilityUi.kt not found")
 
+    private fun universalHeaderSource(): String =
+        ZeroTouchFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt"
+        ) ?: error("UniversalEyeTrackingHeader.kt not found")
+
+    private fun universalHeaderImplementation(): String =
+        universalHeaderSource().substringAfter(
+            "fun UniversalEyeTrackingHeader(\n    uiStrings: LisaUiStrings,"
+        )
+
     private fun trainingSessionControllerSource(): String =
         ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/services/TrainingSessionController.kt"
@@ -34,8 +44,7 @@ class GuidedLearningEmergencyAndResponseTimeFixesTest {
 
     @Test
     fun guidedTraining_responseTimeRowsAreMutuallyExclusive_neverBothAtOnce() {
-        val ui = accessibilityUiSource()
-        val fn = ui.substringAfter("private fun CompactSensitivityControls(")
+        val fn = universalHeaderImplementation()
         assertTrue(fn.contains("if (guidedResponseTimeControlsVisible) {"))
         assertTrue(fn.contains("} else {"))
         val guidedBranch = fn.substringAfter("if (guidedResponseTimeControlsVisible) {").substringBefore("} else {")
@@ -43,21 +52,20 @@ class GuidedLearningEmergencyAndResponseTimeFixesTest {
             "guided row must have its own labelled -/+ buttons, not bare symbols",
             guidedBranch.contains("uiStrings.responseTimeDecrease") && guidedBranch.contains("uiStrings.responseTimeIncrease")
         )
-        assertTrue(guidedBranch.contains("onClick = onDecreaseGuidedResponseTime"))
-        assertTrue(guidedBranch.contains("onClick = onIncreaseGuidedResponseTime"))
-        // Exactly one "Response time: <n>s" labelled Text template exists per branch (two total,
+        assertTrue(guidedBranch.contains("onDecrease = onDecreaseGuidedResponseTime"))
+        assertTrue(guidedBranch.contains("onIncrease = onIncreaseGuidedResponseTime"))
+        // Exactly one "Response time: <n>s" labelled row exists per branch (two total,
         // never both rendered at the same time since the branches are mutually exclusive).
-        val labelledRowCount = fn.split("text = \"\${uiStrings.responseTime}: \$").size - 1
+        val labelledRowCount = fn.split("\"\${uiStrings.responseTime}:").size - 1
         assertTrue("expected exactly 2 labelled response-time rows (one per branch), found $labelledRowCount", labelledRowCount == 2)
     }
 
     @Test
     fun guidedTraining_soleVisibleRowIsAdjustableWithMinusPlus() {
-        val ui = accessibilityUiSource()
-        val fn = ui.substringAfter("private fun CompactSensitivityControls(")
+        val fn = universalHeaderImplementation()
         val guidedBranch = fn.substringAfter("if (guidedResponseTimeControlsVisible) {").substringBefore("} else {")
-        assertTrue(guidedBranch.contains("enabled = guidedResponseTimeSec > SequenceProcessingDelay.MIN_SECONDS"))
-        assertTrue(guidedBranch.contains("enabled = guidedResponseTimeSec < SequenceProcessingDelay.MAX_SECONDS"))
+        assertTrue(guidedBranch.contains("safeGuidedResponse > SequenceProcessingDelay.MIN_SECONDS"))
+        assertTrue(guidedBranch.contains("safeGuidedResponse < SequenceProcessingDelay.MAX_SECONDS"))
     }
 
     @Test
@@ -71,8 +79,7 @@ class GuidedLearningEmergencyAndResponseTimeFixesTest {
 
     @Test
     fun sensitivityRow_wasNotRemoved() {
-        val ui = accessibilityUiSource()
-        val fn = ui.substringAfter("private fun CompactSensitivityControls(")
+        val fn = universalHeaderImplementation()
         assertTrue(fn.contains("uiStrings.sensitivityDecrease") && fn.contains("uiStrings.sensitivityIncrease"))
     }
 

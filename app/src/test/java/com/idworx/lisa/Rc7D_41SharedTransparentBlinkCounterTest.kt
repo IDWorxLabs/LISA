@@ -77,7 +77,7 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
         assertTrue(
             TransparentBlinkCounterAuthority.communicationUsesSharedCounter(accessibility, keyboard)
         )
-        assertTrue(accessibility.contains("BlinkCounterRow("))
+        assertTrue(accessibility.contains("UniversalEyeTrackingHeader(") || accessibility.contains("BlinkCounterRow("))
         assertTrue(keyboard.contains("BlinkCounterRow("))
         assertTrue(readFile("LisaEmergencyUi.kt").contains("BlinkCounterRow("))
     }
@@ -88,10 +88,10 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
         val lessons = readFile("features/onboardingguide/ui/TrainingLessonScreens.kt")
         val setup = readFile("features/onboardingguide/ui/TrainingSetupScreen.kt")
         val startup = readFile("features/intelligentstartup/ui/IntelligentStartupFlow.kt")
-        assertTrue(welcome.contains("CompactEyeTrackingHeader"))
-        assertTrue(lessons.contains("CompactEyeTrackingHeader"))
+        assertTrue(welcome.contains("UniversalEyeTrackingHeader"))
+        assertTrue(lessons.contains("UniversalEyeTrackingHeader"))
         assertTrue(setup.contains("ExpandedEyeTrackingStatusPanel"))
-        assertTrue(startup.contains("CompactEyeTrackingHeader"))
+        assertTrue(startup.contains("UniversalEyeTrackingHeader"))
         assertTrue(startup.contains("StartupScreenWithSharedBlinkCounter"))
         assertTrue(surfaces().contains("BlinkCounterRow("))
     }
@@ -176,6 +176,9 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
         assertEquals("Left: ●●●", uiStrings.leftDots(3))
         assertTrue(surfaces().contains("uiStrings.leftDots(leftBlinkCount)"))
         assertTrue(surfaces().contains("uiStrings.rightDots(rightBlinkCount)"))
+        val universal = readFile("features/eyetrackingstatus/UniversalEyeTrackingHeader.kt")
+        assertTrue(universal.contains("uiStrings.leftDots(leftBlinkCount)"))
+        assertTrue(universal.contains("uiStrings.rightDots(rightBlinkCount)"))
     }
 
     @Test
@@ -247,28 +250,34 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
         val dest = welcome.substring(destStart, destEnd)
         assertFalse(Regex("""fillMaxSize\(\)\s*\n\s*\.verticalScroll""").containsMatchIn(intro))
         assertFalse(dest.contains(".verticalScroll(rememberScrollState())"))
-        assertTrue(intro.contains("CompactEyeTrackingHeader"))
-        assertTrue(dest.contains("CompactEyeTrackingHeader"))
+        assertTrue(intro.contains("UniversalEyeTrackingHeader"))
+        assertTrue(dest.contains("UniversalEyeTrackingHeader"))
     }
 
     @Test
     fun lessonsDisableDuplicateAnimatedCounterVisual() {
         val lessons = readFile("features/onboardingguide/ui/TrainingLessonScreens.kt")
         assertTrue(lessons.contains("showBlinkCounters = false"))
-        assertTrue(lessons.contains("CompactEyeTrackingHeader"))
+        assertTrue(lessons.contains("UniversalEyeTrackingHeader"))
         assertTrue(surfaces().contains("showBlinkCounters = false"))
     }
 
     @Test
-    fun hierarchyKeepsStatusAboveCounterAboveSensitivity() {
+    fun hierarchyKeepsTitleAbovePanelWithCountersAndSensitivity() {
+        val universal = readFile("features/eyetrackingstatus/UniversalEyeTrackingHeader.kt")
+        val fn = universal.substringAfter("fun UniversalEyeTrackingHeader(\n    uiStrings: LisaUiStrings,")
+        val titleIdx = fn.indexOf("text = statusText")
+        val counterIdx = fn.indexOf("uiStrings.leftDots(leftBlinkCount)")
+        val sensIdx = fn.indexOf("uiStrings.sensitivityDecrease")
+        assertTrue(titleIdx >= 0 && counterIdx > titleIdx && sensIdx > counterIdx)
+
         val compact = surfaces().substring(
             surfaces().indexOf("fun CompactEyeTrackingHeader"),
             surfaces().indexOf("fun ExpandedEyeTrackingStatusPanel")
         )
-        val pillIdx = compact.indexOf("EyeTrackingStatusPill")
-        val counterIdx = compact.indexOf("BlinkCounterRow")
-        val sensIdx = compact.indexOf("TrainingSensitivityControls")
-        assertTrue(pillIdx >= 0 && counterIdx > pillIdx && sensIdx > counterIdx)
+        assertTrue(compact.contains("UniversalEyeTrackingHeader("))
+        assertFalse(compact.contains("EyeTrackingStatusPill"))
+        assertFalse(compact.contains("TrainingSensitivityControls"))
     }
 
     private fun readFile(relativeUnderMainJava: String): String {

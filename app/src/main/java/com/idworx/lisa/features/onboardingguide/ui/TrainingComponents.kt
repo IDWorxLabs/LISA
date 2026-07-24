@@ -133,6 +133,13 @@ fun TrainingLisaLogo(modifier: Modifier = Modifier.size(96.dp), animated: Boolea
     }
 }
 
+/**
+ * Primary filled action used across Guided Learning / Welcome.
+ *
+ * RC8.12 — When [secondaryText] advertises a blink sequence, [onClick] must be the same
+ * action that blink execution invokes (via UniversalSequenceExecutionAuthority /
+ * GuidedReadinessSequenceAuthority). Never display a sequence without a blink owner.
+ */
 @Composable
 fun TrainingPrimaryButton(
     text: String,
@@ -716,6 +723,12 @@ private fun com.idworx.lisa.LisaUiStrings.t(en: String, af: String, zu: String):
         com.idworx.lisa.PreferredLanguage.IsiZulu -> zu
     }
 
+/**
+ * Outlined secondary action used across Guided Learning / Welcome.
+ *
+ * RC8.12 — When [secondaryText] advertises a blink sequence, [onClick] must be the same
+ * action blink execution invokes. Never display a sequence without a blink owner.
+ */
 @Composable
 fun TrainingSecondaryButton(
     text: String,
@@ -723,12 +736,17 @@ fun TrainingSecondaryButton(
     modifier: Modifier = Modifier,
     minHeight: androidx.compose.ui.unit.Dp = 52.dp,
     contentDescription: String = text,
-    textStyle: androidx.compose.ui.text.TextStyle? = null
+    textStyle: androidx.compose.ui.text.TextStyle? = null,
+    secondaryText: String? = null,
+    secondaryTextStyle: androidx.compose.ui.text.TextStyle? = null
 ) {
+    val resolvedMinHeight = when {
+        secondaryText != null && minHeight.value <= 52f -> 64.dp
+        else -> minHeight
+    }
     val heightModifier = when {
-        minHeight.value <= 48f -> Modifier.height(48.dp)
-        minHeight == 52.dp -> Modifier.height(52.dp)
-        else -> Modifier.height(minHeight)
+        resolvedMinHeight.value <= 48f -> Modifier.height(48.dp)
+        else -> Modifier.height(resolvedMinHeight)
     }
     OutlinedButton(
         onClick = onClick,
@@ -740,14 +758,35 @@ fun TrainingSecondaryButton(
         colors = ButtonDefaults.outlinedButtonColors(contentColor = LisaBlue),
         border = BorderStroke(1.dp, LisaBlue)
     ) {
-        Text(
-            text = text,
-            style = textStyle ?: androidx.compose.ui.text.TextStyle(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            color = LisaBlue
-        )
+        if (secondaryText == null) {
+            Text(
+                text = text,
+                style = textStyle ?: androidx.compose.ui.text.TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = LisaBlue
+            )
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = text,
+                    style = textStyle ?: androidx.compose.ui.text.TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = LisaBlue
+                )
+                Text(
+                    text = secondaryText,
+                    style = secondaryTextStyle ?: androidx.compose.ui.text.TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = LisaBlue
+                )
+            }
+        }
     }
 }
 

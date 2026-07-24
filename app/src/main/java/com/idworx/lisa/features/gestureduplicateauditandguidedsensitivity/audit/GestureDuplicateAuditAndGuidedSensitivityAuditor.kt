@@ -57,9 +57,8 @@ object GestureDuplicateAuditAndGuidedSensitivityAuditor {
 
     fun setupScreenHasSensitivityControl(): Boolean {
         val setup = readSetupScreen() ?: return false
-        return (setup.contains("TrainingSensitivityControls") ||
-            setup.contains("ExpandedEyeTrackingStatusPanel") ||
-            setup.contains("CompactEyeTrackingHeader")) &&
+        return (setup.contains("UniversalEyeTrackingHeader") ||
+            setup.contains("ExpandedEyeTrackingStatusPanel")) &&
             setup.contains("onDecreaseSensitivity") &&
             setup.contains("onIncreaseSensitivity")
     }
@@ -67,10 +66,11 @@ object GestureDuplicateAuditAndGuidedSensitivityAuditor {
     fun lessonScreenHasSensitivityControl(): Boolean {
         val lessons = readLessonScreens() ?: return false
         val components = readTrainingComponents() ?: return false
-        return (lessons.contains("TrainingSensitivityControls") ||
-            lessons.contains("CompactEyeTrackingHeader")) &&
+        return lessons.contains("UniversalEyeTrackingHeader") &&
             lessons.contains("onDecreaseSensitivity") &&
-            (lessons.contains("Sensitivity:") || components.contains("Sensitivity:"))
+            (lessons.contains("showSensitivityControls") ||
+                components.contains("Sensitivity:") ||
+                components.contains("uiStrings.sensitivity"))
     }
 
     fun sensitivityWiredToChangeSensitivity(): Boolean {

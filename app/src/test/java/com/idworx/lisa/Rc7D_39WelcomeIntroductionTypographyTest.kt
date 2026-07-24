@@ -245,7 +245,7 @@ class Rc7D_39WelcomeIntroductionTypographyTest {
 
     @Test
     fun sharedEyeTrackingStatusRemainsUnchanged() {
-        assertTrue(introBlock().contains("CompactEyeTrackingHeader"))
+        assertTrue(introBlock().contains("UniversalEyeTrackingHeader"))
         assertTrue(introBlock().contains("compact = true"))
         assertTrue(introBlock().contains("showSensitivityControls = true"))
     }

@@ -52,6 +52,11 @@ class GuidedTrainingNavigator {
         TrainingEvent.WelcomeContinueToDestination,
         TrainingEvent.WelcomeBackToIntroduction -> progress
 
+        /** RC8.9 — leave readiness and re-enter Welcome destination selection. */
+        TrainingEvent.ReturnToWelcomeDestination -> progress.copy(
+            currentPhase = TrainingPhase.FirstLaunchChoice
+        )
+
         TrainingEvent.ReturnToTutorial -> progress.copy(
             currentPhase = TrainingPhase.Welcome,
             tutorialSkipped = false

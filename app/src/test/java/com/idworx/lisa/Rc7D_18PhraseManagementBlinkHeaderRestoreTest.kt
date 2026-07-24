@@ -33,6 +33,9 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
     private fun accessibilityUi(): String =
         readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
 
+    private fun universalHeaderSource(): String =
+        readSource("app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt")
+
     private fun sharedHeaderSlice(): String {
         val ui = accessibilityUi()
         val start = ui.indexOf("if (showSharedBlinkStatusHeader)")
@@ -75,8 +78,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         assertFalse(ui.contains("!phraseComposerActive && !phraseManagementActive) {\n        Column("))
         assertTrue(ui.contains("if (showSharedBlinkStatusHeader)"))
         assertTrue(ui.contains("EverydayCommunicationPanel("))
-        assertTrue(ui.contains("CompactSensitivityControls("))
-        assertTrue(ui.contains("SequenceProgressDots("))
+        assertTrue(ui.contains("UniversalEyeTrackingHeader("))
     }
 
     // --- PHRASE MANAGEMENT HEADER ---
@@ -100,9 +102,9 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         assertTrue(english.leftDots(0).startsWith("Left:"))
         assertTrue(english.rightDots(0).startsWith("Right:"))
         val header = sharedHeaderSlice()
-        assertTrue(header.contains("SequenceProgressDots("))
-        assertTrue(header.contains("userDisplay.leftWinkDots"))
-        assertTrue(header.contains("userDisplay.rightWinkDots"))
+        assertTrue(header.contains("UniversalEyeTrackingHeader("))
+        assertTrue(header.contains("leftBlinkCount = userDisplay.leftWinkDots"))
+        assertTrue(header.contains("rightBlinkCount = userDisplay.rightWinkDots"))
         assertTrue(header.contains("phraseManagementActive"))
     }
 
@@ -111,19 +113,17 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         assertTrue(english.sensitivityDecrease.isNotBlank())
         assertTrue(english.sensitivityIncrease.isNotBlank())
         val header = sharedHeaderSlice()
-        assertTrue(header.contains("CompactSensitivityControls("))
-        assertTrue(header.contains("onDecrease = onSensitivityDecrease"))
-        assertTrue(header.contains("onIncrease = onSensitivityIncrease"))
+        assertTrue(header.contains("UniversalEyeTrackingHeader("))
+        assertTrue(header.contains("onDecreaseSensitivity = onSensitivityDecrease"))
+        assertTrue(header.contains("onIncreaseSensitivity = onSensitivityIncrease"))
         assertTrue(header.contains("sensitivityLevel = sensitivityLevel"))
-        val controls = accessibilityUi().substring(
-            accessibilityUi().indexOf("private fun CompactSensitivityControls")
-        )
+        val controls = universalHeaderSource()
         assertTrue(controls.contains("uiStrings.sensitivityDecrease"))
         assertTrue(controls.contains("uiStrings.sensitivityIncrease"))
         assertTrue(controls.contains("uiStrings.sensitivity"))
         // RC7D.27 — combined summary line removed; individual Sensitivity value label remains.
-        assertFalse(controls.contains("listeningStatusLine(sensitivityLevel, responseTimeSec)"))
-        assertTrue(controls.contains("\${uiStrings.sensitivity}: \$sensitivityLevel"))
+        assertFalse(controls.contains("listeningStatusLine"))
+        assertTrue(controls.contains("\${uiStrings.sensitivity}: \$safeSensitivity"))
     }
 
     @Test
@@ -134,9 +134,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         assertTrue(header.contains("onDecreaseResponseTime = onResponseTimeDecrease"))
         assertTrue(header.contains("onIncreaseResponseTime = onResponseTimeIncrease"))
         assertTrue(header.contains("responseTimeSec = responseTimeSec"))
-        val controls = accessibilityUi().substring(
-            accessibilityUi().indexOf("private fun CompactSensitivityControls")
-        )
+        val controls = universalHeaderSource()
         assertTrue(controls.contains("uiStrings.responseTimeDecrease"))
         assertTrue(controls.contains("uiStrings.responseTimeIncrease"))
         assertTrue(controls.contains("uiStrings.responseTime"))
@@ -146,7 +144,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
     fun singleSharedHeaderNoDuplicateInsidePhraseManagementUi() {
         val managementUi = readSource("app/src/main/java/com/idworx/lisa/PhraseManagementUi.kt")
         assertFalse(managementUi.contains("EverydayCommunicationPanel("))
-        assertFalse(managementUi.contains("CompactSensitivityControls("))
+        assertFalse(managementUi.contains("UniversalEyeTrackingHeader("))
         assertFalse(managementUi.contains("eyeTrackingStatusWatching"))
         assertEquals(
             1,
@@ -154,7 +152,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
         )
         assertEquals(
             1,
-            Regex("(?<!fun )CompactSensitivityControls\\(").findAll(accessibilityUi()).count()
+            Regex("(?<!fun )UniversalEyeTrackingHeader\\(").findAll(accessibilityUi()).count()
         )
     }
 
@@ -220,8 +218,8 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
     @Test
     fun blinkCountsDrivenBySharedUserDisplayNotLocalPlaceholders() {
         val header = sharedHeaderSlice()
-        assertTrue(header.contains("userDisplay.leftWinkDots"))
-        assertTrue(header.contains("userDisplay.rightWinkDots"))
+        assertTrue(header.contains("leftBlinkCount = userDisplay.leftWinkDots"))
+        assertTrue(header.contains("rightBlinkCount = userDisplay.rightWinkDots"))
         assertFalse(header.contains("leftWinkCount = 0"))
         assertFalse(header.contains("rightWinkCount = 0"))
         val main = readSource("app/src/main/java/com/idworx/lisa/MainActivity.kt")

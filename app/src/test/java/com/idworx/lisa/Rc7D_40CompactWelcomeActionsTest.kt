@@ -345,7 +345,7 @@ class Rc7D_40CompactWelcomeActionsTest {
 
     @Test
     fun sharedEyeTrackingStatusRemainsUnchanged() {
-        assertTrue(destinationBlock().contains("CompactEyeTrackingHeader"))
+        assertTrue(destinationBlock().contains("UniversalEyeTrackingHeader"))
         assertTrue(destinationBlock().contains("eyeTrackingStatus"))
         assertTrue(destinationBlock().contains("compact = true"))
         assertTrue(destinationBlock().contains("showSensitivityControls = true"))

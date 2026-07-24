@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,7 +21,9 @@ import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.features.eyetrackingstatus.ExpandedEyeTrackingStatusPanel
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.onboardingguide.services.TrainingSessionController
+import com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority
 import com.idworx.lisa.ui.theme.LisaBlueDark
 
 @Composable
@@ -39,17 +40,7 @@ fun TrainingSetupScreen(
     onRequestCameraPermission: () -> Unit,
     onAdvance: () -> Unit,
     onBack: () -> Unit,
-    eyeTrackingStatus: EyeTrackingStatusUiState? = null,
-    learningPreferences: com.idworx.lisa.features.onboardingguide.model.TrainingPreferences =
-        com.idworx.lisa.features.onboardingguide.model.TrainingPreferences(),
-    learningProgress: com.idworx.lisa.features.onboardingguide.model.TrainingProgress? = null,
-    onReplayTutorial: () -> Unit = {},
-    onPracticeCommunication: () -> Unit = {},
-    onPracticeNavigation: () -> Unit = {},
-    onResetProgress: () -> Unit = {},
-    onLearningPreferencesChange: (
-        com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
-    ) -> Unit = {}
+    eyeTrackingStatus: EyeTrackingStatusUiState? = null
 ) {
     val watchingLabel = when {
         !eyeTracking.cameraActive -> uiStrings.t("Waiting for camera", "Wag vir kamera", "Ilinde ikhamera")
@@ -64,6 +55,8 @@ fun TrainingSetupScreen(
         sensitivity = sensitivityLevel,
         responseTimeSeconds = responseTimeSec
     )).copy(statusText = watchingLabel)
+    val backSequenceLabel = GuidedReadinessSequenceAuthority.backSequenceLabel()
+    val continueSequenceLabel = GuidedReadinessSequenceAuthority.continueSequenceLabel()
 
     TrainingSoftBackground {
         Column(
@@ -74,22 +67,20 @@ fun TrainingSetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Shared live status (status pill → transparent BlinkCounterRow → sensitivity → camera/eyes).
-            ExpandedEyeTrackingStatusPanel(
-                state = status,
-                uiStrings = uiStrings,
-                showSensitivityControls = true,
-                onDecreaseSensitivity = onDecreaseSensitivity,
-                onIncreaseSensitivity = onIncreaseSensitivity,
-                onDecreaseResponseTime = onDecreaseResponseTime,
-                onIncreaseResponseTime = onIncreaseResponseTime,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            )
-
             when (step) {
                 TrainingSessionController.SETUP_STEP_EYE_DETECTION -> {
+                    ExpandedEyeTrackingStatusPanel(
+                        state = status,
+                        uiStrings = uiStrings,
+                        showSensitivityControls = true,
+                        onDecreaseSensitivity = onDecreaseSensitivity,
+                        onIncreaseSensitivity = onIncreaseSensitivity,
+                        onDecreaseResponseTime = onDecreaseResponseTime,
+                        onIncreaseResponseTime = onIncreaseResponseTime,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    )
                     Text(
                         text = uiStrings.t("Let's get ready", "Kom ons maak gereed", "Masilungiselele"),
                         fontSize = 28.sp,
@@ -128,6 +119,19 @@ fun TrainingSetupScreen(
                 }
 
                 else -> {
+                    // RC8.9 — Universal header only (no LessonEyeStatusPanel Camera/Eyes duplicate).
+                    UniversalEyeTrackingHeader(
+                        state = status,
+                        uiStrings = uiStrings,
+                        showSensitivityControls = true,
+                        onDecreaseSensitivity = onDecreaseSensitivity,
+                        onIncreaseSensitivity = onIncreaseSensitivity,
+                        onDecreaseResponseTime = onDecreaseResponseTime,
+                        onIncreaseResponseTime = onIncreaseResponseTime,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    )
                     Text(
                         text = uiStrings.t("Ready to begin", "Gereed om te begin", "Silungile ukuqala"),
                         fontSize = 28.sp,
@@ -165,9 +169,19 @@ fun TrainingSetupScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(28.dp))
-                    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-                        Text(uiStrings.back)
-                    }
+                    TrainingSecondaryButton(
+                        text = uiStrings.back,
+                        secondaryText = backSequenceLabel,
+                        onClick = {
+                            GuidedReadinessSequenceAuthority.invoke(
+                                action = GuidedReadinessSequenceAuthority.Action.Back,
+                                onBack = onBack,
+                                onContinue = onAdvance
+                            )
+                        },
+                        contentDescription = "${uiStrings.back}, $backSequenceLabel",
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
                     TrainingPrimaryButton(
                         text = uiStrings.t(
@@ -175,21 +189,20 @@ fun TrainingSetupScreen(
                             "Gaan voort na eerste les",
                             "Qhubeka ngesifundo sokuqala"
                         ),
-                        onClick = onAdvance,
-                        enabled = eyesReady && eyeTracking.cameraActive
+                        secondaryText = continueSequenceLabel,
+                        onClick = {
+                            GuidedReadinessSequenceAuthority.invoke(
+                                action = GuidedReadinessSequenceAuthority.Action.Continue,
+                                onBack = onBack,
+                                onContinue = onAdvance
+                            )
+                        },
+                        enabled = eyesReady && eyeTracking.cameraActive,
+                        contentDescription = "Continue to first lesson, $continueSequenceLabel",
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    // Learning preferences live here (relocated from primary Settings).
-                    TrainingSettingsSection(
-                        uiStrings = uiStrings,
-                        preferences = learningPreferences,
-                        learningProgress = learningProgress,
-                        onReplayTutorial = onReplayTutorial,
-                        onPracticeCommunication = onPracticeCommunication,
-                        onPracticeNavigation = onPracticeNavigation,
-                        onResetProgress = onResetProgress,
-                        onPreferencesChange = onLearningPreferencesChange
-                    )
+                    // RC8.11 — readiness ends after Continue. TrainingSettingsSection remains
+                    // implemented but is not wired here (no separate settings destination yet).
                 }
             }
         }

@@ -245,7 +245,12 @@ object AccessibilitySettingsValidator {
         val setup = AccessibilityFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingSetupScreen.kt"
         )
-        if (setup?.contains("TrainingSettingsSection") == true ||
+        val learningSettings = AccessibilityFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingSettingsSection.kt"
+        )
+        // RC8.11 — learning-management UI remains implemented; readiness no longer hosts it.
+        if (learningSettings?.contains("fun TrainingSettingsSection(") == true ||
+            setup?.contains("TrainingSettingsSection") == true ||
             ui?.contains("TrainingSettingsSection") == true
         ) {
             passed++
@@ -253,7 +258,7 @@ object AccessibilitySettingsValidator {
             issues.add(
                 issue(
                     "SET_005",
-                    "Learning preferences not integrated in Guided Learning setup",
+                    "Learning preferences TrainingSettingsSection missing from project",
                     AccessibilitySeverity.Warning
                 )
             )

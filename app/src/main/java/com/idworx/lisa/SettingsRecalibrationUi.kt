@@ -18,9 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.idworx.lisa.features.eyetrackingstatus.CompactEyeTrackingHeader
+import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
 import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
+import com.idworx.lisa.features.universalsequenceexecution.SettingsRecalibrationRetrySequenceAuthority
 import com.idworx.lisa.ui.theme.LisaBlueDark
 
 /**
@@ -62,7 +63,7 @@ fun SettingsRecalibrationPanel(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
-            CompactEyeTrackingHeader(
+            UniversalEyeTrackingHeader(
                 state = calibrationStatus,
                 uiStrings = uiStrings,
                 showSensitivityControls = true,
@@ -127,15 +128,16 @@ fun SettingsRecalibrationPanel(
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     Text(
-                        text = "${uiStrings.calibrationRetryLabel} · ${formatWinkSequenceShort(
-                            SettingsRecalibrationController.RETRY_LEFT,
-                            SettingsRecalibrationController.RETRY_RIGHT
-                        )}",
+                        text = "${uiStrings.calibrationRetryLabel} · ${
+                            SettingsRecalibrationRetrySequenceAuthority.sequenceLabel()
+                        }",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = LisaBlueDark,
                         modifier = Modifier
-                            .clickable(onClick = onRetry)
+                            .clickable {
+                                SettingsRecalibrationRetrySequenceAuthority.invokeRetry(onRetry)
+                            }
                             .padding(12.dp)
                     )
                 }

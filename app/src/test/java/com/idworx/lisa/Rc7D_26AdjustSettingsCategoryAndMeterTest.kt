@@ -62,27 +62,30 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
     @Test
     fun sharedHeaderNoLongerDisplaysAdjustLabel() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
+        val universal = readSource(
+            "app/src/main/java/com/idworx/lisa/features/eyetrackingstatus/UniversalEyeTrackingHeader.kt"
+        )
         assertFalse(ui.contains("guidedAdjustSettingsDiscoverabilityLabel"))
         assertFalse(ui.contains("Adjust: L5 R5"))
         assertFalse(ui.contains("onOpenAdjustSettings"))
-        assertTrue(ui.contains("fun CompactSensitivityControls("))
-        assertTrue(ui.contains("sensitivityDecrease"))
-        assertTrue(ui.contains("sensitivityIncrease"))
-        assertTrue(ui.contains("responseTimeDecrease"))
-        assertTrue(ui.contains("responseTimeIncrease"))
-        assertTrue(ui.contains("\${uiStrings.sensitivity}: \$sensitivityLevel"))
-        assertTrue(ui.contains("\${uiStrings.responseTime}: \${responseTimeSec}s"))
+        assertTrue(ui.contains("UniversalEyeTrackingHeader("))
+        assertTrue(universal.contains("uiStrings.sensitivityDecrease"))
+        assertTrue(universal.contains("uiStrings.sensitivityIncrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeDecrease"))
+        assertTrue(universal.contains("uiStrings.responseTimeIncrease"))
+        assertTrue(universal.contains("\${uiStrings.sensitivity}: \$safeSensitivity"))
+        assertTrue(universal.contains("\${uiStrings.responseTime}: \${safeResponse}s"))
     }
 
     // ------------------------------------------------------------------ B. Category 9
 
     @Test
     fun adjustSettingsIsDestinationNine() {
-        assertEquals(7, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[7])
-        assertEquals(GuidedVocabularyCategory.PhraseManagement, GuidedVocabularyCategory.ordered[6])
-        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
+        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[6])
+        assertEquals(GuidedVocabularyCategory.PhraseManagement, GuidedVocabularyCategory.ordered[5])
+        assertEquals(5, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
         assertEquals("Settings & Controls", english.guidedCategoryTitle(GuidedVocabularyCategory.AdjustSettings))
     }
 
@@ -349,7 +352,7 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
 
     @Test
     fun phraseManagementRemainsDestinationEight() {
-        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(5, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
         assertEquals(
             "Phrase Management",
             english.guidedCategoryTitle(GuidedVocabularyCategory.PhraseManagement)
