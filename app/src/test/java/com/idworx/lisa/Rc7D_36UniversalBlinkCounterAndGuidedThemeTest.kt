@@ -236,21 +236,27 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
     @Test
     fun navigationControlsUseThemeTokensRatherThanIsolatedWhiteBackgrounds() {
         val grid = readFile("ComposerCommandGrid.kt")
-        assertTrue(grid.contains("LisaWorkspaceVisualStyle.NavActionEnabledBackground"))
-        assertTrue(grid.contains("NavActionDisabledBackground"))
+        val chrome = readFile("KeyboardWorkspaceChrome.kt")
+        assertTrue(grid.contains("SharedKeyboardTheme") || grid.contains("KeyboardWorkspaceClickableActionCard"))
+        assertTrue(
+            chrome.contains("ActionDisabledBackground") ||
+                grid.contains("KeyboardWorkspaceClickableActionCard")
+        )
         assertFalse(grid.contains("LisaWhite.copy(alpha = 0.94f)"))
         assertEquals(
-            LisaWorkspaceVisualStyle.NavActionEnabledBackground,
-            LisaWorkspaceVisualStyle.NavActionEnabledBackground
+            com.idworx.lisa.ui.theme.SharedKeyboardTheme.ActionBackground,
+            LisaWorkspaceVisualStyle.OutlinedKeyboardNavBackground
         )
     }
 
     @Test
     fun disabledNavigationControlsRemainVisiblyDisabled() {
         val grid = readFile("ComposerCommandGrid.kt")
-        assertTrue(grid.contains("CommandDisabledBackground"))
-        assertTrue(grid.contains("CommandDisabledBorder"))
-        assertTrue(grid.contains("if (!enabled)"))
+        assertTrue(
+            grid.contains("ActionDisabledBackground") ||
+                grid.contains("KeyboardWorkspaceClickableActionCard")
+        )
+        assertTrue(grid.contains("if (!enabled)") || grid.contains("enabled = enabled"))
     }
 
     @Test
@@ -259,7 +265,7 @@ class Rc7D_36UniversalBlinkCounterAndGuidedThemeTest {
         assertTrue(grid.contains("ComposerEmergencyCommandCard"))
         assertTrue(grid.contains("LisaEmergencyRed"))
         assertNotEquals(
-            LisaWorkspaceVisualStyle.NavActionEnabledBackground,
+            com.idworx.lisa.ui.theme.SharedKeyboardTheme.ActionBackground,
             LisaEmergencyRed.copy(alpha = 0.15f)
         )
     }

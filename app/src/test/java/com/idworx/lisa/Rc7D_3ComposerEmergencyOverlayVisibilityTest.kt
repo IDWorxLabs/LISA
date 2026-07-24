@@ -174,7 +174,10 @@ class Rc7D_3ComposerEmergencyOverlayVisibilityTest {
     fun composerCommandPanelUsesBrightSharedStyle() {
         val grid = readSource("app/src/main/java/com/idworx/lisa/ComposerCommandGrid.kt")
         assertTrue(grid.contains("ComposerCommandCard"))
-        assertTrue(grid.contains("CommandCardBackground"))
+        assertTrue(
+            grid.contains("KeyboardWorkspaceClickableActionCard") ||
+                grid.contains("SharedKeyboardTheme")
+        )
     }
 
     @Test

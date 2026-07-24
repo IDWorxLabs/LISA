@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
@@ -24,6 +23,7 @@ import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.lisaFocusEmphasis
 
 data class MenuDestinationSelectionVisualState(
     val selected: Boolean,
@@ -76,11 +76,15 @@ fun MenuDestinationSelectableSurface(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(MenuDestinationSelectedSurfaceAuthority.background(visual))
+            .lisaFocusEmphasis(visual.selected, LisaWorkspaceVisualStyle.CardCornerRadius)
+            .background(MenuDestinationSelectedSurfaceAuthority.background(visual), shape)
             .then(
                 if (visual.selected) {
-                    Modifier.border(2.dp, LisaBlue, shape)
+                    Modifier.border(
+                        LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
+                        LisaBlue,
+                        shape
+                    )
                 } else {
                     Modifier
                 }

@@ -357,7 +357,7 @@ class StartupSessionController(
     companion object {
         const val LOOK_NATURALLY_MIN_MS = 1500L
         const val SUCCESS_DISPLAY_MS = 1200L
-        const val READY_HANDOFF_MS = 900L
+        const val READY_HANDOFF_MS = 400L
         const val COMPATIBILITY_SAMPLE_MS = 1200L
     }
 }

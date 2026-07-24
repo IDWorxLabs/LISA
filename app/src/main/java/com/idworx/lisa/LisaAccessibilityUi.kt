@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,8 +60,10 @@ import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
+import com.idworx.lisa.ui.theme.LisaStatusGreen
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.lisaFocusEmphasis
 import java.util.Locale
 
 @Composable
@@ -485,7 +488,12 @@ fun LisaRootUI(
                 userDisplay.phrase != null &&
                 !ModeScopedGestureAuthority.suspendsCommunicationPhraseProcessing(activePanel)
             ) {
-                IntentPreviewCard(phrase = userDisplay.phrase, compact = !countdownActive)
+                IntentPreviewCard(
+                    phrase = userDisplay.phrase,
+                    compact = !countdownActive,
+                    speaking = userDisplay.timelineStage == CommunicationTimelineStage.Speaking,
+                    uiStrings = uiStrings
+                )
                 Spacer(Modifier.height(4.dp))
             }
 
@@ -1013,7 +1021,23 @@ private fun SequenceProgressDots(uiStrings: LisaUiStrings, leftCount: Int, right
 }
 
 @Composable
-private fun IntentPreviewCard(phrase: String, compact: Boolean = false) {
+private fun IntentPreviewCard(
+    phrase: String,
+    compact: Boolean = false,
+    speaking: Boolean = false,
+    uiStrings: LisaUiStrings? = null
+) {
+    // RC8.0 — when speaking, show brief ✓ confirmation on the phrase (fade in/out, non-blocking).
+    var speechConfirmVisible by remember(phrase, speaking) { mutableStateOf(speaking) }
+    LaunchedEffect(phrase, speaking) {
+        if (speaking) {
+            speechConfirmVisible = true
+            kotlinx.coroutines.delay(1000L)
+            speechConfirmVisible = false
+        } else {
+            speechConfirmVisible = false
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1025,17 +1049,34 @@ private fun IntentPreviewCard(phrase: String, compact: Boolean = false) {
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "💬", fontSize = if (compact) 22.sp else 28.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = phrase.uppercase(Locale.getDefault()),
-            color = LisaBlueDark,
-            fontSize = if (compact) 18.sp else 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            lineHeight = if (compact) 22.sp else 28.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
+        androidx.compose.animation.AnimatedVisibility(
+            visible = speechConfirmVisible,
+            enter = fadeIn(animationSpec = tween(180)),
+            exit = fadeOut(animationSpec = tween(220))
+        ) {
+            Text(
+                text = uiStrings?.speechSpokenConfirmation(phrase) ?: "✓ $phrase",
+                color = LisaStatusGreen,
+                fontSize = if (compact) 18.sp else 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                lineHeight = if (compact) 22.sp else 28.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (!speechConfirmVisible) {
+            Text(text = if (speaking) "🔊" else "💬", fontSize = if (compact) 22.sp else 28.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = phrase.uppercase(Locale.getDefault()),
+                color = LisaBlueDark,
+                fontSize = if (compact) 18.sp else 24.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                lineHeight = if (compact) 22.sp else 28.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -1047,17 +1088,69 @@ private fun EverydayCommunicationPanel(
     onEditCountdown: () -> Unit
 ) {
     val expanded = countdownActive || userDisplay.countdown != null
+    // RC8.0 — idle eye-tracking status is a calm horizontal strip so communication stays the focus.
+    val calmEyeStatus = !expanded &&
+        userDisplay.phrase == null &&
+        userDisplay.timelineStage == CommunicationTimelineStage.Watching
+    val statusReady = calmEyeStatus &&
+        userDisplay.headline.equals(uiStrings.eyeTrackingStatusWatching, ignoreCase = true)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(LisaBlue.copy(alpha = if (expanded) 0.78f else 0.62f))
+            .clip(RoundedCornerShape(if (calmEyeStatus) 8.dp else 10.dp))
+            .background(
+                when {
+                    calmEyeStatus && statusReady -> LisaStatusGreen.copy(alpha = 0.14f)
+                    calmEyeStatus -> LisaBlue.copy(alpha = 0.28f)
+                    expanded -> LisaBlue.copy(alpha = 0.78f)
+                    else -> LisaBlue.copy(alpha = 0.55f)
+                }
+            )
             .padding(
                 horizontal = if (expanded) 14.dp else 10.dp,
-                vertical = if (expanded) 12.dp else 6.dp
+                vertical = when {
+                    calmEyeStatus -> 4.dp
+                    expanded -> 12.dp
+                    else -> 5.dp
+                }
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (calmEyeStatus) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (statusReady) LisaStatusGreen else LisaWhite.copy(alpha = 0.85f))
+                )
+                AnimatedContent(
+                    targetState = userDisplay.headline,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180))
+                    },
+                    label = "calm_headline",
+                    modifier = Modifier.weight(1f)
+                ) { headline ->
+                    Text(
+                        text = headline,
+                        color = if (statusReady) LisaBlueDark else LisaWhite,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Start,
+                        lineHeight = 18.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        } else {
         AnimatedContent(
             targetState = userDisplay.headline,
             transitionSpec = {
@@ -1068,10 +1161,10 @@ private fun EverydayCommunicationPanel(
             Text(
                 text = headline,
                 color = LisaWhite,
-                fontSize = if (expanded) 22.sp else 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = if (expanded) 22.sp else 15.sp,
+                fontWeight = if (expanded) FontWeight.Bold else FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                lineHeight = if (expanded) 26.sp else 20.sp,
+                lineHeight = if (expanded) 26.sp else 19.sp,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1155,6 +1248,7 @@ private fun EverydayCommunicationPanel(
                     Text(uiStrings.editSequence, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
+        }
         }
     }
 }
@@ -1688,16 +1782,29 @@ private fun MainMenuDestinationRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val shape = RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 52.dp)
-            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius))
+            .lisaFocusEmphasis(selected, LisaWorkspaceVisualStyle.CardCornerRadius)
             .background(
-                if (selected) {
+                color = if (selected) {
                     LisaWorkspaceVisualStyle.CardSelectedBackground
                 } else {
                     LisaWorkspaceVisualStyle.CardBackground
+                },
+                shape = shape
+            )
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
+                        LisaBlue,
+                        shape
+                    )
+                } else {
+                    Modifier
                 }
             )
             .clickable(onClick = onClick)
@@ -1807,7 +1914,7 @@ private fun MyCommunicationPanel(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${activeProfile.preferredLanguage.label} · ${activeProfile.communicationLevel.label}",
+                            text = "${LisaLanguageAvailabilityAuthority.coerceForVersion1(activeProfile.preferredLanguage).label} · ${activeProfile.communicationLevel.label}",
                             fontSize = 12.sp,
                             color = LisaBlueDark.copy(alpha = 0.7f),
                             maxLines = 2,
@@ -1841,10 +1948,11 @@ private fun MyCommunicationPanel(
                 }
 
                 SettingsSectionLabel(uiStrings.preferredLanguageSection)
-                ProfileOptionGroup(
-                    options = PreferredLanguage.selectable.map { it.label },
-                    selected = activeProfile.preferredLanguage.label,
-                    idFor = { MenuDestinationActionId.language(it) }
+                ProfileLanguageOptionGroup(
+                    activeLanguage = LisaLanguageAvailabilityAuthority.coerceForVersion1(
+                        activeProfile.preferredLanguage
+                    ),
+                    uiStrings = uiStrings
                 )
 
                 SettingsSectionLabel(uiStrings.communicationLevelSection)
@@ -1923,6 +2031,53 @@ private fun MyCommunicationPanel(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.align(Alignment.Center)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileLanguageOptionGroup(
+    activeLanguage: PreferredLanguage,
+    uiStrings: LisaUiStrings
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LisaLanguageAvailabilityAuthority.displayedLanguages.forEach { language ->
+            val canSelect = LisaLanguageAvailabilityAuthority.isSelectableInVersion1(language)
+            val isActive = canSelect && activeLanguage == language
+            val actionId = MenuDestinationActionId.language(language.label)
+            MenuDestinationSelectableSurface(
+                actionId = actionId,
+                active = isActive
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = language.label,
+                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = LisaBlueDark.copy(alpha = if (canSelect) 1f else 0.72f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!canSelect) {
+                            Text(
+                                text = LisaLanguageAvailabilityAuthority.version2StatusLine(uiStrings),
+                                fontSize = 11.sp,
+                                color = LisaBlueDark.copy(alpha = 0.55f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    if (isActive) {
+                        Text(text = "✓", fontSize = 14.sp, color = LisaBlue, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

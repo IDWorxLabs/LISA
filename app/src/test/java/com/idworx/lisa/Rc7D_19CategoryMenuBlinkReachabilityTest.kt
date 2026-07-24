@@ -59,7 +59,7 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(english)
         assertEquals(GuidedVocabularyCategory.PAGE_COUNT, GuidedVocabularyCategory.ordered.size)
         assertEquals(GuidedVocabularyCategory.PAGE_COUNT, titles.size)
-        assertEquals(8, titles.size)
+        assertEquals(7, titles.size)
         assertEquals("Phrase Management", titles[GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX])
         assertTrue(GuidedCategoryMenuScroll.canReachEveryCategoryByBlink())
     }
@@ -150,9 +150,9 @@ class Rc7D_19CategoryMenuBlinkReachabilityTest {
 
     @Test
     fun noHardcodedSevenAsNavigationCeiling() {
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
-        assertEquals(5, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(5, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(4, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         val moveDownCap = GuidedVocabularyCategory.PAGE_COUNT - 1
         assertEquals(GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX, moveDownCap)
         assertFalse(moveDownCap == GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)

@@ -73,16 +73,16 @@ class Rc7D_42SettingsAndControlsMigrationTest {
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(english)
         assertFalse(titles.any { it.contains("Basic System Controls", ignoreCase = true) })
         assertFalse(GuidedVocabularyCategory.ordered.contains(GuidedVocabularyCategory.BasicSystemControls))
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(8, titles.size)
-        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(7, titles.size)
+        assertEquals(7, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
     }
 
     @Test
     fun categoryCountAndPagingRecalculatedDynamically() {
         assertEquals(GuidedVocabularyCategory.ordered.size, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(7, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
-        assertEquals(4, GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
+        assertFalse(GuidedVocabularyCategory.Preferences in GuidedVocabularyCategory.ordered)
         assertTrue(GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots())
     }
 

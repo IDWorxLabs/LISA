@@ -1,23 +1,21 @@
 package com.idworx.lisa
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.ScrollState
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,11 +32,12 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.SharedKeyboardTheme
+
 data class MenuDestinationUiBinding(
     val state: MenuDestinationNavigationState,
     val actions: List<MenuDestinationAction>,
@@ -116,11 +115,11 @@ fun MenuDestinationWorkspace(
                 stateDescription =
                     "Page ${state.viewportPage + 1} of ${state.viewportPageCount}"
             }
-            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.PanelCornerRadius))
-            .background(LisaWorkspaceVisualStyle.SolidPanelBackground)
-            .padding(LisaWorkspaceVisualStyle.PanelContentPadding)
+            .clip(RoundedCornerShape(SharedKeyboardTheme.SurfaceCornerRadius))
+            .background(SharedKeyboardTheme.SurfaceBackground)
+            .padding(SharedKeyboardTheme.SurfaceContentPadding)
     ) {
-        val spacing = 8.dp
+        val spacing = SharedKeyboardTheme.SectionSpacing
         val textStage =
             state.interactionStage as? MenuDestinationInteractionStage.TextEditing
         val widths = DestinationWorkspaceWidthAuthority.calculateDestinationWorkspaceWidths(
@@ -133,24 +132,19 @@ fun MenuDestinationWorkspace(
             LocalMenuDestinationSelectedAction provides state.selectedActionId,
             LocalMenuDestinationActivateAction provides binding.onActivate
         ) {
-            if (textStage != null && widths.usesKeyboardFocusedLayout) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MenuDestinationTextEditor(
-                        uiStrings = uiStrings,
-                        stage = textStage,
-                        fieldTitle = binding.actions.firstOrNull {
-                            it.id == textStage.actionId
-                        }?.label.orEmpty(),
-                        onKeyTouched = binding.onKeyboardKey,
-                        modifier = Modifier.weight(1f)
-                    )
-                    KeyboardFocusedCommandBar(
-                        uiStrings = uiStrings,
-                        reviewing = textStage.fieldEditingStage ==
-                            FeedbackFieldEditingStage.Review,
-                        onCommand = binding.onCommand
-                    )
-                }
+            // RC8.3 — Feedback keyboard / review always use full-width Custom Phrases chrome
+            // (Emergency bar + single bottom Done). Side nav would duplicate Emergency.
+            if (textStage != null) {
+                MenuDestinationTextEditor(
+                    uiStrings = uiStrings,
+                    stage = textStage,
+                    fieldTitle = binding.actions.firstOrNull {
+                        it.id == textStage.actionId
+                    }?.label.orEmpty(),
+                    onKeyTouched = binding.onKeyboardKey,
+                    onCommand = binding.onCommand,
+                    modifier = Modifier.fillMaxSize()
+                )
             } else {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -162,18 +156,7 @@ fun MenuDestinationWorkspace(
                             .fillMaxHeight()
                             .onGloballyPositioned { viewportHeightPx = it.size.height }
                     ) {
-                        if (textStage != null) {
-                            MenuDestinationTextEditor(
-                                uiStrings = uiStrings,
-                                stage = textStage,
-                                fieldTitle = binding.actions.firstOrNull {
-                                    it.id == textStage.actionId
-                                }?.label.orEmpty(),
-                                onKeyTouched = binding.onKeyboardKey
-                            )
-                        } else {
-                            content()
-                        }
+                        content()
                     }
                     MenuDestinationNavigationPanel(
                         uiStrings = uiStrings,
@@ -322,13 +305,17 @@ private fun commandPresentation(
     MenuDestinationPanelCommand.Save -> CommandPresentation(
         "✓", "Save Field", "", formatWinkSequenceShort(1, 1)
     )
-    MenuDestinationPanelCommand.DoneEditing -> CommandPresentation(
-        "✓", "Done Editing", "",
-        ModeScopedGestureAuthority.phraseComposerCommandSequences
-            .getValue(PhraseComposerActionId.Save).let {
-                formatWinkSequenceShort(it.first, it.second)
-            }
-    )
+    MenuDestinationPanelCommand.DoneEditing -> {
+        val doneSequence = FeedbackKeyboardNavigationAuthority.sequence(
+            MenuDestinationPanelCommand.DoneEditing
+        )!!
+        CommandPresentation(
+            "✓",
+            "Done",
+            "",
+            formatWinkSequenceShort(doneSequence.first, doneSequence.second)
+        )
+    }
     MenuDestinationPanelCommand.ContinueEditing -> CommandPresentation(
         "✎", "Continue Editing", "", formatWinkSequenceShort(1, 3)
     )
@@ -337,7 +324,7 @@ private fun commandPresentation(
     )
     MenuDestinationPanelCommand.Back -> CommandPresentation(
         "↩",
-        if (keyboardContext) "${uiStrings.back} / ${uiStrings.cancel}" else uiStrings.back,
+        uiStrings.back,
         uiStrings.guidedBackHint,
         formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
     )
@@ -353,6 +340,7 @@ private fun MenuDestinationTextEditor(
     stage: MenuDestinationInteractionStage.TextEditing,
     fieldTitle: String,
     onKeyTouched: (row: Int, col: Int) -> Unit,
+    onCommand: (MenuDestinationPanelCommand) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -363,7 +351,7 @@ private fun MenuDestinationTextEditor(
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = SharedKeyboardTheme.TightSpacing)
         )
         if (stage.fieldEditingStage == FeedbackFieldEditingStage.Review) {
             Text(
@@ -372,28 +360,44 @@ private fun MenuDestinationTextEditor(
                 fontSize = 12.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = SharedKeyboardTheme.TightSpacing)
+            )
+            FeedbackFieldReview(
+                stage = stage,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.SectionSpacing))
+            // RC8.3 — sole Emergency control for Feedback text editing.
+            EmergencyActionBar(
+                uiStrings = uiStrings,
+                onClick = { onCommand(MenuDestinationPanelCommand.Emergency) }
+            )
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.TightSpacing))
+            FeedbackReviewCommandRow(
+                uiStrings = uiStrings,
+                onCommand = onCommand
             )
         } else {
             FeedbackKeyboardDirectionLegend(
                 uiStrings = uiStrings,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = SharedKeyboardTheme.TightSpacing)
             )
-        }
-        if (stage.fieldEditingStage == FeedbackFieldEditingStage.Review) {
-            FeedbackFieldReview(stage = stage)
-        } else {
-            Text(
-                text = stage.draftText.ifBlank { "Start typing…" },
-                color = com.idworx.lisa.ui.theme.LisaBlueDark,
-                fontSize = 18.sp,
+            KeyboardWorkspaceInputCard(
+                title = null,
+                body = stage.draftText,
+                placeholder = "Start typing…",
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(LisaWorkspaceVisualStyle.CardBackground)
-                    .padding(12.dp)
+                    .fillMaxWidth(),
+                maxLines = Int.MAX_VALUE
             )
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.SectionSpacing))
+            // RC8.3 — same Emergency bar as Custom Phrases; no second Emergency control.
+            EmergencyActionBar(
+                uiStrings = uiStrings,
+                onClick = { onCommand(MenuDestinationPanelCommand.Emergency) }
+            )
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.SectionSpacing))
             BottomAlignedEyeKeyboard(
                 uiStrings = uiStrings,
                 layoutMode = stage.layoutMode,
@@ -401,6 +405,32 @@ private fun MenuDestinationTextEditor(
                 cursorCol = stage.cursorCol,
                 shiftMode = stage.shiftMode,
                 onKeyTouched = onKeyTouched
+            )
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.TightSpacing))
+            // RC8.4 — Done | Back only; Emergency stays on the shared bar above the keyboard.
+            val done = commandPresentation(
+                MenuDestinationPanelCommand.DoneEditing,
+                uiStrings,
+                keyboardContext = true
+            )
+            val back = commandPresentation(
+                MenuDestinationPanelCommand.Back,
+                uiStrings,
+                keyboardContext = true
+            )
+            KeyboardWorkspaceBottomActionRow(
+                actions = listOf(
+                    KeyboardWorkspaceBottomAction(
+                        title = done.title,
+                        sequenceLabel = done.sequence,
+                        onClick = { onCommand(MenuDestinationPanelCommand.DoneEditing) }
+                    ),
+                    KeyboardWorkspaceBottomAction(
+                        title = back.title,
+                        sequenceLabel = back.sequence,
+                        onClick = { onCommand(MenuDestinationPanelCommand.Back) }
+                    )
+                )
             )
         }
     }
@@ -411,54 +441,31 @@ private fun FeedbackKeyboardDirectionLegend(
     uiStrings: LisaUiStrings,
     modifier: Modifier = Modifier
 ) {
-    val chrome = LisaWorkspaceVisualStyle
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         FeedbackKeyboardNavigationAuthority.directionCommands.forEach { command ->
             val presentation = commandPresentation(command, uiStrings, keyboardContext = true)
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius))
-                    .background(chrome.OutlinedKeyboardNavBackground)
-                    .border(
-                        chrome.OutlinedKeyboardNavBorderWidth,
-                        chrome.OutlinedKeyboardNavBorder,
-                        RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius)
-                    )
-                    .padding(horizontal = 2.dp, vertical = 4.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = presentation.title,
-                    color = chrome.OutlinedKeyboardNavContent,
-                    fontSize = 10.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = presentation.sequence,
-                    color = chrome.OutlinedKeyboardNavContent,
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    textAlign = TextAlign.Center
-                )
-            }
+            KeyboardWorkspaceOutlinedChip(
+                title = presentation.title,
+                sequenceLabel = presentation.sequence,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
 @Composable
-private fun FeedbackFieldReview(stage: MenuDestinationInteractionStage.TextEditing) {
+private fun FeedbackFieldReview(
+    stage: MenuDestinationInteractionStage.TextEditing,
+    modifier: Modifier = Modifier
+) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(12.dp))
-            .background(LisaWorkspaceVisualStyle.CardBackground)
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(SharedKeyboardTheme.InputCardCornerRadius))
+            .background(SharedKeyboardTheme.InputCardBackground)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -484,68 +491,26 @@ private fun FeedbackFieldReview(stage: MenuDestinationInteractionStage.TextEditi
     }
 }
 
+/** Review-stage actions only — Emergency lives exclusively on [EmergencyActionBar]. */
 @Composable
-private fun KeyboardFocusedCommandBar(
+private fun FeedbackReviewCommandRow(
     uiStrings: LisaUiStrings,
-    reviewing: Boolean,
     onCommand: (MenuDestinationPanelCommand) -> Unit
 ) {
-    val commands = if (reviewing) {
-        listOf(
-            MenuDestinationPanelCommand.Save,
-            MenuDestinationPanelCommand.ContinueEditing,
-            MenuDestinationPanelCommand.Cancel,
-            MenuDestinationPanelCommand.Emergency
-        )
-    } else {
-        listOf(
-            MenuDestinationPanelCommand.Select,
-            MenuDestinationPanelCommand.DoneEditing,
-            MenuDestinationPanelCommand.Back,
-            MenuDestinationPanelCommand.Emergency
-        )
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
+    val commands = listOf(
+        MenuDestinationPanelCommand.Save,
+        MenuDestinationPanelCommand.ContinueEditing,
+        MenuDestinationPanelCommand.Cancel
+    )
+    KeyboardWorkspaceOutlinedActionRow {
         commands.forEach { command ->
-            val presentation = commandPresentation(
-                command,
-                uiStrings,
-                keyboardContext = !reviewing
-            )
-            val chrome = LisaWorkspaceVisualStyle
-            OutlinedButton(
+            val presentation = commandPresentation(command, uiStrings, keyboardContext = false)
+            KeyboardWorkspaceOutlinedAction(
+                title = presentation.title,
+                sequenceLabel = presentation.sequence,
                 onClick = { onCommand(command) },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(chrome.OutlinedKeyboardNavCornerRadius),
-                border = BorderStroke(
-                    chrome.OutlinedKeyboardNavBorderWidth,
-                    chrome.OutlinedKeyboardNavBorder
-                ),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = chrome.OutlinedKeyboardNavBackground,
-                    contentColor = chrome.OutlinedKeyboardNavContent
-                )
-            ) {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    Text(
-                        presentation.title,
-                        fontSize = 11.sp,
-                        color = chrome.OutlinedKeyboardNavContent,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        presentation.sequence,
-                        fontSize = 10.sp,
-                        color = chrome.OutlinedKeyboardNavContent,
-                        maxLines = 1
-                    )
-                }
-            }
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }

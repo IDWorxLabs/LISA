@@ -1,5 +1,6 @@
 package com.idworx.lisa.validation.authority
 
+import com.idworx.lisa.GuidedCategoryShortcuts
 import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.GuidedNavigationGestureAudit
 import com.idworx.lisa.GuidedNavigationGestureAudit.GestureBinding
@@ -94,9 +95,16 @@ class GestureConflictAuthorityV1Test {
     @Test
     fun validatesExpectedCategoryShortcuts() {
         val expected = GestureConflictAuthorityV1.expectedCategoryShortcuts
-        assertEquals(6, expected.size)
+        assertEquals(7, expected.size)
         assertEquals("Medical", expected[2].first)
         assertEquals(3 to 1, expected[2].second)
+        assertEquals("Settings & Controls", expected[6].first)
+        assertEquals(
+            GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
+            expected[6].second
+        )
+        assertEquals(GuidedCategoryShortcuts.allGestures(), expected.map { it.second })
         assertTrue(GestureConflictAuthorityV1.CategoryShortcutGestureAudit.expectedShortcutAssignments().passed)
     }
 

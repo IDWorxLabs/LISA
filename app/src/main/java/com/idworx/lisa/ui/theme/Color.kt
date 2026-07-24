@@ -9,3 +9,5 @@ val LisaSoftGray = Color(0xFFF4F6F8)
 val LisaGray = Color(0xFF8A949E)
 val LisaWhite = Color.White
 val LisaEmergencyRed = Color(0xFFD32F2F)
+/** Calm ready/status indicator for eye-tracking chrome (RC8.0). */
+val LisaStatusGreen = Color(0xFF3E8E51)

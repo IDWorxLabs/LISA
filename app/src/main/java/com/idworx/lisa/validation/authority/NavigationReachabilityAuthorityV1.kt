@@ -5,7 +5,6 @@ import com.idworx.lisa.EMERGENCY_RIGHT_WINKS
 import com.idworx.lisa.GuidedCatalogContext
 import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.GuidedNavigationController
-import com.idworx.lisa.GuidedNavigationGestureAudit
 import com.idworx.lisa.GuidedNavigationPanelSpec
 import com.idworx.lisa.GuidedNavigationState
 import com.idworx.lisa.GuidedOverlayScreenMode
@@ -15,8 +14,11 @@ import com.idworx.lisa.GuidedTouchNavigationSpec
 import com.idworx.lisa.GuidedVocabularyCatalog
 import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
+import com.idworx.lisa.PreferenceAdjustmentController
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.SequenceProcessingDelay
+import com.idworx.lisa.SettingsAndControlsHubSequences
+import com.idworx.lisa.SettingsControlKind
 import com.idworx.lisa.isEmergencySequence
 import com.idworx.lisa.validation.ValidationCheckResult
 import com.idworx.lisa.validation.ValidationOutcome
@@ -130,26 +132,29 @@ object NavigationReachabilityAuthorityV1 {
                 state = base.copy(screenMode = GuidedOverlayScreenMode.CategoryMenu)
             ),
             GuidedReachabilityState(
-                label = "Preferences Mode",
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+                label = "Settings & Controls Mode",
+                state = PreferenceAdjustmentController.openSettingsMenu(
+                    base.copy(screenMode = GuidedOverlayScreenMode.Vocabulary, categoryIndex = 0)
                 )
             ),
             GuidedReachabilityState(
                 label = "Response Time Adjustment Mode",
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                    preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
+                state = PreferenceAdjustmentController.openHubSetting(
+                    PreferenceAdjustmentController.openSettingsMenu(
+                        base.copy(screenMode = GuidedOverlayScreenMode.Vocabulary, categoryIndex = 0)
+                    ),
+                    SettingsControlKind.ResponseTime,
+                    catalogContext
                 )
             ),
             GuidedReachabilityState(
                 label = "Sensitivity Adjustment Mode",
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                    preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
+                state = PreferenceAdjustmentController.openHubSetting(
+                    PreferenceAdjustmentController.openSettingsMenu(
+                        base.copy(screenMode = GuidedOverlayScreenMode.Vocabulary, categoryIndex = 0)
+                    ),
+                    SettingsControlKind.Sensitivity,
+                    catalogContext
                 )
             )
         )
@@ -333,16 +338,15 @@ object NavigationReachabilityAuthorityV1 {
             }
             val passed = adjustStates.all { ctx ->
                 val result = backResult(ctx, uiStrings, catalogContext)
-                // RC7D.27 — Cancel / Back returns to Adjust Settings menu (draft discarded).
+                // RC7D.27 — Cancel / Back returns to Settings & Controls hub (draft discarded).
                 result is GuidedSequenceResult.Navigate &&
-                    result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
-                    result.newState.categoryIndex == GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+                    result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
             }
             return check(
                 id = "BACK_REACH_003",
-                description = "Adjustment modes L2 R2 cancel to Adjust Settings without saving",
+                description = "Adjustment modes L2 R2 cancel to Settings & Controls without saving",
                 passed = passed,
-                remediation = "Wire L2 R2 in adjustment modes to cancel and return to Adjust Settings."
+                remediation = "Wire L2 R2 in adjustment modes to cancel and return to Settings & Controls."
             )
         }
 
@@ -352,13 +356,13 @@ object NavigationReachabilityAuthorityV1 {
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
             val vocabulary = guidedStates.first { it.label == "Vocabulary Mode" }
-            val preferences = guidedStates.first { it.label == "Preferences Mode" }
+            val settings = guidedStates.first { it.label == "Settings & Controls Mode" }
             val vocabOk = hasBackOrCancelRecovery(vocabulary, uiStrings, catalogContext)
-            val prefsOk = hasBackOrCancelRecovery(preferences, uiStrings, catalogContext)
+            val settingsOk = hasBackOrCancelRecovery(settings, uiStrings, catalogContext)
             return check(
                 id = "BACK_REACH_004",
-                description = "Vocabulary and Preferences expose recoverable Back/Cancel paths without entrapment",
-                passed = vocabOk && prefsOk,
+                description = "Vocabulary and Settings & Controls expose recoverable Back/Cancel paths without entrapment",
+                passed = vocabOk && settingsOk,
                 remediation = "Ensure L2 R2 or the Categories gesture provides labelled recovery on vocabulary surfaces."
             )
         }
@@ -914,7 +918,7 @@ object NavigationReachabilityAuthorityV1 {
         ): List<ValidationCheckResult> = listOf(
             vocabularyReachableFromEntry(),
             categoryMenuReachableFromVocabulary(uiStrings, catalogContext),
-            preferencesReachableFromCategoryMenu(uiStrings, catalogContext),
+            preferencesNotReachableAndSettingsControlsReachable(uiStrings, catalogContext),
             responseTimeAdjustmentReachable(uiStrings, catalogContext),
             sensitivityAdjustmentReachable(uiStrings, catalogContext),
             noOrphanedModes(uiStrings, catalogContext)
@@ -922,13 +926,13 @@ object NavigationReachabilityAuthorityV1 {
 
         fun vocabularyReachableFromEntry(): ValidationCheckResult {
             val entry = GuidedNavigationState()
-            val passed = entry.screenMode == GuidedOverlayScreenMode.Vocabulary &&
+            val passed = entry.screenMode == GuidedOverlayScreenMode.CategoryMenu &&
                 entry.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
             return check(
                 id = "STATE_REACH_001",
-                description = "Vocabulary mode is reachable from application entry (default guided state)",
+                description = "Category Selection is the Communication workspace entry (default guided state)",
                 passed = passed,
-                remediation = "Initialize guided navigation in Vocabulary mode."
+                remediation = "Initialize guided navigation in CategoryMenu mode (Choose a Category)."
             )
         }
 
@@ -937,6 +941,7 @@ object NavigationReachabilityAuthorityV1 {
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
             val vocabulary = GuidedNavigationState(
+                screenMode = GuidedOverlayScreenMode.Vocabulary,
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
@@ -957,31 +962,37 @@ object NavigationReachabilityAuthorityV1 {
             )
         }
 
-        fun preferencesReachableFromCategoryMenu(
+        fun preferencesNotReachableAndSettingsControlsReachable(
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
+            val titles = GuidedVocabularyCatalog.categoryMenuTitles(uiStrings)
+            val preferencesAbsent =
+                "Preferences" !in titles &&
+                    GuidedVocabularyCategory.Preferences !in GuidedVocabularyCategory.ordered
             val menu = GuidedNavigationState(
                 screenMode = GuidedOverlayScreenMode.CategoryMenu,
-                categoryMenuSelection = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
+                categoryMenuSelection = GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX,
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
-            val result = processGesture(
-                GuidedModeNavigation.SELECT_LEFT,
-                GuidedModeNavigation.SELECT_RIGHT,
+            val settingsViaEntry = processGesture(
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT,
                 menu,
                 uiStrings,
                 catalogContext
             )
-            val passed = result is GuidedSequenceResult.Navigate &&
-                result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
-                result.newState.categoryIndex == GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+            val settingsReachable = settingsViaEntry is GuidedSequenceResult.Navigate &&
+                settingsViaEntry.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
+            val settingsPresent = titles.contains("Settings & Controls") &&
+                GuidedVocabularyCategory.AdjustSettings in GuidedVocabularyCategory.ordered
+            val passed = preferencesAbsent && settingsReachable && settingsPresent
             return check(
                 id = "STATE_REACH_003",
-                description = "Preferences is reachable from Category Menu via selection",
+                description = "Preferences is not reachable from Category Menu; Settings & Controls is reachable",
                 passed = passed,
-                remediation = "Wire L1 R1 in Category Menu to open selected Preferences category."
+                remediation = "Remove Preferences from Communication categories; open Settings & Controls via L5 R5 / AdjustSettings."
             )
         }
 
@@ -989,33 +1000,38 @@ object NavigationReachabilityAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val preferences = GuidedNavigationState(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                draftResponseTimeSec = catalogContext.responseTimeSec,
-                draftSensitivityLevel = catalogContext.sensitivityLevel
+            val hub = PreferenceAdjustmentController.openSettingsMenu(
+                GuidedNavigationState(
+                    screenMode = GuidedOverlayScreenMode.Vocabulary,
+                    draftResponseTimeSec = catalogContext.responseTimeSec,
+                    draftSensitivityLevel = catalogContext.sensitivityLevel
+                )
             )
-            val pages = GuidedVocabularyCatalog.buildPages(
-                PreferredLanguage.English,
+            val focused = hub.copy(
+                settingsHubSelection = SettingsAndControlsHubSequences.HUB_SETTING_KINDS
+                    .indexOf(SettingsControlKind.ResponseTime)
+                    .coerceAtLeast(0)
+            )
+            val viaSelect = processGesture(
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
+                focused,
                 uiStrings,
                 catalogContext
             )
-            val adjustEntry = pages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-                .first { it.phrase.contains("Adjust response time") }
-            val result = processGesture(
-                adjustEntry.left,
-                adjustEntry.right,
-                preferences,
-                uiStrings,
+            val viaController = PreferenceAdjustmentController.openHubSetting(
+                focused,
+                SettingsControlKind.ResponseTime,
                 catalogContext
             )
-            val passed = result is GuidedSequenceResult.Navigate &&
-                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime
+            val passed = viaSelect is GuidedSequenceResult.Navigate &&
+                viaSelect.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime &&
+                viaController.preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime
             return check(
                 id = "STATE_REACH_004",
-                description = "Response Time Adjustment is reachable from Preferences",
+                description = "Response Time Adjustment is reachable from Settings & Controls",
                 passed = passed,
-                remediation = "Wire Adjust response time entry to open Response Time Adjustment mode."
+                remediation = "Wire Settings hub Select / openHubSetting to open Response Time Adjustment."
             )
         }
 
@@ -1023,33 +1039,38 @@ object NavigationReachabilityAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val preferences = GuidedNavigationState(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                draftResponseTimeSec = catalogContext.responseTimeSec,
-                draftSensitivityLevel = catalogContext.sensitivityLevel
+            val hub = PreferenceAdjustmentController.openSettingsMenu(
+                GuidedNavigationState(
+                    screenMode = GuidedOverlayScreenMode.Vocabulary,
+                    draftResponseTimeSec = catalogContext.responseTimeSec,
+                    draftSensitivityLevel = catalogContext.sensitivityLevel
+                )
             )
-            val pages = GuidedVocabularyCatalog.buildPages(
-                PreferredLanguage.English,
+            val focused = hub.copy(
+                settingsHubSelection = SettingsAndControlsHubSequences.HUB_SETTING_KINDS
+                    .indexOf(SettingsControlKind.Sensitivity)
+                    .coerceAtLeast(0)
+            )
+            val viaSelect = processGesture(
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT,
+                focused,
                 uiStrings,
                 catalogContext
             )
-            val adjustEntry = pages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-                .first { it.phrase.contains("Adjust sensitivity") }
-            val result = processGesture(
-                adjustEntry.left,
-                adjustEntry.right,
-                preferences,
-                uiStrings,
+            val viaController = PreferenceAdjustmentController.openHubSetting(
+                focused,
+                SettingsControlKind.Sensitivity,
                 catalogContext
             )
-            val passed = result is GuidedSequenceResult.Navigate &&
-                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity
+            val passed = viaSelect is GuidedSequenceResult.Navigate &&
+                viaSelect.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity &&
+                viaController.preferencesAdjustMode == GuidedPreferencesAdjustMode.Sensitivity
             return check(
                 id = "STATE_REACH_005",
-                description = "Sensitivity Adjustment is reachable from Preferences",
+                description = "Sensitivity Adjustment is reachable from Settings & Controls",
                 passed = passed,
-                remediation = "Wire Adjust sensitivity entry to open Sensitivity Adjustment mode."
+                remediation = "Wire Settings hub Select / openHubSetting to open Sensitivity Adjustment."
             )
         }
 
@@ -1060,7 +1081,7 @@ object NavigationReachabilityAuthorityV1 {
             val chain = listOf(
                 vocabularyReachableFromEntry(),
                 categoryMenuReachableFromVocabulary(uiStrings, catalogContext),
-                preferencesReachableFromCategoryMenu(uiStrings, catalogContext),
+                preferencesNotReachableAndSettingsControlsReachable(uiStrings, catalogContext),
                 responseTimeAdjustmentReachable(uiStrings, catalogContext),
                 sensitivityAdjustmentReachable(uiStrings, catalogContext)
             )

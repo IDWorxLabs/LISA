@@ -19,6 +19,7 @@ import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferenceAdjustmentController
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.SequenceProcessingDelay
+import com.idworx.lisa.SettingsControlKind
 import com.idworx.lisa.validation.ValidationCheckResult
 import com.idworx.lisa.validation.ValidationOutcome
 import com.idworx.lisa.validation.ValidationReport
@@ -68,7 +69,8 @@ object GuidedNavigationAuthorityV1 {
     enum class GuidedLogicalMode(val label: String) {
         Vocabulary("Vocabulary Mode"),
         CategoryMenu("Category Menu Mode"),
-        Preferences("Preferences Mode"),
+        /** RC8.5 — Settings & Controls hub (replaces removed Preferences category page). */
+        Preferences("Settings & Controls Mode"),
         ResponseTimeAdjustment("Response Time Adjustment Mode"),
         SensitivityAdjustment("Sensitivity Adjustment Mode")
     }
@@ -144,11 +146,13 @@ object GuidedNavigationAuthorityV1 {
             ),
             GuidedModeContext(
                 logicalMode = GuidedLogicalMode.Preferences,
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+                state = PreferenceAdjustmentController.openSettingsMenu(
+                    base.copy(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0
+                    )
                 ),
-                panelContext = GuidedNavigationPanelSpec.PanelContext.Vocabulary,
+                panelContext = GuidedNavigationPanelSpec.PanelContext.Adjustment,
                 gestureBindings = GuidedNavigationGestureAudit.preferencesPageBindings()
             ),
             GuidedModeContext(
@@ -159,20 +163,30 @@ object GuidedNavigationAuthorityV1 {
             ),
             GuidedModeContext(
                 logicalMode = GuidedLogicalMode.ResponseTimeAdjustment,
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                    preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
+                state = PreferenceAdjustmentController.openHubSetting(
+                    PreferenceAdjustmentController.openSettingsMenu(
+                        base.copy(
+                            screenMode = GuidedOverlayScreenMode.Vocabulary,
+                            categoryIndex = 0
+                        )
+                    ),
+                    SettingsControlKind.ResponseTime,
+                    catalogContext
                 ),
                 panelContext = GuidedNavigationPanelSpec.PanelContext.Adjustment,
                 gestureBindings = GuidedNavigationGestureAudit.responseTimeAdjustmentBindings()
             ),
             GuidedModeContext(
                 logicalMode = GuidedLogicalMode.SensitivityAdjustment,
-                state = base.copy(
-                    screenMode = GuidedOverlayScreenMode.Vocabulary,
-                    categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                    preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
+                state = PreferenceAdjustmentController.openHubSetting(
+                    PreferenceAdjustmentController.openSettingsMenu(
+                        base.copy(
+                            screenMode = GuidedOverlayScreenMode.Vocabulary,
+                            categoryIndex = 0
+                        )
+                    ),
+                    SettingsControlKind.Sensitivity,
+                    catalogContext
                 ),
                 panelContext = GuidedNavigationPanelSpec.PanelContext.Adjustment,
                 gestureBindings = GuidedNavigationGestureAudit.sensitivityAdjustmentBindings()
@@ -239,10 +253,11 @@ object GuidedNavigationAuthorityV1 {
         fun modeIdentityKnown(modeContexts: List<GuidedModeContext>): ValidationCheckResult {
             val passed = modeContexts.all { context ->
                 when (context.logicalMode) {
-                    GuidedLogicalMode.Vocabulary,
-                    GuidedLogicalMode.Preferences ->
+                    GuidedLogicalMode.Vocabulary ->
                         context.state.screenMode == GuidedOverlayScreenMode.Vocabulary &&
                             context.state.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
+                    GuidedLogicalMode.Preferences ->
+                        context.state.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
                     GuidedLogicalMode.CategoryMenu ->
                         context.state.screenMode == GuidedOverlayScreenMode.CategoryMenu
                     GuidedLogicalMode.ResponseTimeAdjustment ->
@@ -368,19 +383,22 @@ object GuidedNavigationAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val state = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+            val state = PreferenceAdjustmentController.openSettingsMenu(
+                base.copy(
+                    screenMode = GuidedOverlayScreenMode.Vocabulary,
+                    categoryIndex = 0
+                )
             )
             val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
-                result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu
+                result.newState.screenMode == GuidedOverlayScreenMode.CategoryMenu &&
+                result.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
             return ValidationCheckResult(
                 checkId = "MODE_TX_002",
-                description = "Categories gesture opens Category Menu from Preferences Mode",
+                description = "Categories gesture opens Category Menu from Settings & Controls Mode",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Ensure Preferences page honors the Categories gesture's category menu transition."
+                    "Ensure Settings & Controls honors the Categories gesture's category menu transition."
             )
         }
 
@@ -389,10 +407,15 @@ object GuidedNavigationAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val state = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
+            val state = PreferenceAdjustmentController.openHubSetting(
+                PreferenceAdjustmentController.openSettingsMenu(
+                    base.copy(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0
+                    )
+                ),
+                SettingsControlKind.ResponseTime,
+                catalogContext
             )
             val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
@@ -412,10 +435,15 @@ object GuidedNavigationAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val state = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
+            val state = PreferenceAdjustmentController.openHubSetting(
+                PreferenceAdjustmentController.openSettingsMenu(
+                    base.copy(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0
+                    )
+                ),
+                SettingsControlKind.Sensitivity,
+                catalogContext
             )
             val result = process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, state, uiStrings, catalogContext)
             val passed = result is GuidedSequenceResult.Navigate &&
@@ -453,21 +481,25 @@ object GuidedNavigationAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val responseState = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
-                draftResponseTimeSec = 6
+            val hub = PreferenceAdjustmentController.openSettingsMenu(
+                base.copy(
+                    screenMode = GuidedOverlayScreenMode.Vocabulary,
+                    categoryIndex = 0
+                )
             )
-            val sensitivityState = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity,
-                draftSensitivityLevel = 8
-            )
+            val responseState = PreferenceAdjustmentController.openHubSetting(
+                hub,
+                SettingsControlKind.ResponseTime,
+                catalogContext
+            ).copy(draftResponseTimeSec = 6)
+            val sensitivityState = PreferenceAdjustmentController.openHubSetting(
+                hub,
+                SettingsControlKind.Sensitivity,
+                catalogContext
+            ).copy(draftSensitivityLevel = 8)
             val responseResult = process(2, 2, responseState, uiStrings, catalogContext)
             val sensitivityResult = process(2, 2, sensitivityState, uiStrings, catalogContext)
-            // RC7D.27 — Cancel / Back returns to Adjust Settings (discards draft, does not persist).
+            // RC7D.27 — Cancel / Back returns to Settings & Controls (discards draft, does not persist).
             val passed = responseResult is GuidedSequenceResult.Navigate &&
                 sensitivityResult is GuidedSequenceResult.Navigate &&
                 responseResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
@@ -488,12 +520,16 @@ object GuidedNavigationAuthorityV1 {
         ): ValidationCheckResult {
             val menuState = base.copy(screenMode = GuidedOverlayScreenMode.CategoryMenu, categoryMenuSelection = 2)
             val menuResult = process(1, 1, menuState, uiStrings, catalogContext)
-            val adjustState = base.copy(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
-                draftResponseTimeSec = 5
-            )
+            val adjustState = PreferenceAdjustmentController.openHubSetting(
+                PreferenceAdjustmentController.openSettingsMenu(
+                    base.copy(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0
+                    )
+                ),
+                SettingsControlKind.ResponseTime,
+                catalogContext
+            ).copy(draftResponseTimeSec = 5)
             // RC7D.27 — first L1 R1 enters confirmation; second confirms persistence.
             val confirmResult = process(1, 1, adjustState, uiStrings, catalogContext)
             val saveResult = if (confirmResult is GuidedSequenceResult.Navigate) {
@@ -1015,15 +1051,20 @@ object GuidedNavigationAuthorityV1 {
         }
 
         fun adjustmentCancelRestoresSavedValues(catalogContext: GuidedCatalogContext): ValidationCheckResult {
-            val state = GuidedNavigationState(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
-                draftResponseTimeSec = 6,
-                draftSensitivityLevel = catalogContext.sensitivityLevel
-            )
+            val state = PreferenceAdjustmentController.openHubSetting(
+                PreferenceAdjustmentController.openSettingsMenu(
+                    GuidedNavigationState(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0,
+                        draftResponseTimeSec = catalogContext.responseTimeSec,
+                        draftSensitivityLevel = catalogContext.sensitivityLevel
+                    )
+                ),
+                SettingsControlKind.ResponseTime,
+                catalogContext
+            ).copy(draftResponseTimeSec = 6)
             val cancelled = PreferenceAdjustmentController.cancelAdjustment(state)
-            // RC7D.27 — cancel returns to Adjust Settings; draft is discarded for display via saved catalog.
+            // RC7D.27 — cancel returns to Settings & Controls; draft is discarded for display via saved catalog.
             val passed = cancelled.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
                 cancelled.displayResponseTimeSec(catalogContext.responseTimeSec) == catalogContext.responseTimeSec
             return ValidationCheckResult(
@@ -1039,13 +1080,18 @@ object GuidedNavigationAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val state = GuidedNavigationState(
-                screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX,
-                preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity,
-                draftResponseTimeSec = catalogContext.responseTimeSec,
-                draftSensitivityLevel = 9
-            )
+            val state = PreferenceAdjustmentController.openHubSetting(
+                PreferenceAdjustmentController.openSettingsMenu(
+                    GuidedNavigationState(
+                        screenMode = GuidedOverlayScreenMode.Vocabulary,
+                        categoryIndex = 0,
+                        draftResponseTimeSec = catalogContext.responseTimeSec,
+                        draftSensitivityLevel = catalogContext.sensitivityLevel
+                    )
+                ),
+                SettingsControlKind.Sensitivity,
+                catalogContext
+            ).copy(draftSensitivityLevel = 9)
             val result = GuidedNavigationController.processSequence(
                 left = GuidedModeNavigation.CATEGORIES_LEFT,
                 right = GuidedModeNavigation.CATEGORIES_RIGHT,

@@ -45,13 +45,13 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     @Test
     fun eyesDetectedResolvesToWatchingYourEyes() {
         val banner = EyeTrackingBannerContext(faceDetected = true, eyesDetected = true)
-        assertEquals("WATCHING YOUR EYES...", banner.bannerMessage(english))
+        assertEquals("Watching your eyes", banner.bannerMessage(english))
     }
 
     @Test
     fun noFaceResolvesToNoFaceDetected() {
         assertEquals(
-            "NO FACE DETECTED",
+            "No face detected",
             EyeTrackingBannerContext(faceDetected = false).bannerMessage(english)
         )
     }
@@ -59,7 +59,7 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     @Test
     fun trackingLostResolvesCorrectly() {
         assertEquals(
-            "TRACKING LOST",
+            "Tracking lost",
             EyeTrackingBannerContext(trackingLost = true, faceDetected = true, eyesDetected = true)
                 .bannerMessage(english)
         )
@@ -87,8 +87,9 @@ class Rc7D_2ComposerEyeFeedbackAndNumericKeyboardTest {
     @Test
     fun composerUiShowsBlinkCounters() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/EyeControlledKeyboard.kt")
-        assertTrue(ui.contains("leftDots"))
-        assertTrue(ui.contains("rightDots"))
+        assertTrue(ui.contains("BlinkCounterRow"))
+        assertTrue(ui.contains("leftBlinkCount = eyeFeedback.leftWinkCount"))
+        assertTrue(ui.contains("rightBlinkCount = eyeFeedback.rightWinkCount"))
     }
 
     @Test

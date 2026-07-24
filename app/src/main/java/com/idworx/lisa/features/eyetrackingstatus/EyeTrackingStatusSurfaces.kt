@@ -60,7 +60,7 @@ fun CompactEyeTrackingHeader(
                 }
             },
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
+        verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp)
     ) {
         EyeTrackingStatusPill(
             label = state.statusText.ifBlank {

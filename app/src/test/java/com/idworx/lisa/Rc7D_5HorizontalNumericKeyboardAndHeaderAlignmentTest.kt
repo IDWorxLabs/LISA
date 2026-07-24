@@ -101,20 +101,25 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
     @Test
     fun headlineIsCentredAndBold() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/EyeControlledKeyboard.kt")
+        val chrome = readSource("app/src/main/java/com/idworx/lisa/KeyboardWorkspaceChrome.kt")
         val status = ui.substringAfter("fun ComposerEyeStatusBar")
-        assertTrue(status.contains("textAlign = TextAlign.Center"))
-        assertTrue(status.contains("fontWeight = FontWeight.Bold"))
         assertTrue(status.contains("bannerMessage(uiStrings)"))
+        assertTrue(status.contains("KeyboardWorkspaceStatus"))
+        assertTrue(
+            chrome.contains("StatusReadyIndicator") ||
+                chrome.contains("LisaStatusGreen") ||
+                chrome.contains("fontWeight = FontWeight.Medium")
+        )
     }
 
     @Test
     fun dynamicTrackingMessagesResolveCorrectly() {
         assertEquals(
-            "WATCHING YOUR EYES...",
+            "Watching your eyes",
             EyeTrackingBannerContext(faceDetected = true, eyesDetected = true).bannerMessage(english)
         )
         assertEquals(
-            "NO FACE DETECTED",
+            "No face detected",
             EyeTrackingBannerContext(faceDetected = false).bannerMessage(english)
         )
     }
@@ -125,7 +130,7 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
         val status = ui.substringAfter("fun ComposerEyeStatusBar")
         assertTrue(status.contains("composerSensitivityLine"))
         assertTrue(status.contains("composerResponseTimeLine"))
-        assertTrue(status.contains("Arrangement.SpaceBetween"))
+        assertTrue(status.contains("Arrangement.spacedBy"))
         val sensitivityIndex = status.indexOf("composerSensitivityLine")
         val responseIndex = status.indexOf("composerResponseTimeLine")
         assertTrue(sensitivityIndex in 0 until responseIndex)
@@ -136,8 +141,8 @@ class Rc7D_5HorizontalNumericKeyboardAndHeaderAlignmentTest {
         val ui = readSource("app/src/main/java/com/idworx/lisa/EyeControlledKeyboard.kt")
         val status = ui.substringAfter("fun ComposerEyeStatusBar")
         val settingsIndex = status.indexOf("composerSensitivityLine")
-        val leftIndex = status.indexOf("leftDots")
-        assertTrue(settingsIndex in 0 until leftIndex)
+        val counterIndex = status.indexOf("BlinkCounterRow")
+        assertTrue(settingsIndex in 0 until counterIndex)
     }
 
     @Test

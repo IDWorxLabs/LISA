@@ -30,7 +30,7 @@ class EyeTrackingBannerDisplayTest {
             )
         )
 
-        assertEquals("WATCHING YOUR EYES...", display.headline)
+        assertEquals("Watching your eyes", display.headline)
         assertEquals("", display.subtitle)
     }
 
@@ -43,7 +43,7 @@ class EyeTrackingBannerDisplayTest {
             eyeTrackingBanner = EyeTrackingBannerContext(faceDetected = false)
         )
 
-        assertEquals("NO FACE DETECTED", display.headline)
+        assertEquals("No face detected", display.headline)
         assertEquals("", display.subtitle)
     }
 
@@ -59,7 +59,7 @@ class EyeTrackingBannerDisplayTest {
             )
         )
 
-        assertEquals("PLEASE LOOK AT THE CAMERA", display.headline)
+        assertEquals("Please look at the camera", display.headline)
         assertEquals("", display.subtitle)
     }
 
@@ -76,7 +76,7 @@ class EyeTrackingBannerDisplayTest {
             )
         )
 
-        assertEquals("CALIBRATING EYE TRACKING...", display.headline)
+        assertEquals("Calibrating eye tracking", display.headline)
         assertEquals("", display.subtitle)
     }
 
@@ -92,7 +92,7 @@ class EyeTrackingBannerDisplayTest {
             )
         )
 
-        assertEquals("TRACKING LOST", display.headline)
+        assertEquals("Tracking lost", display.headline)
         assertEquals("", display.subtitle)
     }
 

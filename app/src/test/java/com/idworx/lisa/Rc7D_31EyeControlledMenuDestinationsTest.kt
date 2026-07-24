@@ -413,8 +413,8 @@ class Rc7D_31EyeControlledMenuDestinationsTest {
     @Test
     fun profileRuntimeActionIdsReachAllLanguagesLevelsAndSavedProfiles() {
         assertEquals(
-            PreferredLanguage.selectable.size,
-            PreferredLanguage.selectable.map {
+            PreferredLanguage.displayed.size,
+            PreferredLanguage.displayed.map {
                 MenuDestinationActionId.language(it.label)
             }.distinct().size
         )

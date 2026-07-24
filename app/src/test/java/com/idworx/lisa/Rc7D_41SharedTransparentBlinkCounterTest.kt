@@ -126,10 +126,14 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
     @Test
     fun feedbackKeyboardNavButtonsUseOutlinedChromeAuthority() {
         val workspace = readFile("MenuDestinationWorkspaceUi.kt")
+        val chrome = readFile("KeyboardWorkspaceChrome.kt")
+        val theme = readFile("ui/theme/SharedKeyboardTheme.kt")
         val style = readFile("ui/theme/LisaWorkspaceVisualStyle.kt")
         assertTrue(style.contains("OutlinedKeyboardNavBackground"))
         assertTrue(style.contains("OutlinedKeyboardNavBorder"))
         assertTrue(style.contains("OutlinedKeyboardNavContent"))
+        assertTrue(theme.contains("ActionBackground"))
+        assertTrue(theme.contains("OutlinedKeyboardNavBackground"))
         assertTrue(
             com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle.OutlinedKeyboardNavBackground ==
                 androidx.compose.ui.graphics.Color.Transparent
@@ -146,16 +150,21 @@ class Rc7D_41SharedTransparentBlinkCounterTest {
         assertTrue(legendStart >= 0)
         val legendEnd = workspace.indexOf("fun FeedbackFieldReview", legendStart)
         val legend = workspace.substring(legendStart, legendEnd)
-        assertTrue(legend.contains("OutlinedKeyboardNavBackground"))
-        assertTrue(legend.contains("OutlinedKeyboardNavBorder"))
-        assertTrue(legend.contains("OutlinedKeyboardNavContent"))
+        assertTrue(legend.contains("KeyboardWorkspaceOutlinedChip"))
         assertFalse(legend.contains("NavPanelBackground"))
         assertFalse(legend.contains("LisaWhite"))
-        val barStart = workspace.indexOf("fun KeyboardFocusedCommandBar")
-        val bar = workspace.substring(barStart)
-        assertTrue(bar.contains("OutlinedKeyboardNavBorder"))
-        assertTrue(bar.contains("OutlinedKeyboardNavContent"))
-        assertTrue(bar.contains("OutlinedKeyboardNavBackground"))
+        assertTrue(workspace.contains("KeyboardWorkspaceBottomActionRow"))
+        assertTrue(workspace.contains("EmergencyActionBar"))
+        assertFalse(workspace.contains("fun KeyboardFocusedCommandBar"))
+        val reviewBarStart = workspace.indexOf("fun FeedbackReviewCommandRow")
+        assertTrue(reviewBarStart >= 0)
+        val reviewBar = workspace.substring(reviewBarStart)
+        assertTrue(reviewBar.contains("KeyboardWorkspaceOutlinedAction"))
+        assertFalse(reviewBar.contains("MenuDestinationPanelCommand.Emergency"))
+        assertTrue(chrome.contains("KeyboardWorkspaceOutlinedAction"))
+        assertTrue(chrome.contains("KeyboardWorkspaceOutlinedChip"))
+        assertTrue(chrome.contains("KeyboardWorkspaceBottomActionRow"))
+        assertTrue(chrome.contains("KeyboardWorkspaceBottomDoneButton"))
     }
 
     @Test

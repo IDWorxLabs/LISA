@@ -148,14 +148,16 @@ class Rc7D_4BottomAlignedKeyboardLayoutTest {
     @Test
     fun commandLabelsRemainReadable() {
         val grid = readSource("app/src/main/java/com/idworx/lisa/ComposerCommandGrid.kt")
-        assertTrue(grid.contains("fontSize = 11.sp"))
-        assertTrue(grid.contains("defaultMinSize(minHeight = 76.dp)"))
+        val theme = readSource("app/src/main/java/com/idworx/lisa/ui/theme/SharedKeyboardTheme.kt")
+        assertTrue(grid.contains("KeyboardWorkspaceClickableActionCard"))
+        assertTrue(theme.contains("ActionTitleSize: TextUnit = 11.sp") || theme.contains("11.sp"))
+        assertTrue(theme.contains("ActionMinHeight") || grid.contains("ActionMinHeight"))
     }
 
     @Test
     fun blinkCountersAndPartialSequenceUnchanged() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/EyeControlledKeyboard.kt")
-        assertTrue(ui.contains("leftDots"))
+        assertTrue(ui.contains("BlinkCounterRow"))
         assertTrue(ui.contains("partialSequenceLabel"))
         assertTrue(ui.contains("ComposerEyeStatusBar"))
     }

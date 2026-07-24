@@ -246,7 +246,7 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertEquals(1 to 3, GuidedModeNavigation.INCREASE_VALUE_LEFT to GuidedModeNavigation.INCREASE_VALUE_RIGHT)
         assertEquals(5 to 5, GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT)
         assertEquals(6 to 0, EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS)
-        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[7])
+        assertEquals(GuidedVocabularyCategory.AdjustSettings, GuidedVocabularyCategory.ordered[6])
     }
 
     @Test

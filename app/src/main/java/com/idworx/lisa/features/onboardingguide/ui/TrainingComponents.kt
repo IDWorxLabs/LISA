@@ -56,6 +56,7 @@ import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
+import com.idworx.lisa.ui.theme.LisaStatusGreen
 import com.idworx.lisa.ui.theme.LisaWhite
 import kotlinx.coroutines.delay
 
@@ -357,27 +358,28 @@ fun EyeTrackingStatusPill(
     active: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (active) LisaBlue.copy(alpha = 0.12f) else LisaGray.copy(alpha = 0.12f)
-    val dot = if (active) LisaBlue else LisaGray
+    // RC8.0 — calm horizontal strip: green ready indicator, softer type, less visual height.
+    val bg = if (active) LisaStatusGreen.copy(alpha = 0.10f) else LisaGray.copy(alpha = 0.10f)
+    val dot = if (active) LisaStatusGreen else LisaGray
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(bg)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(7.dp)
                 .clip(CircleShape)
                 .background(dot)
         )
         Text(
             text = label,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
-            color = LisaBlueDark.copy(alpha = if (active) 0.92f else 0.65f)
+            color = LisaBlueDark.copy(alpha = if (active) 0.88f else 0.62f)
         )
     }
 }

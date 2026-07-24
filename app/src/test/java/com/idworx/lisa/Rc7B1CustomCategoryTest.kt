@@ -40,16 +40,15 @@ class Rc7B1CustomCategoryTest {
                 GuidedVocabularyCategory.BasicNeeds,
                 GuidedVocabularyCategory.Medical,
                 GuidedVocabularyCategory.Family,
-                GuidedVocabularyCategory.Preferences,
                 GuidedVocabularyCategory.Custom,
                 GuidedVocabularyCategory.PhraseManagement,
                 GuidedVocabularyCategory.AdjustSettings
             ),
             GuidedVocabularyCategory.ordered
         )
-        assertEquals(5, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
-        assertEquals(6, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
-        assertEquals(7, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
+        assertEquals(4, GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
+        assertEquals(5, GuidedVocabularyCategory.PHRASE_MANAGEMENT_INDEX)
+        assertEquals(6, GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX)
     }
 
     @Test
@@ -136,9 +135,9 @@ class Rc7B1CustomCategoryTest {
 
     @Test
     fun communicationPageCountIsSeven() {
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(8, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
-        assertEquals(8, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
+        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(7, GuidedVocabularyCatalog.buildPages(PreferredLanguage.English, english).size)
+        assertEquals(7, GuidedVocabularyCatalog.categoryMenuTitles(english).size)
     }
 
     // 7. Previous/next navigation still reaches all pages.
@@ -259,7 +258,7 @@ class Rc7B1CustomCategoryTest {
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.PhraseManagement])
         assertEquals(0, sizesByCategory[GuidedVocabularyCategory.AdjustSettings])
         assertEquals(null, sizesByCategory[GuidedVocabularyCategory.BasicSystemControls])
-        assertEquals(4, sizesByCategory[GuidedVocabularyCategory.Preferences])
+        assertEquals(null, sizesByCategory[GuidedVocabularyCategory.Preferences])
         val familyPage = pages.first { it.category == GuidedVocabularyCategory.Family }
         assertEquals("I want to see my mom.", familyPage.entries.first().phrase)
         assertEquals("I want to talk.", familyPage.entries.last().phrase)

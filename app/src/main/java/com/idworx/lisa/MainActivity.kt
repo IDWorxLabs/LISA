@@ -263,6 +263,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiProfiles.addAll(profileState.profiles)
         uiActiveProfileId.value = profileState.activeProfileId
         profileState.activeProfile?.let { applyProfileSettings(it, persist = false) }
+        if (profileState.preferredLanguageResetToEnglish) {
+            Toast.makeText(
+                this,
+                LisaLanguageAvailabilityAuthority.legacyLanguageResetMessage(
+                    LisaUiStrings.forLanguage(PreferredLanguage.English)
+                ),
+                Toast.LENGTH_LONG
+            ).show()
+        }
 
         releaseStore = LisaReleaseStore(this)
         trainingProgressStore = TrainingProgressStore(this)
@@ -685,22 +694,59 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onGuidedDecreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT) },
                         onGuidedIncreaseValue = { applyGuidedTouchNavigation(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT) },
                         onGuidedSettingsControl = { kind ->
-                            val (left, right) = when (kind) {
-                                SettingsControlKind.Sensitivity -> SettingsAndControlsHubSequences.SENSITIVITY
-                                SettingsControlKind.ResponseTime -> SettingsAndControlsHubSequences.RESPONSE_TIME
-                                SettingsControlKind.SpeechVolume -> SettingsAndControlsHubSequences.SPEECH_VOLUME
-                                SettingsControlKind.SpeechSpeed -> SettingsAndControlsHubSequences.SPEECH_SPEED
-                                SettingsControlKind.Listening ->
-                                    if (uiGuidedNavigationState.value.isListeningControlActive) {
-                                        GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT
-                                    } else {
-                                        SettingsAndControlsHubSequences.LISTENING
+                            when (kind) {
+                                SettingsControlKind.Sensitivity,
+                                SettingsControlKind.ResponseTime,
+                                SettingsControlKind.SpeechVolume,
+                                SettingsControlKind.SpeechSpeed -> {
+                                    // RC8.5 — hub card touch opens via the same authority as blink Select
+                                    // (openHubSetting). Do not route Sensitivity/Response Time through
+                                    // L2 R0 / L0 R2 scroll sequences — those only move selection.
+                                    val catalogContext = GuidedCatalogContext(
+                                        responseTimeSec = uiSequenceProcessingDelaySec.value,
+                                        sensitivityLevel = uiSensitivityLevel.value,
+                                        speechVolumeLevel = uiSpeechVolumeLevel.value,
+                                        speechSpeedLevel = uiSpeechRateLevel.value,
+                                        listeningPaused = uiListeningPaused.value
+                                    )
+                                    val hubIndex = SettingsAndControlsHubSequences.HUB_SETTING_KINDS
+                                        .indexOf(kind)
+                                        .coerceAtLeast(0)
+                                    val focused = uiGuidedNavigationState.value.copy(
+                                        settingsHubSelection = hubIndex
+                                    )
+                                    uiGuidedNavigationState.value =
+                                        PreferenceAdjustmentController.openHubSetting(
+                                            focused,
+                                            kind,
+                                            catalogContext
+                                        )
+                                    setCommunicationState(LisaCommunicationState.Listening)
+                                }
+                                else -> {
+                                    val (left, right) = when (kind) {
+                                        SettingsControlKind.Listening ->
+                                            if (uiGuidedNavigationState.value.isListeningControlActive) {
+                                                GuidedModeNavigation.SELECT_LEFT to
+                                                    GuidedModeNavigation.SELECT_RIGHT
+                                            } else {
+                                                SettingsAndControlsHubSequences.LISTENING
+                                            }
+                                        SettingsControlKind.RepeatLastMessage ->
+                                            SettingsAndControlsHubSequences.REPEAT_LAST
+                                        SettingsControlKind.ResetSequence ->
+                                            SettingsAndControlsHubSequences.RESET_SEQUENCE
+                                        SettingsControlKind.ShowHelp ->
+                                            SettingsAndControlsHubSequences.SHOW_HELP
+                                        SettingsControlKind.Sensitivity,
+                                        SettingsControlKind.ResponseTime,
+                                        SettingsControlKind.SpeechVolume,
+                                        SettingsControlKind.SpeechSpeed ->
+                                            error("Hub settings must open via openHubSetting")
                                     }
-                                SettingsControlKind.RepeatLastMessage -> SettingsAndControlsHubSequences.REPEAT_LAST
-                                SettingsControlKind.ResetSequence -> SettingsAndControlsHubSequences.RESET_SEQUENCE
-                                SettingsControlKind.ShowHelp -> SettingsAndControlsHubSequences.SHOW_HELP
+                                    applyGuidedTouchNavigation(left, right)
+                                }
                             }
-                            applyGuidedTouchNavigation(left, right)
                         },
                         onGuidedPhraseEntry = { entry -> applyGuidedTouchNavigation(entry.left, entry.right) },
                         onGuidedCategoryRow = { index -> openGuidedCategoryFromTouch(index) },
@@ -1406,6 +1452,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiPhraseComposerState.value = PhraseComposerController.initialState()
         uiMenuDestinationState.value =
             MenuDestinationNavigationState(MainMenuDestination.CommunicationProfile)
+        // RC8.1 — Main Menu → Communication always lands on Category Selection (not last category).
+        uiGuidedNavigationState.value = GuidedNavigationController.communicationWorkspaceRoot(
+            uiGuidedNavigationState.value
+        )
         resumeCommunicationPhraseProcessing()
     }
 
@@ -1591,8 +1641,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             actionId.value.startsWith("profile.language.") -> {
                 val label = actionId.value.removePrefix("profile.language.")
-                updateActiveProfile {
-                    it.copy(preferredLanguage = PreferredLanguage.fromStored(label))
+                val language = PreferredLanguage.fromStored(label)
+                if (!LisaLanguageAvailabilityAuthority.isSelectableInVersion1(language)) {
+                    Toast.makeText(
+                        this,
+                        LisaLanguageAvailabilityAuthority.version2ActivationMessage(guidedUiStrings()),
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    updateActiveProfile {
+                        it.copy(preferredLanguage = language)
+                    }
                 }
             }
             actionId.value.startsWith("profile.level.") -> {
@@ -1969,7 +2028,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiEmergencyActive.value = false
         closeQuickControls()
         closePracticeMode()
-        uiGuidedNavigationState.value = GuidedNavigationState()
+        // RC8.1 — Finish Training / Reset lands on Category Selection (Communication root).
+        uiGuidedNavigationState.value =
+            GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
         uiGuidedConfirmedPhrase.value = null
         uiGuidedConfirmedLeft.value = null
         uiGuidedConfirmedRight.value = null
@@ -1978,6 +2039,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         savedSequenceLeft = 0
         savedSequenceRight = 0
         resetSequence()
+        // closeAllPanels also re-asserts Category Selection when returning to Communication.
         closeAllPanels()
         setCommunicationState(LisaCommunicationState.Reset)
         mainHandler.postDelayed({ updateReadyOrWaitingState() }, 500L)
@@ -2096,7 +2158,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun applyColdLaunchSessionState() {
         uiOnboardingCompleted.value = false
-        uiGuidedNavigationState.value = GuidedNavigationState()
+        uiGuidedNavigationState.value =
+            GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
         uiQuickControlsOpen.value = false
         uiPracticeModeOpen.value = false
         uiGuidedConfirmedPhrase.value = null
@@ -2111,6 +2174,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun completeOnboarding() {
         releaseStore.setOnboardingCompleted(true)
         uiOnboardingCompleted.value = true
+        // RC8.1 — Welcome / Skip to Communication opens Category Selection, not General Conversation.
+        uiGuidedNavigationState.value =
+            GuidedNavigationController.communicationWorkspaceRoot(uiGuidedNavigationState.value)
         refreshCameraPermissionState()
         maybePlayWorkspaceEntryIntro()
     }
@@ -2441,8 +2507,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyProfileSettings(profile: LisaUserProfile, persist: Boolean = true) {
-        uiActiveLanguage.value = profile.preferredLanguage
-        applyTtsForProfile(profile)
+        val language = LisaLanguageAvailabilityAuthority.coerceForVersion1(profile.preferredLanguage)
+        uiActiveLanguage.value = language
+        applyTtsForProfile(profile.copy(preferredLanguage = language))
         refreshVoiceSettingsState()
         applySensitivityLevel(profile.sensitivityLevel, persist = false)
         uiDeveloperMode.value = profile.developerMode
@@ -3145,12 +3212,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 uiPanelReturnTarget.value = null
                 uiActivePanel.value = LisaPanel.None
                 resetPhraseManagementState()
-                // Leave Categories if it was underneath — do not reopen Categories or Phrase Details.
-                if (uiGuidedNavigationState.value.screenMode == GuidedOverlayScreenMode.CategoryMenu) {
-                    uiGuidedNavigationState.value = GuidedNavigationController.closeCategoryMenu(
-                        uiGuidedNavigationState.value
-                    )
-                }
+                // RC8.1 — top-level Communication entry lands on Category Selection.
+                uiGuidedNavigationState.value = GuidedNavigationController.communicationWorkspaceRoot(
+                    uiGuidedNavigationState.value
+                )
                 setCommunicationState(LisaCommunicationState.Listening)
             }
         }
@@ -3813,7 +3878,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         languageLabel: String,
         levelLabel: String
     ): String {
-        val language = PreferredLanguage.fromStored(languageLabel)
+        val language = LisaLanguageAvailabilityAuthority.coerceForVersion1(
+            PreferredLanguage.fromStored(languageLabel)
+        )
         val level = CommunicationLevel.fromStored(levelLabel)
         val profile = LisaUserProfile.createNew(name, activeProfile()).copy(
             preferredLanguage = language,
@@ -3838,8 +3905,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyTtsForLanguage(language: PreferredLanguage) {
-        activeProfile()?.let { applyTtsForProfile(it) } ?: run {
-            tts?.language = LisaUiStrings.ttsLocale(language)
+        val safeLanguage = LisaLanguageAvailabilityAuthority.coerceForVersion1(language)
+        activeProfile()?.let { applyTtsForProfile(it.copy(preferredLanguage = safeLanguage)) } ?: run {
+            tts?.language = LisaUiStrings.ttsLocale(safeLanguage)
         }
     }
 

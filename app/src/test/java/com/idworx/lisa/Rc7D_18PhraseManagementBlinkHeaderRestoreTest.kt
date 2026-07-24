@@ -83,7 +83,7 @@ class Rc7D_18PhraseManagementBlinkHeaderRestoreTest {
 
     @Test
     fun phraseManagementRuntimePathRendersWatchingYourEyesViaSharedHeader() {
-        assertEquals("WATCHING YOUR EYES...", english.eyeTrackingStatusWatching)
+        assertEquals("Watching your eyes", english.eyeTrackingStatusWatching)
         val header = sharedHeaderSlice()
         assertTrue(header.contains("EverydayCommunicationPanel("))
         assertTrue(header.contains("userDisplay = userDisplay"))

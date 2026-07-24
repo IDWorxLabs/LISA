@@ -96,7 +96,7 @@ class Rc7D_33PersistentSelectionAndCompleteVoiceNavigationTest {
 
         assertEquals(MenuDestinationActionId.ProfileActive, ids.first())
         assertEquals(MenuDestinationActionId.ProfileName, ids[1])
-        assertTrue(PreferredLanguage.selectable.all { MenuDestinationActionId.language(it.label) in ids })
+        assertTrue(PreferredLanguage.displayed.all { MenuDestinationActionId.language(it.label) in ids })
         assertTrue(CommunicationLevel.entries.all {
             MenuDestinationActionId.communicationLevel(it.label) in ids
         })

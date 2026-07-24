@@ -20,16 +20,18 @@ class GuidedVocabularyPagerTest {
         catalogContext
     )
 
-    private fun preferencesPhrases(): List<String> =
-        pages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries.map { it.phrase }
+    private fun preferencesPhrases(): List<String> = emptyList()
 
-    private fun vocabularyState(categoryIndex: Int = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX): GuidedNavigationState =
+    private fun vocabularyState(categoryIndex: Int = 0): GuidedNavigationState =
         GuidedNavigationState(
             screenMode = GuidedOverlayScreenMode.Vocabulary,
             categoryIndex = categoryIndex,
             draftResponseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS,
             draftSensitivityLevel = 5
         )
+
+    private fun settingsHubState(): GuidedNavigationState =
+        PreferenceAdjustmentController.openSettingsMenu(GuidedNavigationState())
 
     private fun categoryMenuState(selection: Int = 0): GuidedNavigationState =
         GuidedNavigationState(
@@ -39,16 +41,16 @@ class GuidedVocabularyPagerTest {
         )
 
     private fun adjustResponseTimeState(draftSec: Int = SequenceProcessingDelay.DEFAULT_SECONDS): GuidedNavigationState =
-        vocabularyState().copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime,
-            draftResponseTimeSec = draftSec
-        )
+        PreferenceAdjustmentController.openResponseTimeAdjust(
+            settingsHubState(),
+            draftSec
+        ).copy(draftResponseTimeSec = draftSec)
 
     private fun adjustSensitivityState(draftLevel: Int = 5): GuidedNavigationState =
-        vocabularyState().copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity,
-            draftSensitivityLevel = draftLevel
-        )
+        PreferenceAdjustmentController.openSensitivityAdjust(
+            settingsHubState(),
+            draftLevel
+        ).copy(draftSensitivityLevel = draftLevel)
 
     private fun process(
         left: Int,
@@ -68,30 +70,48 @@ class GuidedVocabularyPagerTest {
     @Test
     fun preferences_noLongListOfEveryResponseTimeOption() {
         assertTrue(GuidedVocabularyCatalogValidation.preferencesShowsCompactControlsOnly())
-        assertFalse(preferencesPhrases().any { it.startsWith("Set response time to 1") })
-        assertFalse(preferencesPhrases().any { it.startsWith("Set sensitivity to 1") })
-        assertEquals(4, preferencesPhrases().size)
+        assertFalse(GuidedVocabularyCategory.Preferences in GuidedVocabularyCategory.ordered)
+        assertEquals(0, preferencesPhrases().size)
     }
 
     @Test
     fun preferences_showsAdjustResponseTime() {
+        // RC8.5 — Adjust Response Time lives on Settings & Controls, not a Preferences page.
         assertTrue(GuidedVocabularyCatalogValidation.preferencesHasAdjustResponseTime())
-        assertTrue(preferencesPhrases().contains("Adjust response time"))
+        val opened = PreferenceAdjustmentController.openHubSetting(
+            settingsHubState(),
+            SettingsControlKind.ResponseTime,
+            catalogContext
+        )
+        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, opened.preferencesAdjustMode)
     }
 
     @Test
     fun preferences_showsAdjustSensitivity() {
         assertTrue(GuidedVocabularyCatalogValidation.preferencesHasAdjustSensitivity())
-        assertTrue(preferencesPhrases().contains("Adjust sensitivity"))
+        val opened = PreferenceAdjustmentController.openHubSetting(
+            settingsHubState(),
+            SettingsControlKind.Sensitivity,
+            catalogContext
+        )
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, opened.preferencesAdjustMode)
     }
 
     @Test
     fun selectingAdjustResponseTime_opensAdjustmentMode() {
-        val adjustEntry = pages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-            .first { it.phrase == "Adjust response time" }
-        val result = process(adjustEntry.left, adjustEntry.right, vocabularyState()) as GuidedSequenceResult.Navigate
-        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, result.newState.preferencesAdjustMode)
-        assertEquals(SequenceProcessingDelay.DEFAULT_SECONDS, result.newState.draftResponseTimeSec)
+        val result = process(
+            GuidedModeNavigation.SELECT_LEFT,
+            GuidedModeNavigation.SELECT_RIGHT,
+            settingsHubState()
+        ) as GuidedSequenceResult.Navigate
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, result.newState.preferencesAdjustMode)
+        val responseTime = PreferenceAdjustmentController.openHubSetting(
+            settingsHubState().copy(settingsHubSelection = 1),
+            SettingsControlKind.ResponseTime,
+            catalogContext
+        )
+        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, responseTime.preferencesAdjustMode)
+        assertEquals(SequenceProcessingDelay.DEFAULT_SECONDS, responseTime.draftResponseTimeSec)
     }
 
     @Test
@@ -169,9 +189,11 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun selectingAdjustSensitivity_opensAdjustmentMode() {
-        val adjustEntry = pages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-            .first { it.phrase == "Adjust sensitivity" }
-        val result = process(adjustEntry.left, adjustEntry.right, vocabularyState()) as GuidedSequenceResult.Navigate
+        val result = process(
+            GuidedModeNavigation.SELECT_LEFT,
+            GuidedModeNavigation.SELECT_RIGHT,
+            settingsHubState()
+        ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, result.newState.preferencesAdjustMode)
     }
 
@@ -219,10 +241,11 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun categoriesGesture_opensCategoryMenuFromPreferencesPage() {
+        // RC8.5 — Preferences page removed; Categories from Custom still returns to Category Menu.
         val result = process(
             GuidedModeNavigation.CATEGORIES_LEFT,
             GuidedModeNavigation.CATEGORIES_RIGHT,
-            vocabularyState(categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+            vocabularyState(categoryIndex = GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         ) as GuidedSequenceResult.Navigate
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, result.newState.screenMode)
     }
@@ -337,8 +360,10 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun preferencesShowsCurrentValues() {
-        assertTrue(preferencesPhrases().contains("Current response time: ${SequenceProcessingDelay.DEFAULT_SECONDS} seconds"))
-        assertTrue(preferencesPhrases().contains("Current sensitivity: 5"))
+        // RC8.5 — current values appear on Settings & Controls hub cards / adjustment screens.
+        assertFalse(GuidedVocabularyCategory.Preferences in GuidedVocabularyCategory.ordered)
+        val hub = settingsHubState()
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hub.preferencesAdjustMode)
     }
 
     @Test
@@ -387,8 +412,8 @@ class GuidedVocabularyPagerTest {
 
     @Test
     fun previousPhrasePage_onSinglePageCategory_isUnmatched() {
-        // Preferences fits on a single page, so Previous/Next never have a visible target.
-        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        // Customize Phrases fits on a single (empty) page, so Previous/Next never have a visible target.
+        val state = vocabularyState(categoryIndex = GuidedVocabularyCategory.CUSTOM_CATEGORY_INDEX)
         assertEquals(
             GuidedSequenceResult.Unmatched,
             process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state)

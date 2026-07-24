@@ -81,7 +81,17 @@ object GuidedTrainingExitRefinementAuditor {
         val bodyStart = main.indexOf("private fun performReset()")
         if (bodyStart < 0) return false
         val verifyIndex = main.indexOf("verifyTrainingNavigation(NavigationAction.ResetSequence)", bodyStart)
-        val clearStateIndex = main.indexOf("uiGuidedNavigationState.value = GuidedNavigationState()", bodyStart)
+        val clearStateIndex = listOf(
+            main.indexOf("uiGuidedNavigationState.value = GuidedNavigationState()", bodyStart),
+            main.indexOf(
+                "uiGuidedNavigationState.value =\n            GuidedNavigationController.communicationWorkspaceRoot",
+                bodyStart
+            ),
+            main.indexOf(
+                "GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())",
+                bodyStart
+            )
+        ).filter { it >= bodyStart }.minOrNull() ?: -1
         return verifyIndex in bodyStart until clearStateIndex
     }
 

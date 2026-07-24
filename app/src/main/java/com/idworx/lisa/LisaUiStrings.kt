@@ -41,29 +41,29 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     // Communication display
     val ready: String get() = t("READY", "GEREE", "SILINDILE")
     val eyeTrackingStatusWatching: String get() = t(
-        "WATCHING YOUR EYES...",
-        "KYK NA JOU OË...",
-        "IBHEKA AMEHLO AKHO..."
+        "Watching your eyes",
+        "Kyk na jou oë",
+        "Ibona amehlo akho"
     )
     val eyeTrackingStatusNoFace: String get() = t(
-        "NO FACE DETECTED",
-        "GEEN GESIG BESPEUR NIE",
-        "AKUKHO UBUSO OBUTHOLAKALAYO"
+        "No face detected",
+        "Geen gesig bespeur nie",
+        "Akukho ubuso obutholakayo"
     )
     val eyeTrackingStatusLookAtCamera: String get() = t(
-        "PLEASE LOOK AT THE CAMERA",
-        "KYK ASSEBLIEF NA DIE KAMERA",
-        "SICELA UBHEKE IKHAMERA"
+        "Please look at the camera",
+        "Kyk asseblief na die kamera",
+        "Sicela ubheke ikhamera"
     )
     val eyeTrackingStatusCalibrating: String get() = t(
-        "CALIBRATING EYE TRACKING...",
-        "KALIBREER OOGNASPOOR...",
-        "KULUNGISELANA UKULANDELELA AMEHLO..."
+        "Calibrating eye tracking",
+        "Kalibreer oognaspoor",
+        "Kulungiselana ukulandelela amehlo"
     )
     val eyeTrackingStatusTrackingLost: String get() = t(
-        "TRACKING LOST",
-        "NASPOOR VERLORE",
-        "UKULANDELELA KULAHLEKILE"
+        "Tracking lost",
+        "Naspoor verlore",
+        "Ukulandelela kulahlekile"
     )
     val buildingYourMessage: String get() = t(
         "Building your message...",
@@ -578,8 +578,14 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val iUnderstood: String get() = t("I UNDERSTOOD", "EK HET VERSTAAN", "NGIYIQONDE")
     val speakingIn: String get() = t("Speaking in", "Praat oor", "Izokukhuluma nge")
-    val speaking: String get() = t("SPEAKING", "PRAAT", "IYAKHULUMA")
-    val messageDelivered: String get() = t("MESSAGE DELIVERED", "BOODSKAP AFGELEWER", "UMLAYEZO UTHOLEWE")
+    val speaking: String get() = t("Speaking", "Praat", "Iyakukhuluma")
+    val messageDelivered: String get() = t("Message delivered", "Boodskap afgelewer", "Umlayezo utholiwe")
+    /** RC8.0 — brief visual confirmation that a phrase was spoken (does not interrupt TTS). */
+    fun speechSpokenConfirmation(phrase: String): String = t(
+        "✓ $phrase",
+        "✓ $phrase",
+        "✓ $phrase"
+    )
     val emergency: String get() = t("EMERGENCY", "NOOD", "USIZO OLUPHUTHUMAYO")
     val callingForHelp: String get() = t(
         "Calling for help...",
@@ -1300,6 +1306,21 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val profileNameSection: String get() = t("Profile name", "Profielnaam", "Igama lephrofayela")
     val preferredLanguageSection: String get() = t("Preferred language", "Voorkeurtaal", "Ulimi oluthandwayo")
+    val languageVersion2StatusShort: String get() = t(
+        "Available in LISA Version 2",
+        "Beskikbaar in LISA Weergawe 2",
+        "Iyatholakala ku-LISA Inguqulo 2"
+    )
+    val languageVersion2InfoMessage: String get() = t(
+        "Available in LISA Version 2 with downloadable language and voice support.",
+        "Beskikbaar in LISA Weergawe 2 met aflaaibare taal- en stemondersteuning.",
+        "Iyatholakala ku-LISA Inguqulo 2 ngokweseka ulimi nezwi okudawunilodayo."
+    )
+    val languageResetToEnglishMessage: String get() = t(
+        "Your language has been set to English for this version of LISA. Additional downloadable languages are planned for Version 2.",
+        "Jou taal is op Engels gestel vir hierdie weergawe van LISA. Bykomende aflaaibare tale is beplan vir Weergawe 2.",
+        "Ulimi lwakho lusethelwe esiNgisini kule nguqulo ye-LISA. Izilimi ezengeziwe ezidawunilodayo zihlelelwe Inguqulo 2."
+    )
     val communicationLevelSection: String get() = t("Communication level", "Kommunikasievlak", "Izinga lokuxhumana")
     val nameLabel: String get() = t("Name", "Naam", "Igama")
     val saveLabel: String get() = t("Save", "Stoor", "Londoloza")

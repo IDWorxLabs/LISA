@@ -129,8 +129,9 @@ class Rc7D_24HorizontalEmergencyButtonLayoutTest {
         assertTrue(firstWeight in 0 until iconIndex)
         assertTrue(iconIndex < lastWeight)
         // Equal spacers on both sides of the icon keep it centred in the full-width button.
-        val spacerCount = Regex("Spacer\\(Modifier\\.width").findAll(emergencyCard).count()
+        val spacerCount = emergencyCard.lines().count { it.trim().startsWith("Spacer(") }
         assertEquals(2, spacerCount)
+        assertTrue(emergencyCard.contains("modifier = Modifier.width(12.dp)"))
     }
 
     @Test // 8 — sequence derived from canonical constants

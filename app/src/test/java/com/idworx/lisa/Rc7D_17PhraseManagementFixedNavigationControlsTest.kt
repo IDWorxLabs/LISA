@@ -219,7 +219,10 @@ class Rc7D_17PhraseManagementFixedNavigationControlsTest {
         assertTrue(main.contains("scrollPhraseManagementList(up = false)"))
         assertTrue(main.contains("PhraseManagementExitDestination.CommunicationWorkspace"))
         assertTrue(main.contains("exitPhraseManagement("))
-        assertTrue(main.contains("closeCategoryMenu("))
+        assertTrue(
+            main.contains("communicationWorkspaceRoot(") ||
+                main.contains("closeCategoryMenu(")
+        )
     }
 
     @Test

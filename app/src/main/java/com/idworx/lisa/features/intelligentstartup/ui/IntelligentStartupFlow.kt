@@ -1,11 +1,14 @@
 package com.idworx.lisa.features.intelligentstartup.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +32,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,8 +60,10 @@ import com.idworx.lisa.features.onboardingguide.ui.TrainingSoftBackground
 import com.idworx.lisa.formatWinkSequenceShort
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
+import com.idworx.lisa.ui.theme.LisaStatusGreen
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.lisaFocusEmphasis
 import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
@@ -92,6 +101,8 @@ fun IntelligentStartupFlow(
                     lookingForFace = state.lookingForFaceMessage || !state.faceDetected,
                     evaluating = state.phase == StartupPhase.EvaluatingCompatibility ||
                         state.phase == StartupPhase.ProfileResolution,
+                    phase = state.phase,
+                    faceDetected = state.faceDetected,
                     uiStrings = uiStrings,
                     eyeTrackingStatus = eyeTrackingStatus,
                     onDecreaseSensitivity = onDecreaseSensitivity,
@@ -197,6 +208,8 @@ private fun StartupScreenWithSharedBlinkCounter(
 private fun FaceDetectionStartupScreen(
     lookingForFace: Boolean,
     evaluating: Boolean,
+    phase: StartupPhase,
+    faceDetected: Boolean,
     uiStrings: LisaUiStrings,
     eyeTrackingStatus: EyeTrackingStatusUiState,
     onDecreaseSensitivity: () -> Unit,
@@ -210,11 +223,7 @@ private fun FaceDetectionStartupScreen(
         else -> uiStrings.t("Face found", "Gesig gevind", "Ubuso butholakele")
     }
     val body = when {
-        evaluating -> uiStrings.t(
-            "Checking your profile and eye calibration.",
-            "Kontroleer jou profiel en oogkalibrering.",
-            "Sihlola iphrofayela yakho nokulungiswa kwamehlo."
-        )
+        evaluating -> null // Progressive checklist replaces static body copy.
         lookingForFace -> uiStrings.t(
             "Please look at the camera.",
             "Kyk asseblief na die kamera.",
@@ -226,6 +235,7 @@ private fun FaceDetectionStartupScreen(
             "Silungiselela ukulandelela amehlo…"
         )
     }
+    val completedSteps = preparationCompletedSteps(phase = phase, faceDetected = faceDetected)
     StartupScreenWithSharedBlinkCounter(
         uiStrings = uiStrings,
         eyeTrackingStatus = eyeTrackingStatus,
@@ -234,8 +244,163 @@ private fun FaceDetectionStartupScreen(
         onDecreaseResponseTime = onDecreaseResponseTime,
         onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        StartupCenteredMessage(title = title, body = body, fillRemaining = true)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = title,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Center
+            )
+            if (lookingForFace) {
+                Spacer(modifier = Modifier.height(18.dp))
+                FaceSearchIdleAnimation()
+            }
+            body?.let {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = it,
+                    fontSize = 16.sp,
+                    color = LisaBlueDark.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 23.sp
+                )
+            }
+            if (completedSteps.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
+                PreparationProgressList(steps = completedSteps, uiStrings = uiStrings)
+            }
+        }
     }
+}
+
+/** Truthful prep checklist — only steps that have actually completed in the startup machine. */
+private enum class PreparationStep {
+    EyeTracking,
+    LoadingProfile,
+    PreparingCommunication,
+    CalibrationReady
+}
+
+private fun preparationCompletedSteps(
+    phase: StartupPhase,
+    faceDetected: Boolean
+): List<PreparationStep> {
+    val steps = mutableListOf<PreparationStep>()
+    if (faceDetected) {
+        steps += PreparationStep.EyeTracking
+    }
+    val profileLoaded = phase == StartupPhase.EvaluatingCompatibility ||
+        phase == StartupPhase.QuickCalibration ||
+        phase == StartupPhase.CalibrationFailure ||
+        phase == StartupPhase.EyeTrackingReady ||
+        phase == StartupPhase.Complete ||
+        phase == StartupPhase.CreatePrimaryUser ||
+        phase == StartupPhase.ProfileSelection
+    if (profileLoaded) {
+        steps += PreparationStep.LoadingProfile
+    }
+    val communicationPrepared = phase == StartupPhase.QuickCalibration ||
+        phase == StartupPhase.CalibrationFailure ||
+        phase == StartupPhase.EyeTrackingReady ||
+        phase == StartupPhase.Complete
+    if (communicationPrepared) {
+        steps += PreparationStep.PreparingCommunication
+    }
+    if (phase == StartupPhase.EyeTrackingReady || phase == StartupPhase.Complete) {
+        steps += PreparationStep.CalibrationReady
+    }
+    return steps
+}
+
+@Composable
+private fun PreparationProgressList(
+    steps: List<PreparationStep>,
+    uiStrings: LisaUiStrings
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        steps.forEach { step ->
+            key(step) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(animationSpec = tween(280)),
+                    exit = fadeOut(animationSpec = tween(160))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "✓",
+                            color = LisaStatusGreen,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = preparationStepLabel(step, uiStrings),
+                            color = LisaBlueDark.copy(alpha = 0.9f),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun preparationStepLabel(step: PreparationStep, uiStrings: LisaUiStrings): String = when (step) {
+    PreparationStep.EyeTracking ->
+        uiStrings.t("Eye Tracking", "Oognasporing", "Ukulandelela Amehlo")
+    PreparationStep.LoadingProfile ->
+        uiStrings.t("Loading Profile", "Laai Profiel", "Ilayisha Iphrofayela")
+    PreparationStep.PreparingCommunication ->
+        uiStrings.t("Preparing Communication", "Berei Kommunikasie voor", "Silungiselela Ukuxhumana")
+    PreparationStep.CalibrationReady ->
+        uiStrings.t("Calibration Ready", "Kalibrering Gereed", "Ukulungiswa Sekulungile")
+}
+
+/**
+ * Lightweight idle pulse while searching for a face. Stops immediately when [lookingForFace] ends
+ * because this composable is removed from composition.
+ */
+@Composable
+private fun FaceSearchIdleAnimation() {
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(520L)
+            frame = (frame + 1) % 6
+        }
+    }
+    val label = when (frame) {
+        0 -> "○"
+        1 -> "↓"
+        2 -> "○ ○"
+        3 -> "↓"
+        4 -> "○ ○ ○"
+        else -> "↓"
+    }
+    Text(
+        text = label,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Medium,
+        color = LisaBlueDark.copy(alpha = 0.55f),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -393,16 +558,25 @@ private fun ProfileChoiceCard(
     val dateLabel = choice.lastCalibratedAtMs?.let {
         DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it))
     } ?: "Not calibrated"
+    val shape = RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius))
+            .lisaFocusEmphasis(selected, LisaWorkspaceVisualStyle.CardCornerRadius)
             .background(
-                if (selected) LisaWorkspaceVisualStyle.CardSelectedBackground else LisaWhite
+                color = if (selected) LisaWorkspaceVisualStyle.CardSelectedBackground else LisaWhite,
+                shape = shape
             )
             .then(
-                if (selected) Modifier.border(2.dp, LisaBlue, RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius))
-                else Modifier
+                if (selected) {
+                    Modifier.border(
+                        LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
+                        LisaBlue,
+                        shape
+                    )
+                } else {
+                    Modifier
+                }
             )
             .clickable(onClick = onClick)
             .padding(14.dp)
@@ -556,6 +730,8 @@ private fun EyeTrackingReadyScreen(
     onDecreaseResponseTime: () -> Unit,
     onIncreaseResponseTime: () -> Unit
 ) {
+    // RC8.0 — no dedicated "Eye Tracking Ready" pause screen. Brief handoff only shows
+    // truthful completed prep steps while READY_HANDOFF_MS elapses (≤500ms).
     StartupScreenWithSharedBlinkCounter(
         uiStrings = uiStrings,
         eyeTrackingStatus = eyeTrackingStatus,
@@ -564,15 +740,24 @@ private fun EyeTrackingReadyScreen(
         onDecreaseResponseTime = onDecreaseResponseTime,
         onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        StartupCenteredMessage(
-            title = uiStrings.t("Eye Tracking Ready", "Oognasporing Gereed", "Ukulandelela Amehlo Sekulungile"),
-            body = uiStrings.t(
-                "You can control LISA with your eyes.",
-                "Jy kan LISA met jou oë beheer.",
-                "Ungalawula i-LISA ngamehlo akho."
-            ),
-            fillRemaining = true
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            PreparationProgressList(
+                steps = listOf(
+                    PreparationStep.EyeTracking,
+                    PreparationStep.LoadingProfile,
+                    PreparationStep.PreparingCommunication,
+                    PreparationStep.CalibrationReady
+                ),
+                uiStrings = uiStrings
+            )
+        }
     }
 }
 

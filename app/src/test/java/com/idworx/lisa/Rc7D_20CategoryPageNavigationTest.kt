@@ -410,7 +410,7 @@ class Rc7D_20CategoryPageNavigationTest {
     @Test // 35
     fun totalCategoryCountMatchesCanonicalDestinationCount() {
         assertEquals(GuidedVocabularyCategory.ordered.size, GuidedVocabularyCategory.PAGE_COUNT)
-        assertEquals(8, GuidedVocabularyCategory.PAGE_COUNT)
+        assertEquals(7, GuidedVocabularyCategory.PAGE_COUNT)
     }
 
     @Test // 36
@@ -437,7 +437,7 @@ class Rc7D_20CategoryPageNavigationTest {
     fun categoryShortcutsRemainUnchanged() {
         assertEquals(
             listOf(
-                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3, 3 to 3,
+                2 to 1, 1 to 2, 3 to 1, 1 to 3, 3 to 2, 2 to 3,
                 GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT to GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
             ),
             GuidedCategoryShortcuts.allGestures()

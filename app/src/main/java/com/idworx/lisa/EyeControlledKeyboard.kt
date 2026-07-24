@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -32,13 +33,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.ui.theme.LisaBlue
 import com.idworx.lisa.ui.theme.LisaBlueDark
-import com.idworx.lisa.ui.theme.LisaWhite
-import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.SharedKeyboardTheme
 
-private val KeyBackground = Color.White.copy(alpha = 0.94f)
-private val KeyHighlightFill = LisaBlue.copy(alpha = 0.58f)
-private val KeyHighlightBorder = LisaBlueDark
-private val KeyboardTrayBackground = Color(0xFF1A2332).copy(alpha = 0.92f)
+private val KeyBackground = SharedKeyboardTheme.KeyBackground
+private val KeyHighlightFill = SharedKeyboardTheme.KeyHighlightFill
+private val KeyHighlightBorder = SharedKeyboardTheme.KeyHighlightBorder
+private val KeyboardTrayBackground = SharedKeyboardTheme.KeyboardTrayBackground
 
 /**
  * Bottom-anchored keyboard tray for RC7D.4 — familiar mobile keyboard placement.
@@ -57,9 +57,17 @@ fun BottomAlignedEyeKeyboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+            .clip(
+                RoundedCornerShape(
+                    topStart = SharedKeyboardTheme.KeyboardTrayTopCornerRadius,
+                    topEnd = SharedKeyboardTheme.KeyboardTrayTopCornerRadius
+                )
+            )
             .background(KeyboardTrayBackground)
-            .padding(horizontal = 6.dp, vertical = 8.dp)
+            .padding(
+                horizontal = SharedKeyboardTheme.KeyboardTrayHorizontalPadding,
+                vertical = SharedKeyboardTheme.KeyboardTrayVerticalPadding
+            )
     ) {
         EyeControlledKeyboardGrid(
             uiStrings = uiStrings,
@@ -359,7 +367,7 @@ private fun KeyboardKey(
     modifier: Modifier = Modifier,
     enforceMinWidth: Boolean = true
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(SharedKeyboardTheme.KeyCornerRadius)
     val interactionSource = remember { MutableInteractionSource() }
     val contentDescription = keyboardKeyContentDescription(label, isSpace)
     val fill = when {
@@ -391,7 +399,11 @@ private fun KeyboardKey(
             .then(
                 if (highlighted || shiftActive) {
                     Modifier.border(
-                        width = if (highlighted) 2.5.dp else 1.5.dp,
+                        width = if (highlighted) {
+                            SharedKeyboardTheme.KeyHighlightBorderWidth
+                        } else {
+                            1.5.dp
+                        },
                         color = KeyHighlightBorder,
                         shape = shape
                     )
@@ -498,23 +510,16 @@ fun ComposerEyeStatusBar(
     onResponseTimeIncrease: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Column(
+    val watching = eyeFeedback.eyeTrackingBanner.faceDetected &&
+        eyeFeedback.eyeTrackingBanner.eyesDetected &&
+        !eyeFeedback.eyeTrackingBanner.calibrationActive &&
+        !eyeFeedback.eyeTrackingBanner.trackingLost
+    // RC8.2 — neutral KeyboardWorkspace status chrome (small green indicator only).
+    KeyboardWorkspaceStatus(
+        statusText = eyeFeedback.bannerMessage(uiStrings),
+        trackingReady = watching,
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.Black.copy(alpha = 0.38f))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(
-            text = eyeFeedback.bannerMessage(uiStrings),
-            color = LisaWhite,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            maxLines = 2,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -527,7 +532,7 @@ fun ComposerEyeStatusBar(
             )
             Text(
                 text = uiStrings.composerSensitivityLine(eyeFeedback.sensitivityLevel),
-                color = LisaWhite.copy(alpha = 0.82f),
+                color = SharedKeyboardTheme.StatusSecondaryLabelColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -552,7 +557,7 @@ fun ComposerEyeStatusBar(
             )
             Text(
                 text = uiStrings.composerResponseTimeLine(eyeFeedback.responseTimeSec),
-                color = LisaWhite.copy(alpha = 0.82f),
+                color = SharedKeyboardTheme.StatusSecondaryLabelColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -574,7 +579,7 @@ fun ComposerEyeStatusBar(
         eyeFeedback.partialSequenceLabel()?.let { sequence ->
             Text(
                 text = "${uiStrings.phraseComposerPartialSequenceLabel}: $sequence",
-                color = LisaWhite.copy(alpha = 0.92f),
+                color = SharedKeyboardTheme.StatusSecondaryLabelColor,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth(),
@@ -590,18 +595,20 @@ private fun ComposerStatusControlButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = SharedKeyboardTheme
+    val shape = RoundedCornerShape(theme.ActionCornerRadius)
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(shape)
             .clickable(role = Role.Button, onClick = onClick)
-            .background(LisaWorkspaceVisualStyle.NavActionEnabledBackground)
-            .border(1.dp, LisaWorkspaceVisualStyle.NavActionEnabledBorder, RoundedCornerShape(8.dp))
+            .background(theme.ActionBackground)
+            .border(theme.ActionBorderWidth, theme.ActionBorder, shape)
             .padding(horizontal = 6.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = LisaBlueDark,
+            color = theme.ActionContent,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,

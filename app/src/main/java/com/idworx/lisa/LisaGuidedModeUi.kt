@@ -26,9 +26,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -49,11 +54,13 @@ import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaSoftGray
+import com.idworx.lisa.ui.theme.LisaStatusGreen
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.lisaFocusEmphasis
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceHighlightTarget
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
-
+import kotlinx.coroutines.delay
 private val OverlayScrim = Color.Black.copy(alpha = 0.48f)
 private val PanelBackground = LisaWorkspaceVisualStyle.OverlayPanelBackground
 private val EntryBackground = LisaWorkspaceVisualStyle.CardBackground
@@ -134,7 +141,7 @@ fun GuidedVocabularyOverlay(
     val categoryViewportPage = safeState.categoryViewportPage
     val categoryViewportPageCount = safeState.categoryViewportPageCount
     val preferencesAdjustMode = safeState.preferencesAdjustMode
-    val isPreferencesPage = categoryIndex == GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+    val isPreferencesPage = false // RC8.5 — Preferences removed from Communication
     val isAdjusting = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
     val pageEntries = categoryPage?.entries.orEmpty()
     val phrasePageCount = GuidedNavigationController.phrasePageCount(pageEntries.size, visibleEntryCap)
@@ -676,12 +683,27 @@ private fun GuidedCategoryMenuRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val shape = RoundedCornerShape(12.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .lisaFocusEmphasis(selected, 12.dp)
+            .background(
+                color = if (selected) CategoryMenuHighlight else EntryBackground,
+                shape = shape
+            )
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
+                        LisaBlue,
+                        shape
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
-            .background(if (selected) CategoryMenuHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
             .guidedTrainingDim(trainingDimmed)
             .padding(horizontal = 12.dp, vertical = 12.dp),
@@ -717,12 +739,38 @@ private fun GuidedVocabularyEntryRow(
     trainingDimmed: Boolean = false,
     onClick: () -> Unit
 ) {
+    // RC8.0 — brief ✓ confirmation on the spoken phrase (~1s fade), never blocks interaction.
+    var speechConfirmVisible by remember(highlighted, entry.phrase) { mutableStateOf(false) }
+    LaunchedEffect(highlighted, entry.phrase) {
+        if (highlighted) {
+            speechConfirmVisible = true
+            delay(1000L)
+            speechConfirmVisible = false
+        } else {
+            speechConfirmVisible = false
+        }
+    }
+    val shape = RoundedCornerShape(12.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .lisaFocusEmphasis(highlighted, 12.dp)
+            .background(
+                color = if (highlighted) EntryHighlight else EntryBackground,
+                shape = shape
+            )
+            .then(
+                if (highlighted) {
+                    Modifier.border(
+                        LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
+                        LisaBlue,
+                        shape
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .clickable(role = Role.Button, enabled = !trainingDimmed, onClick = onClick)
-            .background(if (highlighted) EntryHighlight else EntryBackground)
             .guidedTrainingHighlight(trainingHighlighted)
             .guidedTrainingDim(trainingDimmed)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -760,6 +808,20 @@ private fun GuidedVocabularyEntryRow(
                     fontSize = 12.sp,
                     color = LisaGray,
                     lineHeight = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            AnimatedVisibility(
+                visible = speechConfirmVisible,
+                enter = fadeIn(tween(160)),
+                exit = fadeOut(tween(200))
+            ) {
+                Text(
+                    text = "✓ ${entry.phrase}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaStatusGreen,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1098,6 +1160,7 @@ private fun SettingsHubCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val shape = RoundedCornerShape(14.dp)
     // Shape via background/border only — never a clipping modifier with a height smaller than
     // content. Row wraps to intrinsic height so title + value + padding always fit.
     Row(
@@ -1105,14 +1168,15 @@ private fun SettingsHubCard(
             .fillMaxWidth()
             .heightIn(min = 88.dp)
             .wrapContentHeight()
+            .lisaFocusEmphasis(selected, 14.dp)
             .background(
                 color = if (selected) CategoryMenuHighlight else EntryBackground,
-                shape = RoundedCornerShape(14.dp)
+                shape = shape
             )
             .border(
-                width = if (selected) 2.dp else 0.dp,
+                width = if (selected) LisaWorkspaceVisualStyle.CardSelectedBorderWidth else 0.dp,
                 color = if (selected) LisaBlue else Color.Transparent,
-                shape = RoundedCornerShape(14.dp)
+                shape = shape
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

@@ -93,14 +93,23 @@ class NavigationReachabilityAuthorityV1Test {
     }
 
     @Test
-    fun vocabularyRecoveryViaCategoriesWhenBackInert() {
+    fun vocabularyRecoveryViaBackReturnsToCategorySelection() {
         val vocabulary = NavigationReachabilityAuthorityV1.buildGuidedStates().first()
         val back = NavigationReachabilityAuthorityV1.processGesture(2, 2, vocabulary.state, uiStrings, catalogContext)
         val categories = NavigationReachabilityAuthorityV1.processGesture(
             GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, vocabulary.state, uiStrings, catalogContext
         )
-        assertEquals(GuidedSequenceResult.Unmatched, back)
+        // RC8.1 — Back from an opened category returns to Category Selection (same as Categories).
+        assertTrue(back is GuidedSequenceResult.Navigate)
+        assertEquals(
+            GuidedOverlayScreenMode.CategoryMenu,
+            (back as GuidedSequenceResult.Navigate).newState.screenMode
+        )
         assertTrue(categories is GuidedSequenceResult.Navigate)
+        assertEquals(
+            GuidedOverlayScreenMode.CategoryMenu,
+            (categories as GuidedSequenceResult.Navigate).newState.screenMode
+        )
         assertTrue(
             NavigationReachabilityAuthorityV1.BackCancelReachabilityAudit
                 .hasBackOrCancelRecovery(vocabulary, uiStrings, catalogContext)

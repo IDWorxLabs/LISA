@@ -300,6 +300,11 @@ enum class GuidedVocabularyCategory {
      * Controls were migrated into Settings & Controls; excluded from [ordered].
      */
     BasicSystemControls,
+    /**
+     * RC8.5 — removed from the Communication category menu.
+     * Sensitivity / Response Time live only under Settings & Controls.
+     * Retained for migration and validation compatibility.
+     */
     Preferences,
     Custom,
     /** Management destination — not a communication phrase category. */
@@ -312,16 +317,40 @@ enum class GuidedVocabularyCategory {
 
     companion object {
         /**
-         * Visible category-menu destinations. Basic System Controls is omitted after migration
-         * into Settings & Controls — paging and shortcuts derive from this list only.
+         * Visible category-menu destinations. Basic System Controls and Preferences are omitted —
+         * Settings & Controls is the single Communication-facing settings destination (RC8.5).
          */
-        val ordered: List<GuidedVocabularyCategory> = entries.filter { it != BasicSystemControls }
-        const val PAGE_COUNT: Int = 8
+        val ordered: List<GuidedVocabularyCategory> = entries.filter {
+            it != BasicSystemControls && it != Preferences
+        }
+        const val PAGE_COUNT: Int = 7
         const val STANDARD_ENTRIES_PER_PAGE: Int = 10
-        const val PREFERENCES_CATEGORY_INDEX: Int = 4
-        const val CUSTOM_CATEGORY_INDEX: Int = 5
-        const val PHRASE_MANAGEMENT_INDEX: Int = 6
-        const val ADJUST_SETTINGS_INDEX: Int = 7
+        /** Legacy pre-RC8.5 index of Preferences (no longer present in [ordered]). */
+        const val LEGACY_PREFERENCES_CATEGORY_INDEX: Int = 4
+        @Deprecated(
+            "RC8.5 — Preferences removed from Communication; use Settings & Controls",
+            ReplaceWith("GuidedVocabularyCategory.ADJUST_SETTINGS_INDEX")
+        )
+        const val PREFERENCES_CATEGORY_INDEX: Int = LEGACY_PREFERENCES_CATEGORY_INDEX
+        const val CUSTOM_CATEGORY_INDEX: Int = 4
+        const val PHRASE_MANAGEMENT_INDEX: Int = 5
+        const val ADJUST_SETTINGS_INDEX: Int = 6
+
+        /**
+         * Remaps a pre-RC8.5 category index (Preferences at 4) into the current [ordered] list.
+         * Preferences lands on Category Selection (caller should force CategoryMenu).
+         */
+        fun migrateCategoryIndexFromPreRc85(index: Int): Int = when (index) {
+            in 0..3 -> index
+            LEGACY_PREFERENCES_CATEGORY_INDEX -> 0
+            5 -> CUSTOM_CATEGORY_INDEX
+            6 -> PHRASE_MANAGEMENT_INDEX
+            7 -> ADJUST_SETTINGS_INDEX
+            else -> index.coerceIn(0, PAGE_COUNT - 1)
+        }
+
+        fun wasLegacyPreferencesIndex(index: Int): Boolean =
+            index == LEGACY_PREFERENCES_CATEGORY_INDEX
     }
 }
 
@@ -338,19 +367,21 @@ sealed class CategoryAreaDestination {
 
     companion object {
         fun forCategoryIndex(index: Int): CategoryAreaDestination =
-            when (GuidedVocabularyCategory.ordered.getOrNull(index)) {
+            when (val category = GuidedVocabularyCategory.ordered.getOrNull(index)) {
                 GuidedVocabularyCategory.PhraseManagement -> PhraseManagement
                 GuidedVocabularyCategory.AdjustSettings -> AdjustSettings
                 GuidedVocabularyCategory.Custom -> CreateCustomPhrase
+                GuidedVocabularyCategory.Preferences -> AdjustSettings
                 null -> CommunicationCategory(GuidedVocabularyCategory.Conversation)
-                else -> CommunicationCategory(GuidedVocabularyCategory.ordered[index])
+                else -> CommunicationCategory(category)
             }
 
         fun isAssignableCommunicationCategory(category: GuidedVocabularyCategory): Boolean =
             category.toCaregiverCategory() != null &&
                 category != GuidedVocabularyCategory.Custom &&
                 category != GuidedVocabularyCategory.PhraseManagement &&
-                category != GuidedVocabularyCategory.AdjustSettings
+                category != GuidedVocabularyCategory.AdjustSettings &&
+                category != GuidedVocabularyCategory.Preferences
 
         fun isManagementDestination(category: GuidedVocabularyCategory): Boolean =
             category == GuidedVocabularyCategory.PhraseManagement ||
@@ -396,7 +427,8 @@ enum class CategoryNavigationCause {
 }
 
 data class GuidedNavigationState(
-    val screenMode: GuidedOverlayScreenMode = GuidedOverlayScreenMode.Vocabulary,
+    /** RC8.1 — Communication workspace lands on Category Selection, not an opened category. */
+    val screenMode: GuidedOverlayScreenMode = GuidedOverlayScreenMode.CategoryMenu,
     val categoryIndex: Int = 0,
     val categoryMenuSelection: Int = 0,
     val phrasePageIndex: Int = 0,
@@ -422,26 +454,40 @@ data class GuidedNavigationState(
     val categoryViewportPageCount: Int = 1,
     val categoryNavigationCause: CategoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
 ) {
-    fun normalized(): GuidedNavigationState = copy(
-        categoryIndex = categoryIndex.coerceIn(0, GuidedVocabularyCategory.PAGE_COUNT - 1),
-        categoryMenuSelection = categoryMenuSelection.coerceIn(0, GuidedVocabularyCategory.PAGE_COUNT - 1),
-        phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
-        draftResponseTimeSec = SequenceProcessingDelay.coerce(draftResponseTimeSec),
-        draftSensitivityLevel = draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
-        draftSpeechVolumeLevel = SpeechVolumeAuthority.coerce(draftSpeechVolumeLevel),
-        draftSpeechSpeedLevel = SpeechSpeedAuthority.coerce(draftSpeechSpeedLevel),
-        adjustmentOriginalSensitivity = adjustmentOriginalSensitivity.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
-        adjustmentOriginalResponseTimeSec = SequenceProcessingDelay.coerce(adjustmentOriginalResponseTimeSec),
-        adjustmentOriginalSpeechVolumeLevel = SpeechVolumeAuthority.coerce(adjustmentOriginalSpeechVolumeLevel),
-        adjustmentOriginalSpeechSpeedLevel = SpeechSpeedAuthority.coerce(adjustmentOriginalSpeechSpeedLevel),
-        adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0),
-        settingsHubSelection = settingsHubSelection.coerceIn(
-            0,
-            (SettingsAndControlsHubSequences.HUB_SETTING_KINDS.size - 1).coerceAtLeast(0)
-        ),
-        categoryViewportPageCount = categoryViewportPageCount.coerceAtLeast(1),
-        categoryViewportPage = categoryViewportPage.coerceIn(0, (categoryViewportPageCount.coerceAtLeast(1) - 1))
-    )
+    fun normalized(): GuidedNavigationState {
+        val maxIndex = GuidedVocabularyCategory.PAGE_COUNT - 1
+        // RC8.5 — remap only out-of-range pre-RC8.5 indices (e.g. old Adjust Settings at 7).
+        val remappedIndex = if (categoryIndex > maxIndex) {
+            GuidedVocabularyCategory.migrateCategoryIndexFromPreRc85(categoryIndex)
+        } else {
+            categoryIndex.coerceIn(0, maxIndex)
+        }
+        val remappedMenuSelection = if (categoryMenuSelection > maxIndex) {
+            GuidedVocabularyCategory.migrateCategoryIndexFromPreRc85(categoryMenuSelection)
+        } else {
+            categoryMenuSelection.coerceIn(0, maxIndex)
+        }
+        return copy(
+            categoryIndex = remappedIndex,
+            categoryMenuSelection = remappedMenuSelection,
+            phrasePageIndex = phrasePageIndex.coerceAtLeast(0),
+            draftResponseTimeSec = SequenceProcessingDelay.coerce(draftResponseTimeSec),
+            draftSensitivityLevel = draftSensitivityLevel.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+            draftSpeechVolumeLevel = SpeechVolumeAuthority.coerce(draftSpeechVolumeLevel),
+            draftSpeechSpeedLevel = SpeechSpeedAuthority.coerce(draftSpeechSpeedLevel),
+            adjustmentOriginalSensitivity = adjustmentOriginalSensitivity.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL),
+            adjustmentOriginalResponseTimeSec = SequenceProcessingDelay.coerce(adjustmentOriginalResponseTimeSec),
+            adjustmentOriginalSpeechVolumeLevel = SpeechVolumeAuthority.coerce(adjustmentOriginalSpeechVolumeLevel),
+            adjustmentOriginalSpeechSpeedLevel = SpeechSpeedAuthority.coerce(adjustmentOriginalSpeechSpeedLevel),
+            adjustmentScrollStep = adjustmentScrollStep.coerceAtLeast(0),
+            settingsHubSelection = settingsHubSelection.coerceIn(
+                0,
+                (SettingsAndControlsHubSequences.HUB_SETTING_KINDS.size - 1).coerceAtLeast(0)
+            ),
+            categoryViewportPageCount = categoryViewportPageCount.coerceAtLeast(1),
+            categoryViewportPage = categoryViewportPage.coerceIn(0, (categoryViewportPageCount.coerceAtLeast(1) - 1))
+        )
+    }
 
     val isPreferencesAdjustmentActive: Boolean
         get() = preferencesAdjustMode != GuidedPreferencesAdjustMode.None
@@ -720,6 +766,24 @@ object PreferenceAdjustmentBarSpec {
 }
 
 object PreferenceAdjustmentController {
+
+    /**
+     * RC8.5 — collapses a restored/stale Preferences destination into Category Selection
+     * (or Settings & Controls when [preferSettings] is true).
+     */
+    fun recoverFromRemovedPreferences(
+        state: GuidedNavigationState,
+        preferSettings: Boolean = false
+    ): GuidedNavigationState {
+        val normalized = state.normalized()
+        return if (preferSettings) {
+            openSettingsMenu(normalized)
+        } else {
+            GuidedNavigationController.openCategoryMenu(
+                normalized.copy(categoryIndex = 0, categoryMenuSelection = 0)
+            )
+        }
+    }
 
     /**
      * Open the Settings & Controls hub. Does not touch stored values. The underlying screen
@@ -1110,6 +1174,20 @@ object GuidedNavigationController {
             // real viewport, syncs the page count, and reveals the restored selection.
             categoryViewportPage = 0,
             categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
+        )
+
+    /**
+     * RC8.1 — canonical top-level Communication landing: Category Selection with focus on a
+     * category row, without opening that category's phrase page.
+     */
+    fun communicationWorkspaceRoot(
+        state: GuidedNavigationState = GuidedNavigationState()
+    ): GuidedNavigationState =
+        openCategoryMenu(
+            state.copy(
+                preferencesAdjustMode = GuidedPreferencesAdjustMode.None,
+                phrasePageIndex = 0
+            )
         )
 
     fun closeCategoryMenu(state: GuidedNavigationState): GuidedNavigationState =
@@ -1538,7 +1616,8 @@ object GuidedNavigationController {
         GuidedModeNavigation.isCategoriesSequence(left, right) ->
             GuidedSequenceResult.Navigate(openCategoryMenu(state))
         GuidedModeNavigation.isBackSequence(left, right) ->
-            GuidedSequenceResult.Unmatched
+            // RC8.1 — Back from an opened category returns to Category Selection.
+            GuidedSequenceResult.Navigate(openCategoryMenu(state))
         else -> {
             val match = GuidedVocabularyCatalog.findMatchOnVisiblePage(
                 left = left,
@@ -1653,16 +1732,7 @@ object GuidedVocabularyCatalog {
                 CatalogEntrySpec.Phrase("i_want_to_talk")
             )
         ),
-        // Basic System Controls migrated into Settings & Controls — no longer a phrase category.
-        CatalogSpec(
-            category = GuidedVocabularyCategory.Preferences,
-            entries = listOf(
-                CatalogEntrySpec.Preference("current_response_time", GuidedOverlayAction.ShowCurrentResponseTime),
-                CatalogEntrySpec.Preference("adjust_response_time", GuidedOverlayAction.OpenAdjustResponseTime),
-                CatalogEntrySpec.Preference("current_sensitivity", GuidedOverlayAction.ShowCurrentSensitivity),
-                CatalogEntrySpec.Preference("adjust_sensitivity", GuidedOverlayAction.OpenAdjustSensitivity)
-            )
-        ),
+        // Basic System Controls + Preferences migrated into Settings & Controls — no longer phrase categories.
         // Custom page: composer launcher only — no stored phrases (RC7D.1).
         CatalogSpec(
             category = GuidedVocabularyCategory.Custom,
@@ -1937,7 +2007,8 @@ object GuidedNavigationGestureAudit {
             }
 
     fun preferencesPageBindings(): List<GestureBinding> =
-        vocabularyModeBindings(GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX)
+        // RC8.5 — Preferences page removed; Settings hub uses shared adjustment bindings.
+        responseTimeAdjustmentBindings()
 
     fun responseTimeAdjustmentBindings(): List<GestureBinding> =
         globalPanelBindings() + adjustmentOnlyBindings()
@@ -2103,69 +2174,42 @@ object GuidedVocabularyCatalogValidation {
     }
 
     fun preferencesAppearsAfterFamily(): Boolean {
+        // RC8.5 — Preferences removed; Settings & Controls remains after Family in the menu.
         val titles = GuidedVocabularyCatalog.categoryMenuTitles(
             LisaUiStrings.forLanguage(PreferredLanguage.English)
         )
-        return titles.indexOf("Family") < titles.indexOf("Preferences") &&
-            "Basic System Controls" !in titles
+        return "Preferences" !in titles &&
+            "Basic System Controls" !in titles &&
+            titles.indexOf("Family") >= 0 &&
+            titles.indexOf("Settings & Controls") > titles.indexOf("Family")
     }
 
     @Deprecated("Basic System Controls removed from category menu; use preferencesAppearsAfterFamily()")
     fun preferencesAppearsAfterBasicSystemControls(): Boolean = preferencesAppearsAfterFamily()
 
     fun preferencesEntriesOnlyOnPreferencesPage(): Boolean {
-        val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
-        val preferencesEntries = allPages[preferencesIndex].entries
-        val otherEntries = allPages.filterIndexed { index, _ -> index != preferencesIndex }
-            .flatMap { it.entries }
-        return preferencesEntries.none { pref ->
-            otherEntries.any { it.left == pref.left && it.right == pref.right }
-        }
+        // RC8.5 — Preferences page removed; no Preferences phrase entries remain in the catalog.
+        return allPages.none { it.category == GuidedVocabularyCategory.Preferences } &&
+            allPages.flatMap { it.entries }.none {
+                it.phrase.contains("Adjust response time", ignoreCase = true) ||
+                    it.phrase.contains("Adjust sensitivity", ignoreCase = true)
+            }
     }
 
     fun preferencesMatchWorksOnlyWhenOpen(): Boolean {
-        val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
-        val context = GuidedCatalogContext(responseTimeSec = SequenceProcessingDelay.DEFAULT_SECONDS, sensitivityLevel = 5)
-        val uiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
-        val pages = GuidedVocabularyCatalog.buildPages(
-            PreferredLanguage.English,
-            uiStrings,
-            context
-        )
-        val adjustEntry = pages[preferencesIndex].entries.first { it.phrase.contains("Adjust response time") }
-        val onPreferences = GuidedVocabularyCatalog.findMatchOnCurrentPage(
-            adjustEntry.left,
-            adjustEntry.right,
-            preferencesIndex,
-            PreferredLanguage.English,
-            uiStrings,
-            context
-        )
-        val onConversation = GuidedVocabularyCatalog.findMatchOnCurrentPage(
-            adjustEntry.left,
-            adjustEntry.right,
-            0,
-            PreferredLanguage.English,
-            uiStrings,
-            context
-        )
-        return onPreferences != null && onConversation == null
+        // RC8.5 — Preferences page removed; Settings hub is the authoritative adjust entry.
+        return GuidedVocabularyCategory.Preferences !in GuidedVocabularyCategory.ordered &&
+            GuidedVocabularyCategory.AdjustSettings in GuidedVocabularyCategory.ordered
     }
 
-    fun preferencesShowsCompactControlsOnly(): Boolean {
-        val page = allPages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX]
-        return page.entries.size == 4 &&
-            page.entries.none { it.phrase.startsWith("Set response time to") } &&
-            page.entries.none { it.phrase.startsWith("Set sensitivity to") }
-    }
+    fun preferencesShowsCompactControlsOnly(): Boolean =
+        GuidedVocabularyCategory.Preferences !in GuidedVocabularyCategory.ordered
 
     fun preferencesHasAdjustResponseTime(): Boolean =
-        allPages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-            .any { it.phrase.contains("Adjust response time", ignoreCase = true) }
+        GuidedVocabularyCategory.Preferences !in GuidedVocabularyCategory.ordered
 
     fun preferencesHasAdjustSensitivity(): Boolean =
-        allPages[GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX].entries
-            .any { it.phrase.contains("Adjust sensitivity", ignoreCase = true) }
+        GuidedVocabularyCategory.Preferences !in GuidedVocabularyCategory.ordered
 
     fun categoryShortcutsDoNotConflictWithGlobalNavigation(): Boolean =
         GuidedCategoryShortcuts.doNotConflictWithGlobalNavigation()
@@ -2178,7 +2222,6 @@ object GuidedVocabularyCatalogValidation {
             "L1 R3",
             "L3 R2",
             "L2 R3",
-            "L3 R3",
             // Settings & Controls uses the canonical entry sequence, not the next page slot.
             formatWinkSequenceShort(
                 GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,

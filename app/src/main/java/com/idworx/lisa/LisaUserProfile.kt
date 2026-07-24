@@ -21,8 +21,22 @@ enum class PreferredLanguage(val label: String) {
     Afrikaans("Afrikaans"),
     IsiZulu("isiZulu");
 
+    /** Version 1: only English may become the active preferred language. */
+    val isSelectableInVersion1: Boolean
+        get() = LisaLanguageAvailabilityAuthority.isSelectableInVersion1(this)
+
     companion object {
-        val selectable: List<PreferredLanguage> = entries.toList()
+        /**
+         * Languages shown in Communication Profile (includes Version 2 placeholders).
+         * Prefer [LisaLanguageAvailabilityAuthority.displayedLanguages] at call sites that care about V1/V2.
+         */
+        val displayed: List<PreferredLanguage> = entries.toList()
+
+        /**
+         * Languages that may be selected as the active preferred language in Version 1.
+         * Afrikaans and isiZulu remain in [displayed] but are not selectable until Version 2.
+         */
+        val selectable: List<PreferredLanguage> = listOf(English)
 
         fun fromStored(value: String): PreferredLanguage = when {
             value.equals("English", ignoreCase = true) -> English
@@ -280,7 +294,9 @@ fun profileDefaultsForLevel(
 
 data class LisaProfileState(
     val profiles: List<LisaUserProfile>,
-    val activeProfileId: String
+    val activeProfileId: String,
+    /** True when a legacy Afrikaans/isiZulu preferred language was reset to English for Version 1. */
+    val preferredLanguageResetToEnglish: Boolean = false
 ) {
     val activeProfile: LisaUserProfile?
         get() = profiles.find { it.id == activeProfileId } ?: profiles.firstOrNull()
@@ -318,7 +334,17 @@ class LisaProfileStore(private val context: android.content.Context) {
 
     fun load(legacySensitivity: Int, legacyDeveloperMode: Boolean): LisaProfileState {
         val (profiles, active) = ensureDefaultProfile(legacySensitivity, legacyDeveloperMode)
-        return LisaProfileState(profiles, active.id)
+        val (recovered, didResetLanguage) =
+            LisaLanguageAvailabilityAuthority.recoverProfilesForVersion1(profiles)
+        val recoveredActive = recovered.find { it.id == active.id } ?: recovered.first()
+        if (didResetLanguage) {
+            saveProfiles(recovered, recoveredActive.id)
+        }
+        return LisaProfileState(
+            profiles = recovered,
+            activeProfileId = recoveredActive.id,
+            preferredLanguageResetToEnglish = didResetLanguage
+        )
     }
 
     fun ensureDefaultProfile(

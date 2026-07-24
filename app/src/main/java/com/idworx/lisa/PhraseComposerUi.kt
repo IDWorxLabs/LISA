@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,12 +30,11 @@ import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaSoftGray
 import com.idworx.lisa.ui.theme.LisaWhite
+import com.idworx.lisa.ui.theme.SharedKeyboardTheme
 
-private val ComposerOverlayScrim = Color.Black.copy(alpha = 0.48f)
-private val ComposerPanelBackground = Color(0xFF0D1B2A).copy(alpha = 0.72f)
-private val ComposerEntryBackground = Color.White.copy(alpha = 0.94f)
+private val ComposerEntryBackground = SharedKeyboardTheme.InputCardBackground
 private val ComposerEntryHighlight = LisaBlue.copy(alpha = 0.22f)
-private val ComposerPhraseFieldBackground = Color.White.copy(alpha = 0.94f)
+private val ComposerEntryPartialHighlight = LisaBlue.copy(alpha = 0.12f)
 
 @Composable
 fun EyeControlledPhraseComposerOverlay(
@@ -60,50 +58,38 @@ fun EyeControlledPhraseComposerOverlay(
     val entries = PhraseComposerController.visibleEntries(state, uiStrings)
     val commandEntries = PhraseComposerController.commandPanelEntries(state, uiStrings)
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(ComposerOverlayScrim)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(14.dp))
-                .background(ComposerPanelBackground)
-                .padding(10.dp)
-        ) {
-            when (state.mode) {
-                PhraseComposerMode.Keyboard -> KeyboardComposerLayout(
-                    uiStrings = uiStrings,
-                    state = state,
-                    composerEyeFeedback = composerEyeFeedback,
-                    commandEntries = commandEntries,
-                    inputSuspended = inputSuspended,
-                    onSensitivityDecrease = onSensitivityDecrease,
-                    onSensitivityIncrease = onSensitivityIncrease,
-                    onResponseTimeDecrease = onResponseTimeDecrease,
-                    onResponseTimeIncrease = onResponseTimeIncrease,
-                    onEmergency = onEmergency,
-                    onCommandSelected = onCommandSelected,
-                    onKeyTouched = onKeyTouched
-                )
-                else -> NonKeyboardComposerLayout(
-                    uiStrings = uiStrings,
-                    state = state,
-                    entries = entries,
-                    commandEntries = commandEntries,
-                    composerEyeFeedback = composerEyeFeedback,
-                    inputSuspended = inputSuspended,
-                    onSensitivityDecrease = onSensitivityDecrease,
-                    onSensitivityIncrease = onSensitivityIncrease,
-                    onResponseTimeDecrease = onResponseTimeDecrease,
-                    onResponseTimeIncrease = onResponseTimeIncrease,
-                    onEmergency = onEmergency,
-                    onEntrySelected = onEntrySelected,
-                    onCommandSelected = onCommandSelected
-                )
-            }
+    // RC8.2 — same KeyboardWorkspace surface language as Feedback.
+    KeyboardWorkspaceSurface(modifier = modifier, scrimmed = true) {
+        when (state.mode) {
+            PhraseComposerMode.Keyboard -> KeyboardComposerLayout(
+                uiStrings = uiStrings,
+                state = state,
+                composerEyeFeedback = composerEyeFeedback,
+                commandEntries = commandEntries,
+                inputSuspended = inputSuspended,
+                onSensitivityDecrease = onSensitivityDecrease,
+                onSensitivityIncrease = onSensitivityIncrease,
+                onResponseTimeDecrease = onResponseTimeDecrease,
+                onResponseTimeIncrease = onResponseTimeIncrease,
+                onEmergency = onEmergency,
+                onCommandSelected = onCommandSelected,
+                onKeyTouched = onKeyTouched
+            )
+            else -> NonKeyboardComposerLayout(
+                uiStrings = uiStrings,
+                state = state,
+                entries = entries,
+                commandEntries = commandEntries,
+                composerEyeFeedback = composerEyeFeedback,
+                inputSuspended = inputSuspended,
+                onSensitivityDecrease = onSensitivityDecrease,
+                onSensitivityIncrease = onSensitivityIncrease,
+                onResponseTimeDecrease = onResponseTimeDecrease,
+                onResponseTimeIncrease = onResponseTimeIncrease,
+                onEmergency = onEmergency,
+                onEntrySelected = onEntrySelected,
+                onCommandSelected = onCommandSelected
+            )
         }
     }
 }
@@ -133,7 +119,7 @@ private fun KeyboardComposerLayout(
             onResponseTimeIncrease = onResponseTimeIncrease
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(SharedKeyboardTheme.TightSpacing))
 
         ComposerPhraseField(
             uiStrings = uiStrings,
@@ -141,11 +127,11 @@ private fun KeyboardComposerLayout(
         )
 
         state.errorMessage?.let { message ->
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(SharedKeyboardTheme.TightSpacing))
             ComposerErrorBanner(message = message)
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(SharedKeyboardTheme.SectionSpacing))
 
         ComposerCommandGrid(
             uiStrings = uiStrings,
@@ -156,7 +142,7 @@ private fun KeyboardComposerLayout(
             modifier = Modifier.weight(1f)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(SharedKeyboardTheme.SectionSpacing))
 
         BottomAlignedEyeKeyboard(
             uiStrings = uiStrings,
@@ -169,8 +155,6 @@ private fun KeyboardComposerLayout(
         )
     }
 }
-
-private val ComposerEntryPartialHighlight = LisaBlue.copy(alpha = 0.12f)
 
 @Composable
 private fun NonKeyboardComposerLayout(
@@ -405,29 +389,11 @@ private fun ComposerPhraseField(
     uiStrings: LisaUiStrings,
     state: PhraseComposerState
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposerPhraseFieldBackground)
-            .padding(horizontal = 12.dp, vertical = 10.dp)
-    ) {
-        Text(
-            text = uiStrings.phraseComposerCurrentPhraseLabel,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = LisaBlueDark.copy(alpha = 0.7f)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = if (state.displayPhrase().isBlank()) "—" else state.displayPhrase(),
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp,
-            color = LisaBlueDark,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    KeyboardWorkspaceInputCard(
+        title = uiStrings.phraseComposerCurrentPhraseLabel,
+        body = state.displayPhrase(),
+        placeholder = "—"
+    )
 }
 
 @Composable

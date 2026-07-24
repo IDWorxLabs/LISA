@@ -105,7 +105,9 @@ data class MenuDestinationAction(
     val actionType: MenuDestinationActionType,
     val isEnabled: Boolean = true,
     val sectionId: String? = null,
-    val selected: Boolean = false
+    val selected: Boolean = false,
+    /** Optional secondary line (e.g. Version 2 language status). */
+    val supportingText: String? = null
 ) {
     val canReceiveFocus: Boolean
         get() = actionType.canReceiveFocus && isEnabled

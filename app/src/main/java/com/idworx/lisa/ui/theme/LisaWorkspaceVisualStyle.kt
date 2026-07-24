@@ -1,6 +1,11 @@
 package com.idworx.lisa.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -27,6 +32,11 @@ object LisaWorkspaceVisualStyle {
     val CardVerticalPadding = 12.dp
     val CardBackground: Color = Color.White.copy(alpha = 0.90f)
     val CardSelectedBackground: Color = LisaBlue.copy(alpha = 0.30f)
+    /** RC8.0 — calm confidence emphasis for focused selectable surfaces. */
+    val CardSelectedBorderWidth: Dp = 3.dp
+    val CardSelectedScale = 1.03f
+    val CardSelectedElevation: Dp = 6.dp
+    val CardSelectedGlow: Color = LisaBlue.copy(alpha = 0.32f)
     val CardNumberSize = 16.sp
     val CardTitleSize = 17.sp
     val CardTitleLineHeight = 22.sp
@@ -68,4 +78,25 @@ object LisaWorkspaceVisualStyle {
     val OutlinedKeyboardNavContent: Color = LisaBlueDark
     val OutlinedKeyboardNavCornerRadius = 6.dp
     val OutlinedKeyboardNavBorderWidth = 1.dp
+}
+
+/**
+ * RC8.0 — calm, room-readable focus emphasis for selectable cards / destinations.
+ * Slight scale and soft blue elevation/glow. Pair with a thicker [LisaBlue] border after
+ * background so the outline is not clipped.
+ */
+fun Modifier.lisaFocusEmphasis(
+    focused: Boolean,
+    cornerRadius: Dp = LisaWorkspaceVisualStyle.CardCornerRadius
+): Modifier {
+    if (!focused) return this
+    val shape = RoundedCornerShape(cornerRadius)
+    return this
+        .scale(LisaWorkspaceVisualStyle.CardSelectedScale)
+        .shadow(
+            elevation = LisaWorkspaceVisualStyle.CardSelectedElevation,
+            shape = shape,
+            ambientColor = LisaWorkspaceVisualStyle.CardSelectedGlow,
+            spotColor = LisaWorkspaceVisualStyle.CardSelectedGlow
+        )
 }

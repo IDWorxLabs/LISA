@@ -3,7 +3,6 @@ package com.idworx.lisa
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -11,46 +10,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.idworx.lisa.ui.theme.LisaBlue
-import com.idworx.lisa.ui.theme.LisaBlueDark
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
-import com.idworx.lisa.ui.theme.LisaGray
-import com.idworx.lisa.ui.theme.LisaSoftGray
-import com.idworx.lisa.ui.theme.LisaWhite
-import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
-
-private val CommandCardBackground = LisaWorkspaceVisualStyle.NavActionEnabledBackground
-private val CommandGridBackground = LisaWorkspaceVisualStyle.NavActionGridBackground
-private val PrimaryCommandBackground = LisaWorkspaceVisualStyle.NavActionPrimaryBackground
-private val PrimaryCommandBorder = LisaWorkspaceVisualStyle.NavActionPrimaryBorder
-private val CommandEntryPartialHighlight = LisaWorkspaceVisualStyle.NavActionPartialHighlight
-private val CommandSelectedBackground = LisaWorkspaceVisualStyle.NavActionSelectedBackground
-private val CommandSelectedBorder = LisaWorkspaceVisualStyle.NavActionSelectedBorder
-private val CommandDisabledBackground = LisaWorkspaceVisualStyle.NavActionDisabledBackground
-private val CommandDisabledBorder = LisaWorkspaceVisualStyle.NavActionDisabledBorder
-private val CommandIdleBorder = LisaWorkspaceVisualStyle.NavActionEnabledBorder
+import com.idworx.lisa.ui.theme.SharedKeyboardTheme
 
 /**
  * Large navigation and composer command grid above the bottom-aligned keyboard (RC7D.4).
+ * RC8.2 — outlined KeyboardWorkspace action chrome (Feedback visual standard).
  */
 @Composable
 fun ComposerCommandGrid(
@@ -67,10 +48,9 @@ fun ComposerCommandGrid(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(CommandGridBackground)
-                .padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .background(SharedKeyboardTheme.ActionGridBackground)
+                .padding(vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(SharedKeyboardTheme.SectionSpacing)
         ) {
             rows.forEach { rowActions ->
                 ComposerCommandGridRow(
@@ -103,10 +83,9 @@ fun ComposerConfirmationActionGrid(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(CommandGridBackground)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .background(SharedKeyboardTheme.ActionGridBackground)
+            .padding(vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(SharedKeyboardTheme.SectionSpacing)
     ) {
         commandEntries.forEach { entry ->
             val highlightLevel = PhraseComposerEntryHighlight.level(
@@ -137,60 +116,22 @@ private fun ComposerConfirmationCommandCard(
     highlightLevel: PhraseComposerEntryHighlight.Level,
     onClick: () -> Unit
 ) {
-    val contentColor = if (enabled) LisaBlueDark else LisaGray
-    val background = when {
-        !enabled -> CommandDisabledBackground
-        highlightLevel == PhraseComposerEntryHighlight.Level.Full ->
-            LisaBlue.copy(alpha = if (primary) 0.32f else 0.22f)
-        highlightLevel == PhraseComposerEntryHighlight.Level.Partial -> CommandEntryPartialHighlight
-        primary -> PrimaryCommandBackground
-        else -> CommandCardBackground
-    }
-    val borderColor = when {
-        !enabled -> CommandDisabledBorder
-        highlightLevel != PhraseComposerEntryHighlight.Level.None -> LisaBlue.copy(alpha = 0.45f)
-        primary -> PrimaryCommandBorder
-        else -> CommandIdleBorder
-    }
-    Column(
+    val selected = enabled && (
+        primary || highlightLevel != PhraseComposerEntryHighlight.Level.None
+        )
+    KeyboardWorkspaceClickableActionCard(
+        title = entry.label,
+        sequenceLabel = entry.sequenceLabel,
+        onClick = onClick,
+        enabled = enabled,
+        selected = selected,
+        icon = composerCommandSymbol(entry.actionId),
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = if (primary) 84.dp else 76.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .background(background)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = composerCommandSymbol(entry.actionId),
-            fontWeight = FontWeight.Bold,
-            fontSize = if (primary) 24.sp else 22.sp,
-            color = contentColor
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = entry.label,
-            fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold,
-            fontSize = if (primary) 14.sp else 12.sp,
-            color = contentColor,
-            lineHeight = 16.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = entry.sequenceLabel,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            color = contentColor,
-            lineHeight = 14.sp,
-            textAlign = TextAlign.Center
-        )
-    }
+            .defaultMinSize(
+                minHeight = if (primary) 84.dp else SharedKeyboardTheme.ActionMinHeight
+            )
+    )
 }
 
 @Composable
@@ -202,7 +143,7 @@ private fun ComposerCommandGridRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(SharedKeyboardTheme.ActionRowSpacing)
     ) {
         actionIds.forEach { actionId ->
             val entry = ComposerCommandGridLayout.resolveEntry(actionId, commandEntries)
@@ -226,67 +167,31 @@ fun ComposerCommandCard(
     modifier: Modifier = Modifier,
     selected: Boolean = false
 ) {
-    val contentColor = if (enabled) LisaBlueDark else LisaGray
-    val background = when {
-        !enabled -> CommandDisabledBackground
-        selected -> CommandSelectedBackground
-        else -> CommandCardBackground
-    }
-    val borderColor = when {
-        !enabled -> CommandDisabledBorder
-        selected -> CommandSelectedBorder
-        else -> CommandIdleBorder
-    }
-    val interactionSource = remember { MutableInteractionSource() }
-    Column(
+    KeyboardWorkspaceClickableActionCard(
+        title = entry.label,
+        sequenceLabel = entry.sequenceLabel,
+        onClick = onClick,
+        enabled = enabled,
+        selected = selected,
+        icon = composerCommandSymbol(entry.actionId),
         modifier = modifier
-            .defaultMinSize(minHeight = 76.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(
-                enabled = enabled,
-                role = Role.Button,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
-            .semantics {
-                contentDescription = entry.label
-                if (!enabled) disabled()
-            }
-            .background(background)
-            .padding(horizontal = 6.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = composerCommandSymbol(entry.actionId),
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
-            color = contentColor
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = entry.label,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 11.sp,
-            color = contentColor,
-            lineHeight = 13.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = entry.sequenceLabel,
-            fontWeight = FontWeight.Bold,
-            fontSize = 11.sp,
-            color = contentColor,
-            lineHeight = 13.sp,
-            textAlign = TextAlign.Center
-        )
-    }
+    )
 }
+
+/**
+ * RC8.3 — shared Emergency bar for Custom Phrases and Feedback keyboard workspaces.
+ * Prefer [EmergencyActionBar] at Feedback call sites; both resolve to this one style.
+ */
+@Composable
+fun EmergencyActionBar(
+    uiStrings: LisaUiStrings,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) = ComposerEmergencyCommandCard(
+    uiStrings = uiStrings,
+    onClick = onClick,
+    modifier = modifier
+)
 
 @Composable
 fun ComposerEmergencyCommandCard(
@@ -297,19 +202,17 @@ fun ComposerEmergencyCommandCard(
     val sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
     val title = uiStrings.guidedEmergencyNavTitle
     // RC7D.24 — single horizontal row: label on the left, the emergency icon in the centre and the
-    // wink sequence on the right. The two text areas each take weight(1f) so they balance, which
-    // keeps the fixed-size centre icon visually centred in the full-width button even when the
-    // left/right label widths differ. Height, red styling, border, click target, sequence source
-    // and accessibility semantics are all unchanged.
+    // wink sequence on the right. Emergency colour/visibility/workflow unchanged (RC8.2 / RC8.3
+    // visual passes do not restyle Emergency).
     Row(
         modifier = modifier
             .fillMaxWidth()
             .defaultMinSize(minHeight = 72.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(SharedKeyboardTheme.ActionCornerRadius))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = "${title} ${sequenceLabel}" }
             .background(LisaEmergencyRed.copy(alpha = 0.15f))
-            .border(1.5.dp, LisaEmergencyRed.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+            .border(1.5.dp, LisaEmergencyRed.copy(alpha = 0.55f), RoundedCornerShape(SharedKeyboardTheme.ActionCornerRadius))
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -323,14 +226,14 @@ fun ComposerEmergencyCommandCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = "🚨",
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
             color = LisaEmergencyRed
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = sequenceLabel,
             fontWeight = FontWeight.Bold,

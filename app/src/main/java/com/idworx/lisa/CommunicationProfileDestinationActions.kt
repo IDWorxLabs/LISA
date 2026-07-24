@@ -27,14 +27,24 @@ object CommunicationProfileDestinationActionAuthority {
                 sectionId = "profile_name"
             )
         )
-        PreferredLanguage.selectable.forEach { language ->
+        val activeLanguage = LisaLanguageAvailabilityAuthority.coerceForVersion1(
+            active?.preferredLanguage ?: PreferredLanguage.English
+        )
+        // All displayed languages remain focusable; only Version 1–selectable ones may be active.
+        LisaLanguageAvailabilityAuthority.displayedLanguages.forEach { language ->
+            val canSelect = LisaLanguageAvailabilityAuthority.isSelectableInVersion1(language)
             add(
                 MenuDestinationAction(
                     MenuDestinationActionId.language(language.label),
                     language.label,
                     MenuDestinationActionType.Choice,
-                    selected = active?.preferredLanguage == language,
-                    sectionId = "language"
+                    selected = canSelect && activeLanguage == language,
+                    sectionId = "language",
+                    supportingText = if (canSelect) {
+                        null
+                    } else {
+                        LisaLanguageAvailabilityAuthority.version2StatusLine(uiStrings)
+                    }
                 )
             )
         }

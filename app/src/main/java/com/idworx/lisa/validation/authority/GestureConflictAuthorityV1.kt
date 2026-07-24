@@ -77,13 +77,15 @@ object GestureConflictAuthorityV1 {
         (EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS) to "Emergency"
     )
 
+    /** RC8.5 — seven Communication destinations; matches [GuidedCategoryShortcuts.allGestures]. */
     val expectedCategoryShortcuts: List<Pair<String, Pair<Int, Int>>> = listOf(
-        "Conversation" to (2 to 1),
-        "Basic Needs" to (1 to 2),
-        "Medical" to (3 to 1),
-        "Family" to (1 to 3),
-        "Basic System Controls" to (3 to 2),
-        "Preferences" to (2 to 3)
+        "Conversation" to GuidedCategoryShortcuts.gestureForCategory(0),
+        "Basic Needs" to GuidedCategoryShortcuts.gestureForCategory(1),
+        "Medical" to GuidedCategoryShortcuts.gestureForCategory(2),
+        "Family" to GuidedCategoryShortcuts.gestureForCategory(3),
+        "Custom" to GuidedCategoryShortcuts.gestureForCategory(4),
+        "Phrase Management" to GuidedCategoryShortcuts.gestureForCategory(5),
+        "Settings & Controls" to GuidedCategoryShortcuts.gestureForCategory(6)
     )
 
     fun validate(
@@ -438,16 +440,17 @@ object GestureConflictAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+            // RC8.5 — Preferences page removed. Verify a Medical-only phrase cannot open from Conversation.
             val pages = GuidedVocabularyCatalog.buildPages(
                 PreferredLanguage.English,
                 uiStrings,
                 catalogContext
             )
-            val adjustEntry = pages[preferencesIndex].entries.first { it.phrase.contains("Adjust response time") }
-            val preferencesState = GuidedNavigationState(
+            val medicalIndex = GuidedVocabularyCategory.ordered.indexOf(GuidedVocabularyCategory.Medical)
+            val medicalEntry = pages[medicalIndex].entries.first()
+            val medicalState = GuidedNavigationState(
                 screenMode = GuidedOverlayScreenMode.Vocabulary,
-                categoryIndex = preferencesIndex,
+                categoryIndex = medicalIndex,
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
@@ -457,30 +460,30 @@ object GestureConflictAuthorityV1 {
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
-            val onPreferences = ResolutionOrderAudit.process(
-                adjustEntry.left,
-                adjustEntry.right,
-                preferencesState,
+            val onMedical = ResolutionOrderAudit.process(
+                medicalEntry.left,
+                medicalEntry.right,
+                medicalState,
                 uiStrings,
                 catalogContext
             )
             val onConversation = ResolutionOrderAudit.process(
-                adjustEntry.left,
-                adjustEntry.right,
+                medicalEntry.left,
+                medicalEntry.right,
                 conversationState,
                 uiStrings,
                 catalogContext
             )
-            val opensAdjustOnPreferences = onPreferences is GuidedSequenceResult.Navigate &&
-                onPreferences.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime
-            val doesNotOpenAdjustOnConversation = onConversation !is GuidedSequenceResult.Navigate ||
-                onConversation.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.None
-            val passed = opensAdjustOnPreferences && doesNotOpenAdjustOnConversation
+            val triggersOnMedical = onMedical is GuidedSequenceResult.Speak
+            val doesNotSpeakMedicalOnConversation =
+                onConversation !is GuidedSequenceResult.Speak ||
+                    onConversation.entry.phrase != medicalEntry.phrase
+            val passed = triggersOnMedical && doesNotSpeakMedicalOnConversation
             return check(
                 id = "VOCAB_008",
                 description = "Hidden-page vocabulary cannot trigger outside its active page",
                 passed = passed,
-                remediation = "Scope preference and system actions to active page context before navigation."
+                remediation = "Scope phrase matching to the active category page only."
             )
         }
 
@@ -526,12 +529,16 @@ object GestureConflictAuthorityV1 {
         }
 
         fun expectedShortcutAssignments(): ValidationCheckResult {
-            val passed = GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots()
+            val gestures = GuidedCategoryShortcuts.allGestures()
+            val passed = GuidedVocabularyCatalogValidation.categoryShortcutLabelsMatchExpectedSlots() &&
+                expectedCategoryShortcuts.size == GuidedVocabularyCategory.PAGE_COUNT &&
+                expectedCategoryShortcuts.size == gestures.size &&
+                expectedCategoryShortcuts.map { it.second } == gestures
             return check(
                 id = "CAT_003",
-                description = "Category shortcuts match expected assignments (L2 R1 through L4 R1)",
+                description = "Category shortcuts match expected assignments for all seven Communication destinations",
                 passed = passed,
-                remediation = "Align category shortcuts with constitutional category shortcut table."
+                remediation = "Align category shortcuts with GuidedCategoryShortcuts.allGestures() (RC8.5)."
             )
         }
 
@@ -838,21 +845,29 @@ object GestureConflictAuthorityV1 {
             uiStrings: LisaUiStrings,
             catalogContext: GuidedCatalogContext
         ): ValidationCheckResult {
-            val preferencesIndex = GuidedVocabularyCategory.PREFERENCES_CATEGORY_INDEX
+            // RC8.5 — Preferences removed; use Medical phrase isolation from Conversation.
             val pages = GuidedVocabularyCatalog.buildPages(
                 PreferredLanguage.English,
                 uiStrings,
                 catalogContext
             )
-            val adjustEntry = pages[preferencesIndex].entries.first { it.phrase.contains("Adjust response time") }
+            val medicalIndex = GuidedVocabularyCategory.ordered.indexOf(GuidedVocabularyCategory.Medical)
+            val medicalEntry = pages[medicalIndex].entries.first()
             val conversationState = GuidedNavigationState(
                 screenMode = GuidedOverlayScreenMode.Vocabulary,
                 categoryIndex = 0,
                 draftResponseTimeSec = catalogContext.responseTimeSec,
                 draftSensitivityLevel = catalogContext.sensitivityLevel
             )
-            val result = process(adjustEntry.left, adjustEntry.right, conversationState, uiStrings, catalogContext)
-            val passed = result is GuidedSequenceResult.Unmatched || result is GuidedSequenceResult.Speak
+            val result = process(
+                medicalEntry.left,
+                medicalEntry.right,
+                conversationState,
+                uiStrings,
+                catalogContext
+            )
+            val passed = result is GuidedSequenceResult.Unmatched ||
+                (result is GuidedSequenceResult.Speak && result.entry.phrase != medicalEntry.phrase)
             return check(
                 id = "RESOL_003",
                 description = "Hidden-page vocabulary cannot trigger when another page is active",

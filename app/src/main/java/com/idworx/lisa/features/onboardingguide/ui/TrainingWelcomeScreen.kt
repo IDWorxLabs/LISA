@@ -43,6 +43,7 @@ import com.idworx.lisa.ui.theme.LisaBlueLight
 import com.idworx.lisa.ui.theme.LisaGray
 import com.idworx.lisa.ui.theme.LisaWhite
 import com.idworx.lisa.ui.theme.LisaWorkspaceVisualStyle
+import com.idworx.lisa.ui.theme.lisaFocusEmphasis
 
 /**
  * RC7D.37–40 — two-step Welcome; Continue merges L1 R1; destination fits one screen.
@@ -386,18 +387,19 @@ private fun WelcomeChoiceBlock(
     val style = WelcomeDestinationLayoutStyle
     val hint = WelcomeEyeNavigationAuthority.combinedActionHint(instruction, sequenceLabel)
     val a11y = "$title, $instruction, $sequenceLabel"
+    val shape = RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius))
+            .lisaFocusEmphasis(selected, LisaWorkspaceVisualStyle.CardCornerRadius)
             .then(
                 if (selected) {
                     Modifier
-                        .background(LisaWorkspaceVisualStyle.NavActionSelectedBackground)
+                        .background(LisaWorkspaceVisualStyle.NavActionSelectedBackground, shape)
                         .border(
-                            2.dp,
+                            LisaWorkspaceVisualStyle.CardSelectedBorderWidth,
                             LisaWorkspaceVisualStyle.NavActionSelectedBorder,
-                            RoundedCornerShape(LisaWorkspaceVisualStyle.CardCornerRadius)
+                            shape
                         )
                 } else {
                     Modifier

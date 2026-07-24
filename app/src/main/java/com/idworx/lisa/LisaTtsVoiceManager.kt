@@ -121,14 +121,14 @@ object LisaTtsVoiceManager {
     ): LisaVoiceSettingsState {
         if (tts == null) {
             return LisaVoiceSettingsState(
-                language = profile.preferredLanguage,
+                language = LisaLanguageAvailabilityAuthority.coerceForVersion1(profile.preferredLanguage),
                 selectedVoiceName = profile.selectedTtsVoiceName,
                 ttsEngineLabel = ttsEngineLabel,
                 ttsReady = false
             )
         }
 
-        val language = profile.preferredLanguage
+        val language = LisaLanguageAvailabilityAuthority.coerceForVersion1(profile.preferredLanguage)
         val languageCheck = checkLanguage(tts, language)
         val matchingVoices = voicesForLanguage(tts.voices, language)
         val voiceOptions = toVoiceOptions(matchingVoices)
@@ -150,11 +150,13 @@ object LisaTtsVoiceManager {
     }
 
     fun applyForProfile(tts: TextToSpeech, profile: LisaUserProfile) {
-        val locale = resolveBestLocale(tts, profile.preferredLanguage)
-            ?: LisaUiStrings.ttsLocale(profile.preferredLanguage)
+        // Version 1: never route Afrikaans/isiZulu through the current system TTS.
+        val language = LisaLanguageAvailabilityAuthority.coerceForVersion1(profile.preferredLanguage)
+        val locale = resolveBestLocale(tts, language)
+            ?: LisaUiStrings.ttsLocale(language)
         tts.language = locale
 
-        val matchingVoices = voicesForLanguage(tts.voices, profile.preferredLanguage)
+        val matchingVoices = voicesForLanguage(tts.voices, language)
         val selectedVoice = profile.selectedTtsVoiceName
             ?.let { saved -> matchingVoices.find { it.name == saved } }
             ?: matchingVoices.firstOrNull()
