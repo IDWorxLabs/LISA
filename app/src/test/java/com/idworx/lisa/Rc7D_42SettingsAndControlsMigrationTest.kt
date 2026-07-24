@@ -365,13 +365,12 @@ class Rc7D_42SettingsAndControlsMigrationTest {
             .substringBefore("private fun SettingsHubCard(")
         val card = ui.substringAfter("private fun SettingsHubCard(")
             .substringBefore("private fun ListeningControlPanel(")
-        // Cards wrap to content — no per-card weight that shrank slots below title+value height.
-        assertTrue(hub.contains("modifier = Modifier.fillMaxWidth()"))
-        assertTrue(hub.contains("Arrangement.SpaceEvenly"))
-        assertTrue(hub.contains("verticalScroll"))
+        // Shared equal-height cards — no clip, shared min height + weight for responsive sizing.
+        assertTrue(hub.contains("SettingsAndControlsHubVisualStyle.CardSpacing"))
+        assertTrue(hub.contains(".weight(1f)"))
+        assertTrue(card.contains("SettingsAndControlsHubVisualStyle.CardMinHeight"))
         assertFalse(card.contains(".clip("))
         assertTrue(card.contains("heightIn(min"))
-        assertTrue(card.contains("wrapContentHeight"))
         // Single primary heading lives in GuidedOverlayHeader — hub body has no duplicate title.
         assertFalse(hub.contains("guidedAdjustSettingsTitle"))
         assertTrue(ui.contains("preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu -> uiStrings.guidedAdjustSettingsTitle"))

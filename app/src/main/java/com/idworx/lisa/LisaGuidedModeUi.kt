@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -1065,8 +1064,23 @@ internal fun GuidedNavigationActionButton(
 }
 
 /**
- * Settings & Controls hub — four adjustable settings with rail-driven selection.
- * Primary heading lives in [GuidedOverlayHeader]; this panel lists cards only.
+ * Shared visual metrics for every Settings & Controls left-column action card
+ * (Sensitivity, Response Time, Speech Volume, Speech Speed, Back, Emergency).
+ * One height, shape, and spacing — no per-card size overrides.
+ */
+internal object SettingsAndControlsHubVisualStyle {
+    val CardCornerRadius = 14.dp
+    val CardShape = RoundedCornerShape(CardCornerRadius)
+    val CardSpacing = 12.dp
+    /** Shared minimum height so shorter labels (Back) match every other card. */
+    val CardMinHeight = 88.dp
+    val ContentPaddingHorizontal = 16.dp
+    val ContentPaddingVertical = 16.dp
+}
+
+/**
+ * Settings & Controls hub — four adjustable settings plus Back and Emergency.
+ * Primary heading lives in [GuidedOverlayHeader]; this panel lists equal-height cards only.
  */
 @Composable
 private fun SettingsAndControlsHubPanel(
@@ -1103,50 +1117,48 @@ private fun SettingsAndControlsHubPanel(
             SpeechSpeedAuthority.displayLabel(speechSpeedLevel, uiStrings)
         )
     )
-    val hubScroll = rememberScrollState()
-    // Keep the highlighted card in view when font scale pushes content past the viewport.
-    LaunchedEffect(selectedIndex) {
-        val approxCard = 110
-        val target = (selectedIndex * approxCard).coerceAtMost(hubScroll.maxValue)
-        hubScroll.animateScrollTo(target)
-    }
+    // Equal weight + shared min height: every left-column card is identical in size across
+    // phone sizes. No clip — shape is background/border only so status text is never cropped.
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(SettingsAndControlsHubVisualStyle.CardSpacing)
     ) {
-        // Do not weight individual cards — weight + clip previously shrank slots below
-        // title+value intrinsic height and clipped the status line. Cards wrap to content
-        // and SpaceEvenly distributes remaining vertical space as gaps.
-        Column(
+        cards.forEachIndexed { index, (kind, title, status) ->
+            SettingsHubCard(
+                title = title,
+                status = status,
+                sequenceLabel = SettingsAndControlsHubSequences.sequenceLabel(kind),
+                selected = index == selectedIndex,
+                onClick = { onOpenControl(kind) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+        }
+        // Back: title + sequence only — no grey explanatory gestureHint line.
+        SettingsHubCard(
+            title = uiStrings.guidedBack,
+            status = null,
+            sequenceLabel = formatWinkSequenceShort(
+                GuidedModeNavigation.BACK_LEFT,
+                GuidedModeNavigation.BACK_RIGHT
+            ),
+            selected = false,
+            onClick = onBack,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(hubScroll),
-            verticalArrangement = Arrangement.SpaceEvenly
-        ) {
-            cards.forEachIndexed { index, (kind, title, status) ->
-                SettingsHubCard(
-                    title = title,
-                    status = status,
-                    sequenceLabel = SettingsAndControlsHubSequences.sequenceLabel(kind),
-                    selected = index == selectedIndex,
-                    onClick = { onOpenControl(kind) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
-            gestureHint = uiStrings.guidedBackHint,
-            title = uiStrings.guidedBack,
-            onClick = onBack
         )
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
-            gestureHint = uiStrings.guidedEmergencyNavTitle,
+        SettingsHubCard(
             title = uiStrings.guidedEmergencyNavTitle,
+            status = null,
+            sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
+            selected = false,
             onClick = onEmergency,
-            emergency = true
+            emergency = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
         )
     }
 }
@@ -1158,21 +1170,28 @@ private fun SettingsHubCard(
     sequenceLabel: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    emergency: Boolean = false
 ) {
-    val shape = RoundedCornerShape(14.dp)
-    // Shape via background/border only — never a clipping modifier with a height smaller than
-    // content. Row wraps to intrinsic height so title + value + padding always fit.
+    val shape = SettingsAndControlsHubVisualStyle.CardShape
+    val titleColor = if (emergency) LisaEmergencyRed else LisaBlueDark
+    val statusColor = if (emergency) {
+        LisaEmergencyRed.copy(alpha = 0.85f)
+    } else {
+        LisaBlueDark.copy(alpha = 0.85f)
+    }
+    val background = when {
+        emergency -> LisaEmergencyRed.copy(alpha = 0.15f)
+        selected -> CategoryMenuHighlight
+        else -> EntryBackground
+    }
+    // Shape via background/border only — never a clipping modifier. Shared min height keeps
+    // Back/Emergency identical to setting cards even when status is absent.
     Row(
         modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 88.dp)
-            .wrapContentHeight()
-            .lisaFocusEmphasis(selected, 14.dp)
-            .background(
-                color = if (selected) CategoryMenuHighlight else EntryBackground,
-                shape = shape
-            )
+            .heightIn(min = SettingsAndControlsHubVisualStyle.CardMinHeight)
+            .lisaFocusEmphasis(selected, SettingsAndControlsHubVisualStyle.CardCornerRadius)
+            .background(color = background, shape = shape)
             .border(
                 width = if (selected) LisaWorkspaceVisualStyle.CardSelectedBorderWidth else 0.dp,
                 color = if (selected) LisaBlue else Color.Transparent,
@@ -1184,7 +1203,10 @@ private fun SettingsHubCard(
                 role = Role.Button,
                 onClick = onClick
             )
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(
+                horizontal = SettingsAndControlsHubVisualStyle.ContentPaddingHorizontal,
+                vertical = SettingsAndControlsHubVisualStyle.ContentPaddingVertical
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -1196,7 +1218,7 @@ private fun SettingsHubCard(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
-                color = LisaBlueDark,
+                color = titleColor,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1205,7 +1227,7 @@ private fun SettingsHubCard(
                     text = status,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 16.sp,
-                    color = LisaBlueDark.copy(alpha = 0.85f),
+                    color = statusColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1215,7 +1237,7 @@ private fun SettingsHubCard(
             text = sequenceLabel,
             fontWeight = FontWeight.Bold,
             fontSize = 17.sp,
-            color = LisaBlueDark,
+            color = titleColor,
             maxLines = 1
         )
     }

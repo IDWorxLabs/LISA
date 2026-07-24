@@ -121,13 +121,16 @@ class Rc8_5RemovePreferencesAndRepairSettingsTouchTest {
         val ui = read("LisaGuidedModeUi.kt")
         val cardStart = ui.indexOf("private fun SettingsHubCard")
         assertTrue(cardStart >= 0)
-        val card = ui.substring(cardStart, cardStart + 1800)
+        val cardEnd = ui.indexOf("private fun ListeningControlPanel(", cardStart)
+        val card = if (cardEnd > cardStart) ui.substring(cardStart, cardEnd) else ui.substring(cardStart, cardStart + 3500)
         assertTrue(card.contains(".clickable("))
         assertTrue(card.contains("onClick = onClick"))
         // Clickable is on the outer Row, not an inner Text-only target.
         val clickableIdx = card.indexOf(".clickable(")
         val firstTextIdx = card.indexOf("Text(")
-        assertTrue(clickableIdx in 0 until firstTextIdx)
+        assertTrue(clickableIdx >= 0)
+        assertTrue(firstTextIdx >= 0)
+        assertTrue(clickableIdx < firstTextIdx)
     }
 
     @Test
