@@ -98,7 +98,13 @@ data class GuidedTrainingUiState(
      * Starts on blink-sequence introduction after Eye Tracking Ready.
      */
     val welcomeStage: com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage =
-        com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction
+        com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction,
+    /**
+     * RC8.44 — transient red warning when a completed eye sequence is unrelated to the
+     * current Welcome / guided-entry surface. Null when nothing to show. Never spoken via TTS.
+     */
+    val invalidSequenceWarning:
+        com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning? = null
 ) {
     val phase: TrainingPhase get() = progress.currentPhase
     val isActive: Boolean get() = !progress.isFinished || progress.practiceModeOnly

@@ -59,6 +59,7 @@ fun TrainingFirstLaunchChoiceScreen(
     onSkipToNavigationTraining: () -> Unit = {},
     eyeTrackingStatus: EyeTrackingStatusUiState = EyeTrackingStatusUiState(),
     selectedChoiceLabel: String? = null,
+    invalidSequenceWarning: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning? = null,
     onDecreaseSensitivity: () -> Unit = {},
     onIncreaseSensitivity: () -> Unit = {},
     onDecreaseResponseTime: () -> Unit = {},
@@ -68,6 +69,7 @@ fun TrainingFirstLaunchChoiceScreen(
         WelcomeStage.BlinkSequenceIntroduction -> WelcomeBlinkSequenceIntroductionScreen(
             uiStrings = uiStrings,
             eyeTrackingStatus = eyeTrackingStatus,
+            invalidSequenceWarning = invalidSequenceWarning,
             onContinue = onContinueToDestination,
             onDecreaseSensitivity = onDecreaseSensitivity,
             onIncreaseSensitivity = onIncreaseSensitivity,
@@ -78,6 +80,7 @@ fun TrainingFirstLaunchChoiceScreen(
             uiStrings = uiStrings,
             eyeTrackingStatus = eyeTrackingStatus,
             selectedChoiceLabel = selectedChoiceLabel,
+            invalidSequenceWarning = invalidSequenceWarning,
             onStartGuidedLearning = onStartGuidedLearning,
             onSkipToWorkspace = onSkipToWorkspace,
             onBackToIntroduction = onBackToIntroduction,
@@ -94,6 +97,7 @@ fun TrainingFirstLaunchChoiceScreen(
 private fun WelcomeBlinkSequenceIntroductionScreen(
     uiStrings: LisaUiStrings,
     eyeTrackingStatus: EyeTrackingStatusUiState,
+    invalidSequenceWarning: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning?,
     onContinue: () -> Unit,
     onDecreaseSensitivity: () -> Unit,
     onIncreaseSensitivity: () -> Unit,
@@ -119,6 +123,11 @@ private fun WelcomeBlinkSequenceIntroductionScreen(
                 onIncreaseSensitivity = onIncreaseSensitivity,
                 onDecreaseResponseTime = onDecreaseResponseTime,
                 onIncreaseResponseTime = onIncreaseResponseTime,
+                modifier = Modifier.fillMaxWidth()
+            )
+            // RC8.44 — reserved slot below header; weight(1f) card absorbs height so Continue stays pinned.
+            com.idworx.lisa.features.invalidsequencefeedback.InvalidSequenceWarningBanner(
+                warning = invalidSequenceWarning,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(style.StatusToContentGap))
@@ -213,6 +222,7 @@ private fun WelcomeDestinationSelectionScreen(
     uiStrings: LisaUiStrings,
     eyeTrackingStatus: EyeTrackingStatusUiState,
     selectedChoiceLabel: String?,
+    invalidSequenceWarning: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning?,
     onStartGuidedLearning: () -> Unit,
     onSkipToWorkspace: () -> Unit,
     onBackToIntroduction: () -> Unit,
@@ -246,6 +256,10 @@ private fun WelcomeDestinationSelectionScreen(
                 onIncreaseSensitivity = onIncreaseSensitivity,
                 onDecreaseResponseTime = onDecreaseResponseTime,
                 onIncreaseResponseTime = onIncreaseResponseTime,
+                modifier = Modifier.fillMaxWidth()
+            )
+            com.idworx.lisa.features.invalidsequencefeedback.InvalidSequenceWarningBanner(
+                warning = invalidSequenceWarning,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(style.StatusToCardSpacing))

@@ -229,6 +229,7 @@ fun GuidedTrainingFlow(
             onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) },
             eyeTrackingStatus = eyeTrackingStatus,
             selectedChoiceLabel = state.brain1Decision.choiceLabel,
+            invalidSequenceWarning = state.invalidSequenceWarning,
             onDecreaseSensitivity = onReduceSensitivity,
             onIncreaseSensitivity = onIncreaseSensitivity,
             onDecreaseResponseTime = onDecreaseResponseTime,
@@ -267,7 +268,8 @@ fun GuidedTrainingFlow(
                 // RC8.9 — readiness Back returns to Welcome destination selection.
                 onEvent(TrainingEvent.ReturnToWelcomeDestination)
             },
-            eyeTrackingStatus = eyeTrackingStatus
+            eyeTrackingStatus = eyeTrackingStatus,
+            invalidSequenceWarning = state.invalidSequenceWarning
         )
 
         TrainingPhase.Calibration -> TrainingCalibrationScreen(

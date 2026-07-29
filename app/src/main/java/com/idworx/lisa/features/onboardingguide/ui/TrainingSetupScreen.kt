@@ -40,7 +40,8 @@ fun TrainingSetupScreen(
     onRequestCameraPermission: () -> Unit,
     onAdvance: () -> Unit,
     onBack: () -> Unit,
-    eyeTrackingStatus: EyeTrackingStatusUiState? = null
+    eyeTrackingStatus: EyeTrackingStatusUiState? = null,
+    invalidSequenceWarning: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning? = null
 ) {
     val watchingLabel = when {
         !eyeTracking.cameraActive -> uiStrings.t("Waiting for camera", "Wag vir kamera", "Ilinde ikhamera")
@@ -130,8 +131,13 @@ fun TrainingSetupScreen(
                         onIncreaseResponseTime = onIncreaseResponseTime,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp)
+                            .padding(bottom = 8.dp)
                     )
+                    com.idworx.lisa.features.invalidsequencefeedback.InvalidSequenceWarningBanner(
+                        warning = invalidSequenceWarning,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = uiStrings.t("Ready to begin", "Gereed om te begin", "Silungile ukuqala"),
                         fontSize = 28.sp,

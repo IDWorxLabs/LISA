@@ -468,9 +468,14 @@ class TrainingSessionController(
         val authority = com.idworx.lisa.features.intelligentstartup.authority.WelcomeEyeNavigationAuthority
         val action = authority.resolve(state.welcomeStage, left, right, blinkOrder)
         if (!authority.consumesCommand(action)) {
-            // Still consume the FirstLaunchChoice phase so unrelated sequences do not fall through.
+            // RC8.44 — consume unrelated completed sequences with shared invalid warning (no fall-through).
+            applyInvalidSequenceWarning(
+                com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority
+                    .surfaceForWelcome(state.welcomeStage)
+            )
             return true
         }
+        clearInvalidSequenceWarning()
         when (action) {
             com.idworx.lisa.features.intelligentstartup.authority.WelcomeStageAction.ContinueToDestinationSelection ->
                 advanceWelcomeToDestinationSelection()
@@ -495,6 +500,7 @@ class TrainingSessionController(
             brain1Decision = state.brain1Decision.clear(),
             leftWinkDots = 0,
             rightWinkDots = 0,
+            invalidSequenceWarning = null,
             lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
         )
         onPersist(state)
@@ -506,6 +512,7 @@ class TrainingSessionController(
             brain1Decision = state.brain1Decision.clear(),
             leftWinkDots = 0,
             rightWinkDots = 0,
+            invalidSequenceWarning = null,
             lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
         )
         onPersist(state)
@@ -526,6 +533,7 @@ class TrainingSessionController(
             brain1Decision = state.brain1Decision.clear(),
             leftWinkDots = 0,
             rightWinkDots = 0,
+            invalidSequenceWarning = null,
             lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
         )
         store.save(state.progress)
@@ -536,6 +544,7 @@ class TrainingSessionController(
      * RC8.9 / RC8.12 — Setup readiness blink routing matches touch via
      * [com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority]:
      * L2 R2 → Welcome destination selection; L1 R1 → Continue to first lesson.
+     * RC8.44 — unrelated completed sequences show the shared invalid warning and do not fall through.
      */
     fun handleSetupReadinessInteraction(
         left: Int,
@@ -544,18 +553,61 @@ class TrainingSessionController(
     ): Boolean {
         if (state.progress.currentPhase != TrainingPhase.Setup) return false
         if (setupStep != SETUP_STEP_READY) return false
-        return com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority
-            .invokeFromBlink(
-                left = left,
-                right = right,
-                blinkOrder = blinkOrder,
-                onBack = { dispatch(TrainingEvent.ReturnToWelcomeDestination) },
-                onContinue = {
-                    if (setupFaceAnnounced || setupStep == SETUP_STEP_READY) {
-                        dispatch(TrainingEvent.CompleteSetup)
+        val handled =
+            com.idworx.lisa.features.universalsequenceexecution.GuidedReadinessSequenceAuthority
+                .invokeFromBlink(
+                    left = left,
+                    right = right,
+                    blinkOrder = blinkOrder,
+                    onBack = { dispatch(TrainingEvent.ReturnToWelcomeDestination) },
+                    onContinue = {
+                        if (setupFaceAnnounced || setupStep == SETUP_STEP_READY) {
+                            dispatch(TrainingEvent.CompleteSetup)
+                        }
                     }
-                }
-            )
+                )
+        if (handled) {
+            clearInvalidSequenceWarning()
+            return true
+        }
+        // RC8.44 — consume unrelated completed sequences; do not fall through to phrase lessons.
+        applyInvalidSequenceWarning(
+            com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority
+                .Surface.GuidedReadiness
+        )
+        return true
+    }
+
+    /**
+     * RC8.44 — show shared invalid-sequence warning; reset only attempt counters for the next input.
+     */
+    fun applyInvalidSequenceWarning(
+        surface: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Surface
+    ) {
+        val warning =
+            com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority
+                .buildWarning(surface)
+        state = state.copy(
+            invalidSequenceWarning = warning,
+            leftWinkDots = 0,
+            rightWinkDots = 0,
+            lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
+        )
+        onPersist(state)
+        mainThreadDelayed(
+            com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority
+                .WARNING_CLEAR_MS
+        ) {
+            if (state.invalidSequenceWarning == warning) {
+                clearInvalidSequenceWarning()
+            }
+        }
+    }
+
+    fun clearInvalidSequenceWarning() {
+        if (state.invalidSequenceWarning == null) return
+        state = state.copy(invalidSequenceWarning = null)
+        onPersist(state)
     }
 
     private fun clearWelcomeGestureResidue() {
@@ -563,6 +615,7 @@ class TrainingSessionController(
             brain1Decision = state.brain1Decision.clear(),
             leftWinkDots = 0,
             rightWinkDots = 0,
+            invalidSequenceWarning = null,
             lessonInteraction = state.lessonInteraction.copy(liveLeftBlinks = 0, liveRightBlinks = 0)
         )
     }
@@ -636,7 +689,8 @@ class TrainingSessionController(
             TrainingEvent.BeginLearning -> {
                 state = applyTrainingEvent(state, event, navigator).copy(
                     setupStep = 0,
-                    welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction
+                    welcomeStage = com.idworx.lisa.features.intelligentstartup.authority.WelcomeStage.BlinkSequenceIntroduction,
+                    invalidSequenceWarning = null
                 )
                 setupStep = 0
                 GuidedLearningMemoryAdapter.onMetLisa(memory)
@@ -654,7 +708,7 @@ class TrainingSessionController(
                 return
             }
             TrainingEvent.ConfirmSkip -> {
-                state = applyTrainingEvent(state, event, navigator)
+                state = applyTrainingEvent(state, event, navigator).copy(invalidSequenceWarning = null)
                 onCompleteSetupOnboarding()
                 onTrainingFinished()
             }
@@ -683,7 +737,11 @@ class TrainingSessionController(
                 state = applyTrainingEvent(state, event, navigator)
             }
             else -> {
-                state = applyTrainingEvent(state, event, navigator)
+                val next = applyTrainingEvent(state, event, navigator)
+                state = when (event) {
+                    TrainingEvent.CompleteSetup -> next.copy(invalidSequenceWarning = null)
+                    else -> next
+                }
             }
         }
         store.save(state.progress)
@@ -1160,7 +1218,13 @@ class TrainingSessionController(
     }
 
     fun updateWinkDots(left: Int, right: Int) {
-        state = state.copy(leftWinkDots = left, rightWinkDots = right)
+        // RC8.44 — a new sequence attempt clears any stale invalid-sequence warning immediately.
+        val clearWarning = state.invalidSequenceWarning != null && (left > 0 || right > 0)
+        state = state.copy(
+            leftWinkDots = left,
+            rightWinkDots = right,
+            invalidSequenceWarning = if (clearWarning) null else state.invalidSequenceWarning
+        )
         onPersist(state)
     }
 
