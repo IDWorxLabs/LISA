@@ -33,13 +33,29 @@ enum class GuidedLessonPhaseRequiredAction {
      * (e.g. Medical L3 R1 → openCategoryDirectly).
      */
     CategoryShortcutJump,
+    /** RC8.32 — move Category Menu from Page 1 to Page 2 via production Next Page (L0 R4). */
+    MoveToSettingsPage,
     /** RC8.28 — open Settings & Controls via production L5 R5. */
     OpenSettingsAndControls,
-    /** RC8.28 — open Sensitivity from the Settings hub via L1 R1. */
+    /**
+     * RC8.28 / RC8.32 — open Sensitivity from the Settings hub via the labelled card sequence
+     * L2 R0 (not generic Select L1 R1).
+     */
     OpenSensitivitySetting,
-    /** RC8.28 — increase Sensitivity one valid step via L1 R3. */
+    /**
+     * RC8.32 — decrease (L3 R1) or increase (L1 R3) Sensitivity one valid step (immediate-save).
+     */
+    AdjustSensitivity,
+    /** RC8.32 — return from Sensitivity Adjustment to Settings & Controls via Back (L2 R2). */
+    ReturnToSettingsAndControls,
+    /**
+     * RC8.28 / RC8.30 legacy — increase-only phase. Superseded by [AdjustSensitivity].
+     * Kept for enum stability only.
+     */
     IncreaseSensitivityOnce,
-    /** RC8.28 — save Sensitivity via production L1 R1 confirm path. */
+    /**
+     * RC8.28 legacy — retired by RC8.30 IMMEDIATE_SAVE. Kept for enum stability only.
+     */
     SaveSensitivity
 }
 
@@ -52,6 +68,11 @@ enum class GuidedLessonPhaseRequiredAction {
 data class GuidedLessonTeachingPhase(
     val id: String,
     val title: String,
+    /**
+     * RC8.33 — optional short purpose/context shown once above the instruction.
+     * Must not repeat [description] / instructional lines.
+     */
+    val context: String? = null,
     val description: String? = null,
     val methods: List<GuidedLessonTeachingMethod> = emptyList(),
     val rawGestureLabel: String,
@@ -88,7 +109,12 @@ data class GuidedLessonTeachingPhase(
  */
 data class GuidedLessonTeachingPresentation(
     val title: String,
-    /** Body explaining the workspace / goal. */
+    /**
+     * RC8.33 — optional short purpose/context shown once above the instruction.
+     * Distinct from [description] (the next-action instruction).
+     */
+    val context: String? = null,
+    /** Body explaining the workspace / goal — or the single next-action instruction. */
     val description: String? = null,
     /**
      * RC8.22 — ordered instructional methods (Method 1, Method 2, …).
@@ -127,6 +153,7 @@ data class GuidedLessonTeachingPresentation(
         val phase = phases.getOrNull(phaseIndex.coerceAtLeast(0)) ?: phases.last()
         return copy(
             title = phase.title,
+            context = phase.context,
             description = phase.description,
             methods = phase.methods,
             rawGestureLabel = phase.rawGestureLabel,

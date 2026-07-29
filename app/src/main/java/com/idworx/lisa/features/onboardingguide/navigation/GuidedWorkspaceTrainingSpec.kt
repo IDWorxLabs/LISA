@@ -49,7 +49,11 @@ enum class GuidedWorkspaceHighlightTarget {
     /** RC8.28 — Settings hub Sensitivity card / Select Setting. */
     SettingsHubSensitivity,
     /** RC8.28 — Increase value control (L1 R3) on Sensitivity adjustment. */
-    IncreaseValue
+    IncreaseValue,
+    /** RC8.32 — Decrease value control (L3 R1) on Sensitivity adjustment. */
+    DecreaseValue,
+    /** RC8.32 — both Decrease and Increase accepted for Lesson 23 AdjustSensitivity. */
+    IncreaseOrDecreaseValue
 }
 
 /**
@@ -60,6 +64,10 @@ enum class GuidedWorkspaceHighlightTarget {
  * right-hand navigation panel dock it on the left.
  */
 enum class GuidedWorkspaceLessonCardDock {
+    /** Compact upper-left — away from right-rail Next/Back and bottom category destinations. */
+    TopStart,
+    /** Compact upper-right — away from left category/Sensitivity cards. */
+    TopEnd,
     BottomStart,
     BottomEnd
 }
@@ -92,7 +100,7 @@ object GuidedWorkspaceTrainingSpec {
         NavigationAction.NextPage -> GuidedWorkspaceHighlightTarget.CategoryNextPage
         NavigationAction.PreviousPage -> GuidedWorkspaceHighlightTarget.CategoryPreviousPage
         NavigationAction.TriggerEmergency -> GuidedWorkspaceHighlightTarget.Emergency
-        NavigationAction.AdjustSensitivity -> GuidedWorkspaceHighlightTarget.CategoryRow
+        NavigationAction.AdjustSensitivity -> GuidedWorkspaceHighlightTarget.CategoryNextPage
         // Explore LISA highlights live on Main Menu rows / panels — not workspace chrome.
         NavigationAction.OpenMenu,
         NavigationAction.MenuSelectVoice,
@@ -164,7 +172,7 @@ object GuidedWorkspaceTrainingSpec {
             NavigationAction.TriggerEmergency ->
                 "Practice Emergency: arm, confirm, then stop with L1 R1."
             NavigationAction.AdjustSensitivity ->
-                com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_INTRO
+                com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_CONTEXT
             NavigationAction.ResetSequence ->
                 "Reset your input sequence."
             NavigationAction.OpenCategories -> "Open Categories."
@@ -192,17 +200,22 @@ object GuidedWorkspaceTrainingSpec {
      * on the right. Either way the card floats above the bottom Menu/Reset row, never at the top.
      */
     fun cardDockFor(highlightTarget: GuidedWorkspaceHighlightTarget?): GuidedWorkspaceLessonCardDock = when (highlightTarget) {
+        // RC8.33 — upper docks keep Lesson 23 (and page-nav) cards off right-rail / bottom targets.
+        GuidedWorkspaceHighlightTarget.CategoryNextPage,
+        GuidedWorkspaceHighlightTarget.CategoryPreviousPage -> GuidedWorkspaceLessonCardDock.TopStart
         GuidedWorkspaceHighlightTarget.Back,
+        GuidedWorkspaceHighlightTarget.IncreaseValue,
+        GuidedWorkspaceHighlightTarget.DecreaseValue,
+        GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue -> GuidedWorkspaceLessonCardDock.TopStart
+        // Settings destination sits low on Page 2 — keep card upper so L5 R5 stays visible.
+        GuidedWorkspaceHighlightTarget.CategoryRow -> GuidedWorkspaceLessonCardDock.TopStart
+        // Sensitivity is the top hub card — dock lower-right away from it and the left rail.
+        GuidedWorkspaceHighlightTarget.SettingsHubSensitivity -> GuidedWorkspaceLessonCardDock.BottomEnd
         GuidedWorkspaceHighlightTarget.NextPage,
         GuidedWorkspaceHighlightTarget.PreviousPage,
-        GuidedWorkspaceHighlightTarget.CategoryNextPage,
-        GuidedWorkspaceHighlightTarget.CategoryPreviousPage,
         GuidedWorkspaceHighlightTarget.Emergency,
-        GuidedWorkspaceHighlightTarget.Select,
-        GuidedWorkspaceHighlightTarget.SettingsHubSensitivity,
-        GuidedWorkspaceHighlightTarget.IncreaseValue -> GuidedWorkspaceLessonCardDock.BottomStart
+        GuidedWorkspaceHighlightTarget.Select -> GuidedWorkspaceLessonCardDock.BottomStart
         GuidedWorkspaceHighlightTarget.OpenCategories,
-        GuidedWorkspaceHighlightTarget.CategoryRow,
         GuidedWorkspaceHighlightTarget.PhraseRow,
         null -> GuidedWorkspaceLessonCardDock.BottomEnd
     }
@@ -269,10 +282,10 @@ object GuidedWorkspaceTrainingSpec {
             )
         NavigationAction.TriggerEmergency ->
             formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
-        NavigationAction.AdjustSensitivity ->
-            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
-                .openSettingsSequenceLabel()
-        NavigationAction.ResetSequence ->
+            NavigationAction.AdjustSensitivity ->
+                com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+                    .moveToSettingsPageSequenceLabel()
+            NavigationAction.ResetSequence ->
             // Touch-independent by design — the same gesture that finishes training also
             // performs the real workspace Reset action afterward (MainActivity.performReset()).
             formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, GuidedModeNavigation.FINISH_TRAINING_RIGHT)

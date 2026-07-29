@@ -611,7 +611,9 @@ class TrainingSessionController(
     }
 
     fun shouldShowTraining(): Boolean =
-        state.progress.currentPhase in ACTIVE_TRAINING_PHASES || state.progress.practiceModeOnly
+        state.progress.currentPhase in ACTIVE_TRAINING_PHASES ||
+            state.progress.practiceModeOnly ||
+            (state.progress.currentPhase == TrainingPhase.Completion && state.awaitingCompletionChoice)
 
     fun blocksMainUi(): Boolean =
         shouldShowTraining() && com.idworx.lisa.features.onboardingguide.ui.trainingBlocksMainUi(state.phase)
@@ -657,7 +659,9 @@ class TrainingSessionController(
                 onTrainingFinished()
             }
             TrainingEvent.StartUsingLisa -> {
-                state = applyTrainingEvent(state, event, navigator)
+                state = applyTrainingEvent(state, event, navigator).copy(
+                    awaitingCompletionChoice = false
+                )
                 onCompleteSetupOnboarding()
                 onTrainingFinished()
             }
@@ -672,7 +676,7 @@ class TrainingSessionController(
                     GuidedTrainingUiState.fromProgress(store.load()),
                     TrainingEvent.ReplayTutorial,
                     navigator
-                ).copy(setupStep = 0)
+                ).copy(setupStep = 0, awaitingCompletionChoice = false)
                 setupStep = 0
             }
             TrainingEvent.ExitPractice -> {
@@ -881,9 +885,7 @@ class TrainingSessionController(
                     }
                 }
                 TrainingPhase.Completion -> {
-                    dispatch(TrainingEvent.CompletionNarrationComplete)
-                    onCompleteSetupOnboarding()
-                    onTrainingFinished()
+                    // RC8.32 — wait for Start Communicating or Restart Guided Learning.
                 }
                 else -> Unit
             }
@@ -984,9 +986,7 @@ class TrainingSessionController(
 
     fun completionNarration() {
         if (!LisaSpeechPolicy.allowsNarration()) {
-            dispatch(TrainingEvent.CompletionNarrationComplete)
-            onCompleteSetupOnboarding()
-            onTrainingFinished()
+            // RC8.32 — stay on Training Complete until the user chooses an action.
             return
         }
         pendingAfterNarration = PendingNarration.None
@@ -1510,12 +1510,12 @@ class TrainingSessionController(
     private fun beginFinalNavigationCompletionFeedback(completedLessonIndex: Int, lessonId: String) {
         val sensitivity = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
         val phrase = if (lessonId == sensitivity.ID_ADJUST_SENSITIVITY) {
-            "✓ Well done!"
+            sensitivity.WELL_DONE_TITLE
         } else {
             GuidedFeedbackPhrases.positive(completedLessonIndex)
         }
         val detail = if (lessonId == sensitivity.ID_ADJUST_SENSITIVITY) {
-            "${sensitivity.TRAINING_COMPLETE_TITLE}\n${sensitivity.TRAINING_COMPLETE_MESSAGE}"
+            sensitivity.COMPLETION_DETAIL
         } else {
             null
         }
@@ -1533,7 +1533,8 @@ class TrainingSessionController(
             state = state.copy(
                 navigationFeedbackMessage = null,
                 navigationFeedbackDetail = null,
-                completionPendingFeedback = false
+                completionPendingFeedback = false,
+                awaitingCompletionChoice = true
             )
             onPersist(state)
             if (state.progress.currentPhase == TrainingPhase.Completion) {

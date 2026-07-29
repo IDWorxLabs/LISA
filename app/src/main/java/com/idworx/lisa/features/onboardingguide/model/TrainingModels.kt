@@ -64,7 +64,7 @@ enum class NavigationAction {
      */
     MoveToMedicalCategory,
     /**
-     * RC8.28 — Final lesson: open Settings & Controls, open Sensitivity, increase once, save.
+     * RC8.28 / RC8.32 — Final lesson: Page 2 → Settings → Sensitivity → adjust → Back.
      */
     AdjustSensitivity
 }

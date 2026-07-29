@@ -273,9 +273,9 @@ enum class GuidedPreferencesAdjustMode {
     SpeechSpeed,
     /** Listening pause/resume — state control, not a numeric adjustment. */
     Listening,
-    /** RC7D.27 — save confirmation for the Sensitivity draft (not yet persisted). */
+    /** RC8.30 — retired; ConfirmSave* modes are never entered under IMMEDIATE_SAVE. */
     ConfirmSaveSensitivity,
-    /** RC7D.27 — save confirmation for the Response Time draft (not yet persisted). */
+    /** RC8.30 — retired; kept for enum/migration stability only. */
     ConfirmSaveResponseTime,
     ConfirmSaveSpeechVolume,
     ConfirmSaveSpeechSpeed
@@ -615,7 +615,7 @@ object GuidedNavigationPanelSpec {
         val backTitle = when (context) {
             PanelContext.Vocabulary -> uiStrings.guidedBack
             PanelContext.CategoryMenu -> uiStrings.guidedBackToPhrases
-            PanelContext.Adjustment -> uiStrings.guidedCancelAdjustment
+            PanelContext.Adjustment -> uiStrings.guidedBack
             PanelContext.SettingsHub -> uiStrings.guidedBack
         }
         val scrollDownTitle = when (context) {
@@ -917,39 +917,105 @@ object PreferenceAdjustmentController {
         else -> state
     }
 
-    /** RC7D.27 — first Save (L1 R1) enters confirmation; draft is not persisted yet. */
-    fun beginSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
-        GuidedPreferencesAdjustMode.Sensitivity -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSensitivity
+    /**
+     * RC8.30 — Increase or Decrease with [AdjustmentCommitPolicy.IMMEDIATE_SAVE].
+     * Updates the draft, stays on the adjustment screen, and returns a save result when the
+     * value actually changed so MainActivity persists through the shared production path.
+     */
+    fun adjustAndPersist(
+        state: GuidedNavigationState,
+        direction: com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection
+    ): GuidedSequenceResult {
+        val authority = com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentCommitPolicyAuthority
+        val setting = authority.settingKindFor(state.preferencesAdjustMode)
+            ?: return GuidedSequenceResult.Navigate(state)
+        if (!authority.usesImmediateSave(state.preferencesAdjustMode)) {
+            return GuidedSequenceResult.Navigate(state)
+        }
+        val previous = currentDraftValue(state, setting)
+        val nextState = when (direction) {
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Increase ->
+                increaseDraft(state)
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Decrease ->
+                decreaseDraft(state)
+        }
+        val resulting = currentDraftValue(nextState, setting)
+        val boundary = previous == resulting
+        // Keep originals aligned with the live persisted draft so Back never restores stale values.
+        val aligned = alignOriginalsToDraft(nextState)
+        val commit = com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentCommitResult(
+            setting = setting,
+            previousValue = previous,
+            resultingValue = resulting,
+            direction = direction,
+            sequenceLabel = when (direction) {
+                com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Increase ->
+                    authority.increaseSequenceLabel()
+                com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Decrease ->
+                    authority.decreaseSequenceLabel()
+            },
+            persistedValue = if (boundary) null else resulting,
+            executionId = authority.nextExecutionId(),
+            boundaryPreventedChange = boundary
         )
-        GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
-        )
-        GuidedPreferencesAdjustMode.SpeechVolume -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume
-        )
-        GuidedPreferencesAdjustMode.SpeechSpeed -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed
-        )
-        else -> state
+        return authority.toSaveResult(aligned, commit)
     }
 
-    /** RC7D.27 — R1 L1 leaves confirmation and returns to editing with the draft intact. */
-    fun cancelSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = when (state.preferencesAdjustMode) {
-        GuidedPreferencesAdjustMode.ConfirmSaveSensitivity -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.Sensitivity
+    fun increaseAndPersist(state: GuidedNavigationState): GuidedSequenceResult =
+        adjustAndPersist(
+            state,
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Increase
         )
-        GuidedPreferencesAdjustMode.ConfirmSaveResponseTime -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.ResponseTime
+
+    fun decreaseAndPersist(state: GuidedNavigationState): GuidedSequenceResult =
+        adjustAndPersist(
+            state,
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentDirection.Decrease
         )
-        GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechVolume
-        )
-        GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed -> state.copy(
-            preferencesAdjustMode = GuidedPreferencesAdjustMode.SpeechSpeed
-        )
-        else -> state
+
+    private fun currentDraftValue(
+        state: GuidedNavigationState,
+        setting: com.idworx.lisa.features.adjustmentcommitpolicy.AdjustableSettingKind
+    ): Int {
+        val authority = com.idworx.lisa.features.adjustmentcommitpolicy.AdjustmentCommitPolicyAuthority
+        return when (setting) {
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustableSettingKind.Sensitivity ->
+                authority.coerceValue(setting, state.draftSensitivityLevel)
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustableSettingKind.ResponseTime ->
+                authority.coerceValue(setting, state.draftResponseTimeSec)
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustableSettingKind.SpeechVolume ->
+                authority.coerceValue(setting, state.draftSpeechVolumeLevel)
+            com.idworx.lisa.features.adjustmentcommitpolicy.AdjustableSettingKind.SpeechSpeed ->
+                authority.coerceValue(setting, state.draftSpeechSpeedLevel)
+        }
     }
+
+    private fun alignOriginalsToDraft(state: GuidedNavigationState): GuidedNavigationState =
+        when (state.preferencesAdjustMode) {
+            GuidedPreferencesAdjustMode.Sensitivity -> state.copy(
+                adjustmentOriginalSensitivity = state.draftSensitivityLevel
+            )
+            GuidedPreferencesAdjustMode.ResponseTime -> state.copy(
+                adjustmentOriginalResponseTimeSec = state.draftResponseTimeSec
+            )
+            GuidedPreferencesAdjustMode.SpeechVolume -> state.copy(
+                adjustmentOriginalSpeechVolumeLevel = state.draftSpeechVolumeLevel
+            )
+            GuidedPreferencesAdjustMode.SpeechSpeed -> state.copy(
+                adjustmentOriginalSpeechSpeedLevel = state.draftSpeechSpeedLevel
+            )
+            else -> state
+        }
+
+    /**
+     * RC8.30 — ConfirmSave* modes are retired from production routing. Kept as no-ops for
+     * migration / legacy audit compatibility; callers must not enter these modes.
+     */
+    @Deprecated("RC8.30 immediate-save — confirmation screens removed")
+    fun beginSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = state
+
+    @Deprecated("RC8.30 immediate-save — confirmation screens removed")
+    fun cancelSaveConfirmation(state: GuidedNavigationState): GuidedNavigationState = state
 
     /**
      * Exit Settings & Controls entirely (Back from the hub).
@@ -958,8 +1024,8 @@ object PreferenceAdjustmentController {
         state.copy(preferencesAdjustMode = GuidedPreferencesAdjustMode.None)
 
     /**
-     * RC7D.27 — Cancel / Back from an individual adjustment (or from confirmation via L2 R2 is
-     * blocked): discard the draft and return to the Settings & Controls hub.
+     * RC8.30 — Back from an adjustment screen returns to the Settings & Controls hub.
+     * Values are already persisted via immediate-save, so Back never discards or prompts.
      */
     fun cancelAdjustment(state: GuidedNavigationState): GuidedNavigationState =
         when (state.preferencesAdjustMode) {
@@ -968,6 +1034,10 @@ object PreferenceAdjustmentController {
             else -> openSettingsMenu(state)
         }
 
+    /**
+     * Legacy explicit save that exits to the hub. Retained for audits; production adjustment
+     * screens use [increaseAndPersist] / [decreaseAndPersist] instead.
+     */
     fun saveAdjustment(state: GuidedNavigationState): GuidedSequenceResult.SavePreferencesAdjustment =
         when (state.preferencesAdjustMode) {
             GuidedPreferencesAdjustMode.ResponseTime,
@@ -1423,8 +1493,9 @@ object GuidedNavigationController {
 
     /**
      * Settings & Controls hub:
-     *   • L2 R0 / L0 R2 move the highlighted card (Scroll Up / Down) — never open a setting
-     *   • L1 R1 opens the highlighted setting (Select)
+     *   • L2 R0 opens Sensitivity when Sensitivity is selected (RC8.32 labelled card); otherwise scrolls up
+     *   • L0 R2 moves the highlighted card down
+     *   • L1 R1 opens the highlighted setting (Select — alternate path)
      *   • L1 R2 / L3 R2 open Speech Volume / Speed directly (card shortcuts)
      *   • L2 R2 exits; L3 R0 opens Categories
      */
@@ -1439,6 +1510,36 @@ object GuidedNavigationController {
         }
         if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
             return GuidedSequenceResult.Navigate(openCategoryMenuEscapingAdjustment(state))
+        }
+        // Direct card opens before Scroll Up/Down so labelled Sensitivity (L2 R0) opens when selected.
+        when (SettingsAndControlsHubSequences.hubDirectOpenKindForGesture(left, right)) {
+            SettingsControlKind.Sensitivity -> {
+                if (state.settingsHubSelection == 0) {
+                    return GuidedSequenceResult.Navigate(
+                        PreferenceAdjustmentController.openHubSetting(
+                            state,
+                            SettingsControlKind.Sensitivity,
+                            catalogContext
+                        )
+                    )
+                }
+                // Selection is elsewhere — fall through to Scroll Up (same sequence).
+            }
+            SettingsControlKind.SpeechVolume -> return GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openHubSetting(
+                    state,
+                    SettingsControlKind.SpeechVolume,
+                    catalogContext
+                )
+            )
+            SettingsControlKind.SpeechSpeed -> return GuidedSequenceResult.Navigate(
+                PreferenceAdjustmentController.openHubSetting(
+                    state,
+                    SettingsControlKind.SpeechSpeed,
+                    catalogContext
+                )
+            )
+            else -> Unit
         }
         if (GuidedModeNavigation.isPreviousSequence(left, right)) {
             return if (state.settingsHubSelection > 0) {
@@ -1460,23 +1561,7 @@ object GuidedNavigationController {
                 PreferenceAdjustmentController.openSelectedHubSetting(state, catalogContext)
             )
         }
-        return when (SettingsAndControlsHubSequences.hubDirectOpenKindForGesture(left, right)) {
-            SettingsControlKind.SpeechVolume -> GuidedSequenceResult.Navigate(
-                PreferenceAdjustmentController.openHubSetting(
-                    state,
-                    SettingsControlKind.SpeechVolume,
-                    catalogContext
-                )
-            )
-            SettingsControlKind.SpeechSpeed -> GuidedSequenceResult.Navigate(
-                PreferenceAdjustmentController.openHubSetting(
-                    state,
-                    SettingsControlKind.SpeechSpeed,
-                    catalogContext
-                )
-            )
-            else -> GuidedSequenceResult.Unmatched
-        }
+        return GuidedSequenceResult.Unmatched
     }
 
     private fun processListeningControlGesture(
@@ -1497,7 +1582,7 @@ object GuidedNavigationController {
         else -> GuidedSequenceResult.Unmatched
     }
 
-    /** Value-adjustment level — first L1 R1 enters save confirmation (does not persist). */
+    /** Value-adjustment — RC8.30 IMMEDIATE_SAVE: Increase/Decrease persist and stay on screen. */
     private fun processValueAdjustmentGesture(
         left: Int,
         right: Int,
@@ -1509,13 +1594,12 @@ object GuidedNavigationController {
         GuidedModeNavigation.isNextSequence(left, right) ->
             GuidedSequenceResult.Navigate(scrollAdjustmentContentDown(state))
         GuidedModeNavigation.isDecreaseValueSequence(left, right) ->
-            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.decreaseDraft(state))
+            PreferenceAdjustmentController.decreaseAndPersist(state)
         GuidedModeNavigation.isIncreaseValueSequence(left, right) ->
-            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.increaseDraft(state))
-        // Touch Save uses counts (1,1) without order; blink Save requires L-then-R when order is known.
-        GuidedModeNavigation.isSelectSequence(left, right) &&
-            (blinkOrder.isEmpty() || GuidedModeNavigation.isConfirmSequence(left, right, blinkOrder)) ->
-            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.beginSaveConfirmation(state))
+            PreferenceAdjustmentController.increaseAndPersist(state)
+        // RC8.30 — L1 R1 Save removed from adjustment screens (Select remains on Settings hub only).
+        GuidedModeNavigation.isSelectSequence(left, right) ->
+            GuidedSequenceResult.Unmatched
         GuidedModeNavigation.isBackSequence(left, right) ->
             GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelAdjustment(state))
         GuidedModeNavigation.isCategoriesSequence(left, right) ->
@@ -1524,8 +1608,8 @@ object GuidedNavigationController {
     }
 
     /**
-     * RC7D.27 — confirmation: L1 R1 (or touch Confirm with empty order) persists;
-     * R1 L1 cancels confirmation and returns to editing with the draft kept.
+     * RC8.30 — ConfirmSave* screens are retired. If a legacy state is restored, Back returns to
+     * the hub; Confirm no longer opens a pending-save path.
      */
     private fun processSaveConfirmationGesture(
         left: Int,
@@ -1533,11 +1617,9 @@ object GuidedNavigationController {
         state: GuidedNavigationState,
         blinkOrder: List<Boolean>
     ): GuidedSequenceResult = when {
-        GuidedModeNavigation.isConfirmCancelSequence(left, right, blinkOrder) ->
-            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelSaveConfirmation(state))
-        GuidedModeNavigation.isSelectSequence(left, right) &&
-            (blinkOrder.isEmpty() || GuidedModeNavigation.isConfirmSequence(left, right, blinkOrder)) ->
-            PreferenceAdjustmentController.saveAdjustment(state)
+        GuidedModeNavigation.isBackSequence(left, right) ||
+            GuidedModeNavigation.isConfirmCancelSequence(left, right, blinkOrder) ->
+            GuidedSequenceResult.Navigate(PreferenceAdjustmentController.cancelAdjustment(state))
         else -> GuidedSequenceResult.Unmatched
     }
 

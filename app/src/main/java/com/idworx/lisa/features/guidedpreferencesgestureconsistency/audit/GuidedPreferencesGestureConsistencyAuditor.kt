@@ -34,34 +34,23 @@ object GuidedPreferencesGestureConsistencyAuditor {
             GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT,
             draftState, PreferredLanguage.English, uiStrings
         )
-        val decreaseWorks = decreaseResult is GuidedSequenceResult.Navigate &&
+        val decreaseWorks = decreaseResult is GuidedSequenceResult.SavePreferencesAdjustment &&
             decreaseResult.newState.draftResponseTimeSec == 3
 
         val increaseResult = GuidedNavigationController.processSequence(
             GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT,
             draftState, PreferredLanguage.English, uiStrings
         )
-        val increaseWorks = increaseResult is GuidedSequenceResult.Navigate &&
+        val increaseWorks = increaseResult is GuidedSequenceResult.SavePreferencesAdjustment &&
             increaseResult.newState.draftResponseTimeSec == 5
 
-        val saveResult = GuidedNavigationController.processSequence(
+        // RC8.30 — persist path is the same as increase; Select is unmatched on adjustment.
+        val selectOnAdjustment = GuidedNavigationController.processSequence(
             GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT,
             draftState, PreferredLanguage.English, uiStrings
         )
-        // RC7D.27 — first L1 R1 enters save confirmation; second L1 R1 persists.
-        val saveEntersConfirmation = saveResult is GuidedSequenceResult.Navigate &&
-            saveResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime
-        val confirmPersist = if (saveEntersConfirmation) {
-            GuidedNavigationController.processSequence(
-                GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT,
-                (saveResult as GuidedSequenceResult.Navigate).newState,
-                PreferredLanguage.English,
-                uiStrings
-            )
-        } else {
-            null
-        }
-        val saveWorks = confirmPersist is GuidedSequenceResult.SavePreferencesAdjustment
+        val saveWorks = increaseWorks &&
+            selectOnAdjustment is GuidedSequenceResult.Unmatched
 
         val cancelResult = GuidedNavigationController.processSequence(
             GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT,
@@ -95,18 +84,15 @@ object GuidedPreferencesGestureConsistencyAuditor {
             "GuidedModeNavigation.DECREASE_VALUE_RIGHT",
             "GuidedModeNavigation.INCREASE_VALUE_LEFT",
             "GuidedModeNavigation.INCREASE_VALUE_RIGHT",
-            "GuidedModeNavigation.SELECT_LEFT",
-            "GuidedModeNavigation.SELECT_RIGHT",
             "GuidedModeNavigation.BACK_LEFT",
             "GuidedModeNavigation.BACK_RIGHT",
             "EMERGENCY_LEFT_WINKS",
             "EMERGENCY_RIGHT_WINKS"
         )
         val allConstantsReferenced = requiredConstantRefs.all { body.contains(it) }
-        // RC7D.27 — Categories card removed from the adjustment content; right-panel Categories remains.
-        // At least Decrease, Increase, Save, Cancel, Emergency formatWinkSequenceShort calls.
+        // RC8.30 — Save/Select row removed from adjustment content; Decrease, Increase, Back, Emergency remain.
         val formatCallCount = Regex("formatWinkSequenceShort\\(").findAll(body).count()
-        return allConstantsReferenced && formatCallCount >= 5
+        return allConstantsReferenced && formatCallCount >= 4
     }
 
     // --- 4. Changing a gesture definition automatically changes the displayed label ------------------

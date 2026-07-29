@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.idworx.lisa.features.guidedlessonexecutionauthority.GuidedLessonExecutionAuthority
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
+import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceHighlightTarget
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceLessonCardDock
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 
@@ -37,7 +38,12 @@ object GuidedWorkspaceLessonCardAuthority {
     fun formatSequenceLabel(rawGestureLabel: String): String {
         val trimmed = rawGestureLabel.trim()
         if (trimmed.isEmpty()) return ""
-        return if (trimmed.startsWith(SEQUENCE_PREFIX)) trimmed else "$SEQUENCE_PREFIX$trimmed"
+        if (trimmed.startsWith(SEQUENCE_PREFIX)) return trimmed
+        // RC8.33 — dual labelled sequences (Decrease:/Increase:) keep authored lines.
+        if (trimmed.contains('\n') || trimmed.contains("Decrease:", ignoreCase = true)) {
+            return trimmed
+        }
+        return "$SEQUENCE_PREFIX$trimmed"
     }
 
     fun stripSequencePrefix(displayed: String): String =
@@ -83,6 +89,53 @@ object GuidedWorkspaceLessonCardAuthority {
     }
 
     fun dockKeepsTargetVisible(dock: GuidedWorkspaceLessonCardDock): Boolean =
-        dock == GuidedWorkspaceLessonCardDock.BottomStart ||
+        dock == GuidedWorkspaceLessonCardDock.TopStart ||
+            dock == GuidedWorkspaceLessonCardDock.TopEnd ||
+            dock == GuidedWorkspaceLessonCardDock.BottomStart ||
             dock == GuidedWorkspaceLessonCardDock.BottomEnd
+
+    /**
+     * RC8.33 — named protected targets a Lesson 23 card must not cover, by highlight.
+     * Constraint-based: placement uses [GuidedWorkspaceTrainingSpec.cardDockFor] zones.
+     */
+    fun protectedTargetsForHighlight(
+        highlight: GuidedWorkspaceHighlightTarget?
+    ): List<String> = when (highlight) {
+        GuidedWorkspaceHighlightTarget.CategoryNextPage ->
+            listOf("NextPage", "PageIndicator")
+        GuidedWorkspaceHighlightTarget.CategoryRow ->
+            listOf("SettingsAndControls", "SettingsSequenceL5R5")
+        GuidedWorkspaceHighlightTarget.SettingsHubSensitivity ->
+            listOf("SensitivityCard", "SensitivitySequenceL2R0")
+        GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue,
+        GuidedWorkspaceHighlightTarget.IncreaseValue,
+        GuidedWorkspaceHighlightTarget.DecreaseValue ->
+            listOf("Decrease", "Increase", "CurrentSensitivityValue")
+        GuidedWorkspaceHighlightTarget.Back ->
+            listOf("MainBack", "RailBack")
+        else -> emptyList()
+    }
+
+    fun dockAvoidsProtectedTargets(
+        highlight: GuidedWorkspaceHighlightTarget?,
+        dock: GuidedWorkspaceLessonCardDock = GuidedWorkspaceTrainingSpec.cardDockFor(highlight)
+    ): Boolean {
+        if (protectedTargetsForHighlight(highlight).isEmpty()) return true
+        return when (highlight) {
+            GuidedWorkspaceHighlightTarget.CategoryNextPage,
+            GuidedWorkspaceHighlightTarget.CategoryPreviousPage,
+            GuidedWorkspaceHighlightTarget.Back,
+            GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue,
+            GuidedWorkspaceHighlightTarget.IncreaseValue,
+            GuidedWorkspaceHighlightTarget.DecreaseValue,
+            GuidedWorkspaceHighlightTarget.CategoryRow ->
+                dock == GuidedWorkspaceLessonCardDock.TopStart ||
+                    dock == GuidedWorkspaceLessonCardDock.TopEnd
+            GuidedWorkspaceHighlightTarget.SettingsHubSensitivity ->
+                dock == GuidedWorkspaceLessonCardDock.BottomEnd ||
+                    dock == GuidedWorkspaceLessonCardDock.BottomStart ||
+                    dock == GuidedWorkspaceLessonCardDock.TopEnd
+            else -> dockKeepsTargetVisible(dock)
+        }
+    }
 }

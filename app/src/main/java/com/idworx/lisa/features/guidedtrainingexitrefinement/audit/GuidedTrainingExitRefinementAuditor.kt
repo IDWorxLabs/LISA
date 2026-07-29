@@ -44,21 +44,27 @@ object GuidedTrainingExitRefinementAuditor {
     }
 
     fun lessonWordingUsesNaturalStartCommunicatingPhrase(): Boolean {
-        // RC8.28 — final lesson teaches Sensitivity adjustment, not "Start Communicating".
+        // RC8.32 — final lesson teaches the Settings adjustment journey; Training Complete offers
+        // Start Communicating separately.
         val title = GuidedWorkspaceTrainingSpec.lessonCardTitle(NavigationAction.AdjustSensitivity, englishUiStrings)
         val instruction = GuidedWorkspaceTrainingSpec.lessonCardInstruction(NavigationAction.AdjustSensitivity).orEmpty()
-        return title.equals("Adjust Sensitivity", ignoreCase = true) &&
-            instruction.contains("labelled blink sequences", ignoreCase = true) &&
+        val phases = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+            .teachingPresentation().phases
+        return title.equals("Adjust Settings", ignoreCase = true) &&
+            instruction.contains("Sensitivity", ignoreCase = true) &&
+            instruction.contains("Response Time", ignoreCase = true) &&
+            phases.any { it.rawGestureLabel.contains("L5 R5") } &&
+            phases.any { it.rawGestureLabel.contains("L2 R0") } &&
             !instruction.contains("Finish training", ignoreCase = true) &&
             !title.contains("Start Communicating", ignoreCase = true)
     }
 
     fun lessonCardTeachesFinishTrainingGestureDynamically(): Boolean {
-        // RC8.28 — final lesson opens Settings via L5 R5, not Finish Training L0 R3.
+        // RC8.32 — Lesson 23 begins with Next Page L0 R4; Finish Training is on Training Complete.
         return GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.AdjustSensitivity) ==
             formatWinkSequenceShort(
-                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
-                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
             )
     }
 
@@ -132,19 +138,23 @@ object GuidedTrainingExitRefinementAuditor {
     fun completionScreenCongratulatesBeforeReturningToWorkspace(): Boolean {
         val welcome = readTrainingWelcomeScreen() ?: return false
         val controller = readTrainingSessionController() ?: return false
-        // RC8.28 — Training Complete + Start Using LISA (replaces "ready to communicate").
+        // RC8.32 — Training Complete waits for Start Communicating / Restart Guided Learning.
         val congratulates =
             welcome.contains("TRAINING_COMPLETE_TITLE") ||
-                welcome.contains("Training Complete", ignoreCase = true) ||
-                welcome.contains("ready to communicate", ignoreCase = true)
+                welcome.contains("Training Complete", ignoreCase = true)
         val startAction =
-            welcome.contains("START_USING_LISA_LABEL") ||
-                welcome.contains("Start Using LISA", ignoreCase = true) ||
-                welcome.contains("goToCommunication")
+            welcome.contains("START_COMMUNICATING_LABEL") ||
+                welcome.contains("START_USING_LISA_LABEL") ||
+                welcome.contains("Start Communicating", ignoreCase = true) ||
+                welcome.contains("Start Using LISA", ignoreCase = true)
+        val restartAction =
+            welcome.contains("RESTART_GUIDED_LEARNING_LABEL") ||
+                welcome.contains("Restart Guided Learning", ignoreCase = true)
         return congratulates &&
             startAction &&
-            controller.contains("TrainingPhase.Completion -> {") &&
-            controller.contains("onTrainingFinished()")
+            restartAction &&
+            controller.contains("awaitingCompletionChoice") &&
+            controller.contains("TrainingEvent.StartUsingLisa")
     }
 
     // --- 4. Choose Category uses a materially shorter gesture than the old L4 R4 ---------------

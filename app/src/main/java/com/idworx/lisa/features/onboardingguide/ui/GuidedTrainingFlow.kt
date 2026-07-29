@@ -371,7 +371,16 @@ fun GuidedTrainingFlow(
         TrainingPhase.Completion -> TrainingCompletionScreen(
             uiStrings = uiStrings,
             showCelebration = state.showCelebration,
-            onNarrationStarted = onCompletionNarration
+            onNarrationStarted = onCompletionNarration,
+            eyeTrackingStatus = eyeTrackingStatus,
+            onStartCommunicating = { onEvent(TrainingEvent.StartUsingLisa) },
+            onRestartGuidedLearning = {
+                onEvent(TrainingEvent.ReplayTutorial)
+            },
+            onDecreaseSensitivity = onReduceSensitivity,
+            onIncreaseSensitivity = onIncreaseSensitivity,
+            onDecreaseResponseTime = onDecreaseResponseTime,
+            onIncreaseResponseTime = onIncreaseResponseTime
         )
     }
 }

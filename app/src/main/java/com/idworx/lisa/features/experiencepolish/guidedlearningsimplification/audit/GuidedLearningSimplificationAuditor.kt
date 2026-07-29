@@ -65,13 +65,16 @@ object GuidedLearningSimplificationAuditor {
         val welcome = ZeroTouchFileProbe.readProjectFile(
             "app/src/main/java/com/idworx/lisa/features/onboardingguide/ui/TrainingWelcomeScreen.kt"
         ) ?: return false
-        // RC8.28 — Training Complete / Start Using LISA replaces "You now know the basics".
+        // RC8.32 — Training Complete / Start Communicating (alias retained for Start Using LISA).
         val conciseCompletion =
             (welcome.contains("You now know the basics") && welcome.contains("goToCommunication")) ||
                 (
                     welcome.contains("TRAINING_COMPLETE_TITLE") &&
                         welcome.contains("TRAINING_COMPLETE_MESSAGE") &&
-                        welcome.contains("START_USING_LISA_LABEL")
+                        (
+                            welcome.contains("START_COMMUNICATING_LABEL") ||
+                                welcome.contains("START_USING_LISA_LABEL")
+                            )
                     )
         return conciseCompletion
     }

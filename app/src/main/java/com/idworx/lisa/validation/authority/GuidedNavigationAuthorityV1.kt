@@ -23,6 +23,7 @@ import com.idworx.lisa.SettingsControlKind
 import com.idworx.lisa.validation.ValidationCheckResult
 import com.idworx.lisa.validation.ValidationOutcome
 import com.idworx.lisa.validation.ValidationReport
+import com.idworx.lisa.features.zerotouchprinciple.audit.ZeroTouchFileProbe
 
 /**
  * GUIDED_NAVIGATION_AUTHORITY_V1
@@ -499,17 +500,17 @@ object GuidedNavigationAuthorityV1 {
             ).copy(draftSensitivityLevel = 8)
             val responseResult = process(2, 2, responseState, uiStrings, catalogContext)
             val sensitivityResult = process(2, 2, sensitivityState, uiStrings, catalogContext)
-            // RC7D.27 — Cancel / Back returns to Settings & Controls (discards draft, does not persist).
+            // RC7D.27 — Cancel / Back returns to Settings & Controls hub (value already persisted on change).
             val passed = responseResult is GuidedSequenceResult.Navigate &&
                 sensitivityResult is GuidedSequenceResult.Navigate &&
                 responseResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu &&
                 sensitivityResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.SettingsMenu
             return ValidationCheckResult(
                 checkId = "MODE_TX_006",
-                description = "L2 R2 backs/cancels from adjustment modes without saving",
+                description = "L2 R2 backs from adjustment modes to the Settings hub",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Wire L2 R2 to cancel adjustment and restore prior saved values."
+                    "Wire L2 R2 to return from adjustment screens to the Settings & Controls hub."
             )
         }
 
@@ -530,23 +531,19 @@ object GuidedNavigationAuthorityV1 {
                 SettingsControlKind.ResponseTime,
                 catalogContext
             ).copy(draftResponseTimeSec = 5)
-            // RC7D.27 — first L1 R1 enters confirmation; second confirms persistence.
-            val confirmResult = process(1, 1, adjustState, uiStrings, catalogContext)
-            val saveResult = if (confirmResult is GuidedSequenceResult.Navigate) {
-                process(1, 1, confirmResult.newState, uiStrings, catalogContext)
-            } else {
-                confirmResult
-            }
+            // RC8.30 — L1 R1 Select is hub-only; on adjustment screens increase persists immediately.
+            val selectOnAdjustment = process(1, 1, adjustState, uiStrings, catalogContext)
+            val increaseResult = process(1, 3, adjustState, uiStrings, catalogContext)
             val passed = menuResult is GuidedSequenceResult.Navigate &&
-                confirmResult is GuidedSequenceResult.Navigate &&
-                confirmResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ConfirmSaveResponseTime &&
-                saveResult is GuidedSequenceResult.SavePreferencesAdjustment
+                selectOnAdjustment is GuidedSequenceResult.Unmatched &&
+                increaseResult is GuidedSequenceResult.SavePreferencesAdjustment &&
+                increaseResult.newState.preferencesAdjustMode == GuidedPreferencesAdjustMode.ResponseTime
             return ValidationCheckResult(
                 checkId = "MODE_TX_007",
-                description = "L1 R1 selects or saves where applicable in menu and adjustment modes",
+                description = "L1 R1 selects on menus; adjustment screens persist via L1 R3 increase",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Ensure L1 R1 opens selected category and confirms adjustment saves."
+                    "Ensure L1 R1 opens selected category on menus and L1 R3 persists on adjustment screens."
             )
         }
 
@@ -926,18 +923,35 @@ object GuidedNavigationAuthorityV1 {
                 uiStrings.guidedAdjustmentCurrentValueResponseTime(3),
                 uiStrings.guidedDecreaseResponseTime,
                 uiStrings.guidedIncreaseResponseTime,
-                uiStrings.guidedSaveResponseTime,
-                uiStrings.guidedCancelToPreferences,
+                uiStrings.guidedChangesSaveAutomatically,
+                uiStrings.guidedBack,
                 uiStrings.guidedCategoriesNavTitle,
                 uiStrings.guidedEmergencyNavTitle
             )
-            val passed = required.all { it.isNotBlank() }
+            val forbiddenOnAdjustment = listOf(
+                "Cancel / Back",
+                uiStrings.guidedResponseTimeMeterHint
+            )
+            val panelSource = ZeroTouchFileProbe.readProjectFile(
+                "app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt"
+            ).orEmpty()
+            val sharedPanel = panelSource
+                .substringAfter("private fun SharedSettingAdjustmentPanel(")
+                .substringBefore("@Composable\nprivate fun PreferencesAdjustmentPanel(")
+            val passed = required.all { it.isNotBlank() } &&
+                sharedPanel.contains("guidedChangesSaveAutomatically") &&
+                sharedPanel.contains("guidedBack") &&
+                !sharedPanel.contains("guidedResponseTimeMeterHint") &&
+                !sharedPanel.contains("guidedCancelBack") &&
+                forbiddenOnAdjustment.none { label ->
+                    label.isNotBlank() && sharedPanel.contains(label)
+                }
             return ValidationCheckResult(
                 checkId = "LABEL_004",
-                description = "Preferences adjustment panel shows value, decrease, increase, save, cancel, categories, and emergency labels",
+                description = "Adjustment panel shows auto-save helper, Back (not Cancel), and no extra meter hints",
                 passed = passed,
                 remediation = if (passed) null else
-                    "Provide all required adjustment panel labels in UI strings."
+                    "Keep only “Changes save automatically.” helper text and label exit as Back."
             )
         }
     }

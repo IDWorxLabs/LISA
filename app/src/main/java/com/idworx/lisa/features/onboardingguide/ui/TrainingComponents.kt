@@ -282,15 +282,31 @@ fun GuidedWorkspaceLessonCard(
     compact: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val structured = teaching?.usesStructuredNextAction == true
     val displayTitle = teaching?.title?.takeIf { it.isNotBlank() } ?: title
     val sequenceText = GuidedWorkspaceLessonCardAuthority.formatSequenceLabel(
         teaching?.rawGestureLabel?.takeIf { it.isNotBlank() } ?: gestureLabel
     )
+    // RC8.33 — prefer teaching presentation whenever present so context/instruction stay distinct.
+    val useTeachingLayout = teaching != null
     Card(
         modifier = modifier
             .widthIn(max = GuidedWorkspaceLessonCardAuthority.MaxCardWidth)
-            .wrapContentHeight(),
+            .wrapContentHeight()
+            .semantics {
+                contentDescription = buildString {
+                    if (lessonNumber != null && totalLessons != null) {
+                        append("Lesson $lessonNumber of $totalLessons. ")
+                    }
+                    append(displayTitle)
+                    teaching?.context?.takeIf { it.isNotBlank() }?.let { append(". $it") }
+                    val instructionLine = teaching?.description?.takeIf { it.isNotBlank() }
+                        ?: instruction?.takeIf { it.isNotBlank() }
+                    instructionLine?.let { append(". $it") }
+                    if (sequenceText.isNotBlank()) {
+                        append(". $sequenceText")
+                    }
+                }
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
@@ -334,7 +350,7 @@ fun GuidedWorkspaceLessonCard(
                     color = LisaWhite,
                     textAlign = TextAlign.Center
                 )
-            } else if (structured && teaching != null) {
+            } else if (useTeachingLayout && teaching != null) {
                 if (lessonNumber != null && totalLessons != null) {
                     Text(
                         text = "Lesson $lessonNumber of $totalLessons",
@@ -354,10 +370,31 @@ fun GuidedWorkspaceLessonCard(
                         textAlign = TextAlign.Center
                     )
                 }
-                if (!teaching.description.isNullOrBlank()) {
+                val contextLine = teaching.context?.takeIf { it.isNotBlank() }
+                if (contextLine != null) {
                     Spacer(modifier.height(3.dp))
                     Text(
-                        text = teaching.description,
+                        text = contextLine,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaBlueDark.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp
+                    )
+                }
+                val instructionLine = teaching.description?.takeIf { it.isNotBlank() }
+                val methodLines = teaching.methods.flatMap { it.instructionalLines }
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
+                // Single visual instruction — never also under a method title.
+                if (instructionLine != null &&
+                    instructionLine != contextLine &&
+                    instructionLine !in methodLines
+                ) {
+                    Spacer(modifier.height(3.dp))
+                    Text(
+                        text = instructionLine,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = LisaBlueDark.copy(alpha = 0.9f),
@@ -368,17 +405,31 @@ fun GuidedWorkspaceLessonCard(
                 if (teaching.usesStructuredMethods) {
                     teaching.methods.forEachIndexed { methodIndex, method ->
                         Spacer(modifier.height(if (methodIndex == 0) 6.dp else 8.dp))
-                        Text(
-                            text = method.title,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = LisaBlueDark,
-                            textAlign = TextAlign.Center
-                        )
+                        val methodTitle = method.title.trim()
+                        val showMethodTitle = methodTitle.isNotBlank() &&
+                            !methodTitle.equals(displayTitle, ignoreCase = true) &&
+                            methodTitle != instructionLine &&
+                            methodTitle != contextLine
+                        if (showMethodTitle) {
+                            Text(
+                                text = methodTitle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = LisaBlueDark,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                         method.instructionalLines.forEach { line ->
+                            val trimmed = line.trim()
+                            if (trimmed.isEmpty() ||
+                                trimmed == instructionLine ||
+                                trimmed == contextLine
+                            ) {
+                                return@forEach
+                            }
                             Spacer(modifier.height(2.dp))
                             Text(
-                                text = line,
+                                text = trimmed,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = LisaBlueDark.copy(alpha = 0.92f),
@@ -391,7 +442,7 @@ fun GuidedWorkspaceLessonCard(
                             GuidedLessonSequenceEmphasisBox(sequenceLabel = sequence)
                         }
                     }
-                } else {
+                } else if (!teaching.nextActionHeading.isNullOrBlank()) {
                     Spacer(modifier.height(6.dp))
                     Text(
                         text = teaching.nextActionHeading.orEmpty(),
@@ -411,12 +462,15 @@ fun GuidedWorkspaceLessonCard(
                             lineHeight = 16.sp
                         )
                     }
-                    val sequenceBoxLabel = teaching.sequenceEmphasis?.takeIf { it.isNotBlank() }
-                        ?: sequenceText.takeIf { it.isNotBlank() }
-                    if (!sequenceBoxLabel.isNullOrBlank()) {
-                        Spacer(modifier.height(5.dp))
-                        GuidedLessonSequenceEmphasisBox(sequenceLabel = sequenceBoxLabel)
-                    }
+                }
+                val methodHasSequence = teaching.methods.any {
+                    !it.highlightedSequence.isNullOrBlank()
+                }
+                val sequenceBoxLabel = teaching.sequenceEmphasis?.takeIf { it.isNotBlank() }
+                    ?: sequenceText.takeIf { it.isNotBlank() && !methodHasSequence }
+                if (!sequenceBoxLabel.isNullOrBlank()) {
+                    Spacer(modifier.height(5.dp))
+                    GuidedLessonSequenceEmphasisBox(sequenceLabel = sequenceBoxLabel)
                 }
                 if (finishLabel != null && onFinish != null) {
                     Spacer(modifier.height(6.dp))

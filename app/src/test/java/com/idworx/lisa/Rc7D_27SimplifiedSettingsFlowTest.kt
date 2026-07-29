@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * RC7D.27 — Simplified settings entry, save confirmation, and header cleanup.
+ * RC7D.27 — Simplified settings entry and header cleanup; RC8.30 — immediate save (no ConfirmSave*).
  */
 class Rc7D_27SimplifiedSettingsFlowTest {
 
@@ -108,12 +108,12 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertTrue(ui.contains("fun SettingsMenuPanel(") || ui.contains("SettingsAndControlsHubPanel"))
         assertTrue(ui.contains("guidedOpenSelectedSetting") || ui.contains("PanelContext.SettingsHub"))
         assertTrue(ui.contains("settingsHubSelection"))
-        // Scroll Up at first card does not open Sensitivity.
-        assertTrue(
+        // RC8.32 — labelled Sensitivity sequence L2 R0 opens Sensitivity when selected.
+        val openedViaLabel = navigate(
             process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, menu())
-                is GuidedSequenceResult.Unmatched
         )
-        // Select opens the highlighted Sensitivity card.
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, openedViaLabel.preferencesAdjustMode)
+        // Select remains an alternate open for the highlighted Sensitivity card.
         val opened = navigate(
             process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu())
         )
@@ -123,15 +123,17 @@ class Rc7D_27SimplifiedSettingsFlowTest {
     // ------------------------------------------------------------------ C. Cancel label and behaviour
 
     @Test
-    fun cancelLabelIsCancelBackWithoutPreferences() {
-        assertEquals("Cancel / Back", english.guidedCancelBack)
-        assertEquals("Cancel / Back", english.guidedCancelToPreferences)
-        assertFalse(english.guidedCancelBack.contains("Preferences", ignoreCase = true))
+    fun adjustmentExitLabelIsBackWithoutCancel() {
+        assertEquals("Back", english.guidedBack)
+        assertEquals("Back", english.guidedCancelAdjustment)
+        assertFalse(english.guidedCancelAdjustment.contains("Cancel", ignoreCase = true))
+        assertFalse(english.guidedCancelAdjustment.contains("Preferences", ignoreCase = true))
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
         val panel = ui.substringAfter("fun SharedSettingAdjustmentPanel(")
             .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
-        assertTrue(panel.contains("guidedCancelBack"))
-        assertFalse(panel.contains("Back to Preferences"))
+        assertTrue(panel.contains("guidedBack"))
+        assertFalse(panel.contains("guidedCancelBack"))
+        assertFalse(panel.contains("Cancel / Back"))
     }
 
     @Test
@@ -146,82 +148,74 @@ class Rc7D_27SimplifiedSettingsFlowTest {
         assertEquals(5, reopened.draftSensitivityLevel)
     }
 
-    // ------------------------------------------------------------------ D. Save confirmation
+    // ------------------------------------------------------------------ D. RC8.30 immediate save
 
     @Test
-    fun firstSaveEntersConfirmationWithoutPersisting() {
-        val editing = PreferenceAdjustmentController.increaseDraft(
-            PreferenceAdjustmentController.openSensitivityAdjust(menu(), 5)
-        )
-        val confirming = navigate(
-            process(
-                GuidedModeNavigation.SELECT_LEFT,
-                GuidedModeNavigation.SELECT_RIGHT,
-                editing,
-                blinkOrder = listOf(true, false)
-            )
-        )
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, confirming.preferencesAdjustMode)
-        assertEquals(6, confirming.draftSensitivityLevel)
-        assertFalse(confirming.isValueAdjustmentActive)
-        assertTrue(confirming.isSaveConfirmationActive)
+    fun increasePersistsImmediatelyAndStaysOnAdjustmentScreen() {
+        val editing = PreferenceAdjustmentController.openSensitivityAdjust(menu(), 5)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(editing)
+            as GuidedSequenceResult.SavePreferencesAdjustment
+        assertEquals(6, saved.sensitivityLevel)
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, saved.newState.preferencesAdjustMode)
+        assertEquals(6, saved.newState.draftSensitivityLevel)
+        assertTrue(saved.newState.isValueAdjustmentActive)
+        assertFalse(saved.newState.isSaveConfirmationActive)
     }
 
     @Test
-    fun confirmPersistsAndReturnsToSettingsMenu() {
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(
-            PreferenceAdjustmentController.increaseDraft(
-                PreferenceAdjustmentController.openSensitivityAdjust(menu(), 4)
-            )
-        )
-        val saved = PreferenceAdjustmentController.saveAdjustment(confirming)
+    fun increaseViaGesturePersistsAndBackReturnsToSettingsMenu() {
+        val editing = PreferenceAdjustmentController.openSensitivityAdjust(menu(), 4)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(editing)
+            as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(5, saved.sensitivityLevel)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, saved.newState.preferencesAdjustMode)
-    }
-
-    @Test
-    fun confirmationCancelReturnsToEditingWithDraftIntact() {
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(
-            PreferenceAdjustmentController.increaseDraft(
-                PreferenceAdjustmentController.openResponseTimeAdjust(menu(), 5)
+        val back = navigate(
+            process(
+                GuidedModeNavigation.BACK_LEFT,
+                GuidedModeNavigation.BACK_RIGHT,
+                saved.newState
             )
         )
-        val back = navigate(
-            process(1, 1, confirming, blinkOrder = listOf(false, true))
-        )
-        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, back.preferencesAdjustMode)
-        assertEquals(6, back.draftResponseTimeSec)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, back.preferencesAdjustMode)
     }
 
     @Test
-    fun confirmationBlocksUnderlyingCommands() {
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(
-            PreferenceAdjustmentController.openSensitivityAdjust(menu(), 5)
+    fun beginSaveConfirmationIsNoOpUnderImmediateSave() {
+        val editing = PreferenceAdjustmentController.increaseDraft(
+            PreferenceAdjustmentController.openResponseTimeAdjust(menu(), 5)
         )
+        val unchanged = PreferenceAdjustmentController.beginSaveConfirmation(editing)
+        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, unchanged.preferencesAdjustMode)
+        assertEquals(6, unchanged.draftResponseTimeSec)
+        assertFalse(unchanged.isSaveConfirmationActive)
+    }
+
+    @Test
+    fun selectIsUnmatchedOnAdjustmentScreens() {
+        val editing = PreferenceAdjustmentController.openSensitivityAdjust(menu(), 5)
         assertTrue(
-            process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, confirming)
+            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, editing)
                 is GuidedSequenceResult.Unmatched
         )
         assertTrue(
-            process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, confirming)
-                is GuidedSequenceResult.Unmatched
+            process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, editing)
+                is GuidedSequenceResult.SavePreferencesAdjustment
         )
         assertTrue(
-            process(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT, confirming)
-                is GuidedSequenceResult.Unmatched
+            process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, editing)
+                is GuidedSequenceResult.Navigate
         )
     }
 
     @Test
-    fun confirmationShowsOriginalAndNewValuesInUi() {
-        assertEquals("Save Sensitivity?", english.guidedSaveSensitivityConfirmTitle())
-        assertEquals("Current saved value: 5", english.guidedSaveConfirmOriginalSensitivity(5))
-        assertEquals("New value: 7", english.guidedSaveConfirmNewSensitivity(7))
-        assertEquals("Save Response Time?", english.guidedSaveResponseTimeConfirmTitle())
-        assertTrue(english.guidedSaveConfirmOriginalResponseTime(5).contains("5s"))
-        assertTrue(english.guidedSaveConfirmNewResponseTime(6).contains("6s"))
-        assertEquals("R1 L1", english.guidedConfirmCancelSequenceLabel)
+    fun adjustmentPanelShowsAutoSaveHintWithoutSaveRow() {
+        assertTrue(english.guidedChangesSaveAutomatically.isNotBlank())
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
+        val panel = ui.substringAfter("private fun SharedSettingAdjustmentPanel(")
+            .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
+        assertTrue(panel.contains("guidedChangesSaveAutomatically"))
+        assertFalse(panel.contains("onSave"))
+        // Legacy confirmation strings remain for enum stability; panel no longer routes to ConfirmSave*.
+        assertEquals("Save Sensitivity?", english.guidedSaveSensitivityConfirmTitle())
         assertTrue(ui.contains("fun SaveConfirmationPanel("))
     }
 

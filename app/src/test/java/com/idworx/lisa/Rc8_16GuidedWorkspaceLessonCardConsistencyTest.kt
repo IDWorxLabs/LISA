@@ -125,7 +125,7 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
         assertEquals("L5 R5", ExploreLisaAuthority.settingsSequenceLabel())
         assertEquals("L1 R1", ExploreLisaAuthority.finishSequenceLabel())
         assertEquals(
-            "Sequence: L5 R5",
+            "Sequence: L0 R4",
             GuidedWorkspaceLessonCardAuthority.displayedSequenceFor(NavigationAction.AdjustSensitivity)
         )
     }
@@ -197,19 +197,22 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
             )
             when (lesson.action) {
                 NavigationAction.MoveToMedicalCategory,
-                NavigationAction.NextPage,
-                NavigationAction.PreviousPage,
                 NavigationAction.TriggerEmergency ->
                     assertEquals(GuidedWorkspaceLessonCardDock.BottomStart, dock)
+                NavigationAction.NextPage,
+                NavigationAction.PreviousPage ->
+                    assertEquals(GuidedWorkspaceLessonCardDock.TopStart, dock)
                 NavigationAction.SelectCategory,
                 NavigationAction.SelectPhrase ->
                     assertEquals(GuidedWorkspaceLessonCardDock.BottomEnd, dock)
                 NavigationAction.CloseMenu -> {
-                    // Workspace Back → BottomStart; Explore Close Menu → BottomEnd.
+                    // Workspace Back → TopStart (RC8.33); Explore Close Menu → BottomEnd.
                     if (lesson.id == "nav_back") {
-                        assertEquals(GuidedWorkspaceLessonCardDock.BottomStart, dock)
+                        assertEquals(GuidedWorkspaceLessonCardDock.TopStart, dock)
                     }
                 }
+                NavigationAction.AdjustSensitivity ->
+                    assertEquals(GuidedWorkspaceLessonCardDock.TopStart, dock)
                 else -> Unit
             }
         }
@@ -225,7 +228,7 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
             NavigationAction.NextPage to (0 to 4),
             NavigationAction.PreviousPage to (4 to 0),
             NavigationAction.TriggerEmergency to (6 to 0),
-            NavigationAction.AdjustSensitivity to (5 to 5),
+            NavigationAction.AdjustSensitivity to (0 to 4),
             NavigationAction.ResetSequence to (0 to 3),
             NavigationAction.OpenMenu to (4 to 6),
             NavigationAction.MenuSelectVoice to (0 to 2),

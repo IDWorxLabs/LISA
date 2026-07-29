@@ -263,11 +263,18 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val guidedDecreaseValue: String get() = t("Decrease value", "Verminder waarde", "Nciphisa inani")
     val guidedIncreaseValue: String get() = t("Increase value", "Verhoog waarde", "Khulisa inani")
     val guidedSaveSelectedValue: String get() = t("Save selected value", "Stoor gekose waarde", "Londoloza inani elikhethiwe")
-    val guidedCancelAdjustment: String get() = t("Cancel / Back", "Kanselleer / Terug", "Khansela / Emuva")
+    val guidedChangesSaveAutomatically: String get() = t(
+        "Changes save automatically.",
+        "Veranderinge word outomaties gestoor.",
+        "Izinguquko zilondolozwa ngokuzenzekelayo."
+    )
+    /** RC8.31 — adjustment-screen / rail exit label (immediate-save; nothing to cancel). */
+    val guidedCancelAdjustment: String get() = guidedBack
     val guidedDecreaseResponseTime: String get() = t("Decrease response time", "Verminder reaksietyd", "Nciphisa isikhathi sokuphendula")
     val guidedIncreaseResponseTime: String get() = t("Increase response time", "Verhoog reaksietyd", "Khulisa isikhathi sokuphendula")
     val guidedSaveResponseTime: String get() = t("Select / Save response time", "Kies / Stoor reaksietyd", "Khetha / Londoloza isikhathi sokuphendula")
     val guidedSaveSensitivity: String get() = t("Select / Save sensitivity", "Kies / Stoor sensitiwiteit", "Khetha / Londoloza ukuzwela")
+    /** Legacy string retained for non-adjustment Cancel/Back surfaces (e.g. Listening). */
     val guidedCancelToPreferences: String get() = t("Cancel / Back", "Kanselleer / Terug", "Khansela / Emuva")
     val guidedCancelBack: String get() = guidedCancelToPreferences
     fun guidedSaveSensitivityConfirmTitle(): String =

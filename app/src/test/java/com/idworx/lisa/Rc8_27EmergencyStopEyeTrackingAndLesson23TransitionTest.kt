@@ -149,7 +149,11 @@ class Rc8_27EmergencyStopEyeTrackingAndLesson23TransitionTest {
         assertEquals("Adjust Sensitivity", title)
         assertFalse(title.contains("Start Communicating", ignoreCase = true))
         assertFalse(instruction.contains("Finish training", ignoreCase = true))
-        assertTrue(instruction.contains("labelled blink sequences", ignoreCase = true))
+        assertTrue(
+            instruction.contains("labelled blink sequences", ignoreCase = true) ||
+                instruction.contains("labelled sequences", ignoreCase = true)
+        )
+        assertTrue(instruction.contains("save automatically", ignoreCase = true))
         assertEquals("L5 R5", gesture)
         val progress = TrainingLessonCatalog.guidedLessonProgress(
             TrainingProgress(

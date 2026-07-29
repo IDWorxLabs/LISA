@@ -18,8 +18,8 @@ package com.idworx.lisa
  * | Speech Volume         | L1 R2    | Direct-open shared adjustment         |
  * | Speech Speed          | L3 R2    | Direct-open shared adjustment         |
  * | Speech Speed (alt)    | L1 R3    | Former “speak more slowly”            |
- * | Decrease / Increase   | L3 R1 / L1 R3 | On value screens                 |
- * | Save / Cancel         | L1 R1 / L2 R2 | Shared confirm / back            |
+ * | Decrease / Increase   | L3 R1 / L1 R3 | Persist immediately (RC8.30)     |
+ * | Back                  | L2 R2         | Return to Settings hub           |
  */
 object SpeechVolumeAuthority {
     const val MIN_LEVEL: Int = 1
@@ -112,12 +112,15 @@ object SettingsAndControlsHubSequences {
     )
 
     /**
-     * Hub gesture map for Settings & Controls selection model:
-     * - L2 R0 / L0 R2 move selection (rail Scroll Up / Down) — do not open a card
-     * - L1 R1 opens the highlighted setting
+     * Hub gesture map for Settings & Controls:
+     * - L2 R0 opens Sensitivity when it is the selected hub card (RC8.32 labelled direct open);
+     *   otherwise L2 R0 scrolls selection up
+     * - L0 R2 scrolls selection down
+     * - L1 R1 opens the highlighted setting (generic Select — alternate to card labels)
      * - L1 R2 / L3 R2 (/ L1 R3 alt) remain direct-open shortcuts for volume / speed
      */
     fun hubDirectOpenKindForGesture(left: Int, right: Int): SettingsControlKind? = when {
+        left == SENSITIVITY.first && right == SENSITIVITY.second -> SettingsControlKind.Sensitivity
         left == SPEECH_VOLUME.first && right == SPEECH_VOLUME.second -> SettingsControlKind.SpeechVolume
         left == SPEECH_SPEED.first && right == SPEECH_SPEED.second -> SettingsControlKind.SpeechSpeed
         left == SPEECH_SPEED_ALT.first && right == SPEECH_SPEED_ALT.second -> SettingsControlKind.SpeechSpeed

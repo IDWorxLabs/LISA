@@ -232,23 +232,6 @@ fun GuidedVocabularyOverlay(
                         trainingHighlight = trainingHighlight,
                         modifier = Modifier.weight(1f)
                     )
-                } else if (safeState.isSaveConfirmationActive) {
-                    SaveConfirmationPanel(
-                        uiStrings = uiStrings,
-                        adjustMode = preferencesAdjustMode,
-                        originalSensitivity = safeState.adjustmentOriginalSensitivity,
-                        originalResponseTimeSec = safeState.adjustmentOriginalResponseTimeSec,
-                        originalSpeechVolumeLevel = safeState.adjustmentOriginalSpeechVolumeLevel,
-                        originalSpeechSpeedLevel = safeState.adjustmentOriginalSpeechSpeedLevel,
-                        draftSensitivity = safeState.draftSensitivityLevel,
-                        draftResponseTimeSec = safeState.draftResponseTimeSec,
-                        draftSpeechVolumeLevel = safeState.draftSpeechVolumeLevel,
-                        draftSpeechSpeedLevel = safeState.draftSpeechSpeedLevel,
-                        onConfirm = onSelectEnter,
-                        onCancelConfirmation = onCancelSaveConfirmation,
-                        onEmergency = onEmergency,
-                        modifier = Modifier.weight(1f)
-                    )
                 } else if (safeState.isListeningControlActive) {
                     ListeningControlPanel(
                         uiStrings = uiStrings,
@@ -258,10 +241,21 @@ fun GuidedVocabularyOverlay(
                         onEmergency = onEmergency,
                         modifier = Modifier.weight(1f)
                     )
-                } else if (safeState.isValueAdjustmentActive) {
+                } else if (safeState.isValueAdjustmentActive || safeState.isSaveConfirmationActive) {
+                    // RC8.30 — ConfirmSave* never shown; legacy restore collapses into adjustment UI.
                     SharedSettingAdjustmentPanel(
                         uiStrings = uiStrings,
-                        adjustMode = preferencesAdjustMode,
+                        adjustMode = when (preferencesAdjustMode) {
+                            GuidedPreferencesAdjustMode.ConfirmSaveSensitivity ->
+                                GuidedPreferencesAdjustMode.Sensitivity
+                            GuidedPreferencesAdjustMode.ConfirmSaveResponseTime ->
+                                GuidedPreferencesAdjustMode.ResponseTime
+                            GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume ->
+                                GuidedPreferencesAdjustMode.SpeechVolume
+                            GuidedPreferencesAdjustMode.ConfirmSaveSpeechSpeed ->
+                                GuidedPreferencesAdjustMode.SpeechSpeed
+                            else -> preferencesAdjustMode
+                        },
                         draftResponseTimeSec = safeState.draftResponseTimeSec,
                         draftSensitivityLevel = safeState.draftSensitivityLevel,
                         draftSpeechVolumeLevel = safeState.draftSpeechVolumeLevel,
@@ -269,7 +263,6 @@ fun GuidedVocabularyOverlay(
                         scrollStep = safeState.adjustmentScrollStep,
                         onDecrease = onDecreaseValue,
                         onIncrease = onIncreaseValue,
-                        onSave = onSelectEnter,
                         onCancel = onBack,
                         onEmergency = onEmergency,
                         trainingHighlight = trainingHighlight,
@@ -1445,7 +1438,6 @@ private fun SharedSettingAdjustmentPanel(
     scrollStep: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    onSave: () -> Unit,
     onCancel: () -> Unit,
     onEmergency: () -> Unit,
     trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
@@ -1474,19 +1466,12 @@ private fun SharedSettingAdjustmentPanel(
             uiStrings.guidedCurrentSpeechSpeed(draftSpeechSpeedLevel)
         else -> ""
     }
-    val saveTitle = when (adjustMode) {
-        GuidedPreferencesAdjustMode.ResponseTime -> uiStrings.guidedSaveResponseTime
-        GuidedPreferencesAdjustMode.Sensitivity -> uiStrings.guidedSaveSensitivity
-        GuidedPreferencesAdjustMode.SpeechVolume -> uiStrings.guidedSaveSpeechVolume
-        GuidedPreferencesAdjustMode.SpeechSpeed -> uiStrings.guidedSaveSpeechSpeed
-        else -> uiStrings.guidedSaveSelectedValue
-    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = uiStrings.workspaceCommunicationTitle,
@@ -1505,13 +1490,11 @@ private fun SharedSettingAdjustmentPanel(
             fontSize = 16.sp,
             color = LisaWhite
         )
-        if (adjustMode == GuidedPreferencesAdjustMode.ResponseTime) {
-            Text(
-                text = uiStrings.guidedResponseTimeMeterHint,
-                fontSize = 12.sp,
-                color = LisaWhite.copy(alpha = 0.75f)
-            )
-        }
+        Text(
+            text = uiStrings.guidedChangesSaveAutomatically,
+            fontSize = 13.sp,
+            color = LisaWhite.copy(alpha = 0.8f)
+        )
 
         when (adjustMode) {
             GuidedPreferencesAdjustMode.ResponseTime -> SettingAdjustmentMeter(
@@ -1551,7 +1534,10 @@ private fun SharedSettingAdjustmentPanel(
                 ),
                 onDecrease = onDecrease,
                 onIncrease = onIncrease,
-                highlightIncrease = trainingHighlight == GuidedWorkspaceHighlightTarget.IncreaseValue
+                highlightDecrease = trainingHighlight == GuidedWorkspaceHighlightTarget.DecreaseValue ||
+                    trainingHighlight == GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue,
+                highlightIncrease = trainingHighlight == GuidedWorkspaceHighlightTarget.IncreaseValue ||
+                    trainingHighlight == GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue
             )
             GuidedPreferencesAdjustMode.SpeechVolume -> SettingAdjustmentMeter(
                 label = uiStrings.guidedSelectSpeechVolumeSetting,
@@ -1594,18 +1580,13 @@ private fun SharedSettingAdjustmentPanel(
             else -> Unit
         }
 
-        AdjustmentInstructionRow(
-            sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
-            gestureHint = uiStrings.guidedSelectEnterHint,
-            title = saveTitle,
-            onClick = onSave,
-            trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.Select
-        )
+        // RC8.31 — Back (not Cancel); value already persisted via immediate-save.
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
             gestureHint = uiStrings.guidedBackHint,
-            title = uiStrings.guidedCancelBack,
-            onClick = onCancel
+            title = uiStrings.guidedBack,
+            onClick = onCancel,
+            trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.Back
         )
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS),
@@ -1659,7 +1640,6 @@ private fun PreferencesAdjustmentPanel(
     scrollStep: Int,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    onSave: () -> Unit,
     onCancel: () -> Unit,
     onEmergency: () -> Unit,
     modifier: Modifier = Modifier
@@ -1674,7 +1654,6 @@ private fun PreferencesAdjustmentPanel(
         scrollStep = scrollStep,
         onDecrease = onDecrease,
         onIncrease = onIncrease,
-        onSave = onSave,
         onCancel = onCancel,
         onEmergency = onEmergency,
         modifier = modifier
@@ -1698,6 +1677,7 @@ private fun SettingAdjustmentMeter(
     increaseSequence: String,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    highlightDecrease: Boolean = false,
     highlightIncrease: Boolean = false
 ) {
     val activeCount = SettingAdjustmentMeterAuthority.activeSegmentCount(
@@ -1732,6 +1712,7 @@ private fun SettingAdjustmentMeter(
                 label = decreaseLabel,
                 sequence = decreaseSequence,
                 onClick = onDecrease,
+                trainingHighlighted = highlightDecrease,
                 modifier = Modifier.widthIn(min = 72.dp)
             )
             Row(

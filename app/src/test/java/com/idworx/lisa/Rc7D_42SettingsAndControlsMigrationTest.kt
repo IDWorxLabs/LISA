@@ -157,33 +157,39 @@ class Rc7D_42SettingsAndControlsMigrationTest {
     }
 
     @Test
-    fun adjustmentScreensSupportDecreaseIncreaseSaveAndCancel() {
+    fun adjustmentScreensSupportDecreaseIncreasePersistAndBack() {
         var state = PreferenceAdjustmentController.openSpeechVolumeAdjust(hub(), 5)
         state = PreferenceAdjustmentController.decreaseDraft(state)
         assertEquals(4, state.draftSpeechVolumeLevel)
         state = PreferenceAdjustmentController.increaseDraft(state)
         assertEquals(5, state.draftSpeechVolumeLevel)
 
-        val confirm = PreferenceAdjustmentController.beginSaveConfirmation(state)
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSpeechVolume, confirm.preferencesAdjustMode)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(state)
+            as GuidedSequenceResult.SavePreferencesAdjustment
+        assertEquals(6, saved.speechVolumeLevel)
+        assertEquals(GuidedPreferencesAdjustMode.SpeechVolume, saved.newState.preferencesAdjustMode)
 
-        val cancelledConfirm = PreferenceAdjustmentController.cancelSaveConfirmation(confirm)
-        assertEquals(GuidedPreferencesAdjustMode.SpeechVolume, cancelledConfirm.preferencesAdjustMode)
-        assertEquals(5, cancelledConfirm.draftSpeechVolumeLevel)
+        // beginSaveConfirmation / cancelSaveConfirmation are no-ops under RC8.30.
+        val unchanged = PreferenceAdjustmentController.beginSaveConfirmation(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SpeechVolume, unchanged.preferencesAdjustMode)
+        assertEquals(
+            GuidedPreferencesAdjustMode.SpeechVolume,
+            PreferenceAdjustmentController.cancelSaveConfirmation(unchanged).preferencesAdjustMode
+        )
 
-        val cancelled = PreferenceAdjustmentController.cancelAdjustment(state)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, cancelled.preferencesAdjustMode)
+        val hubState = PreferenceAdjustmentController.cancelAdjustment(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hubState.preferencesAdjustMode)
     }
 
     @Test
-    fun savePersistsSelectedValueInResult() {
-        val state = PreferenceAdjustmentController.openSpeechSpeedAdjust(hub(), 3).let {
-            PreferenceAdjustmentController.increaseDraft(it)
-        }
-        val confirm = PreferenceAdjustmentController.beginSaveConfirmation(state)
-        val save = PreferenceAdjustmentController.saveAdjustment(confirm)
-        assertEquals(4, save.speechSpeedLevel)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, save.newState.preferencesAdjustMode)
+    fun persistSelectedValueViaImmediateSave() {
+        val opened = PreferenceAdjustmentController.openSpeechSpeedAdjust(hub(), 3)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(opened)
+            as GuidedSequenceResult.SavePreferencesAdjustment
+        assertEquals(4, saved.speechSpeedLevel)
+        assertEquals(GuidedPreferencesAdjustMode.SpeechSpeed, saved.newState.preferencesAdjustMode)
+        val hub = PreferenceAdjustmentController.cancelAdjustment(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hub.preferencesAdjustMode)
     }
 
     @Test
@@ -287,28 +293,28 @@ class Rc7D_42SettingsAndControlsMigrationTest {
 
     @Test
     fun existingBlinkSequencesStillTriggerCorrectActions() {
-        // Sensitivity decrease / increase / save / cancel unchanged.
+        // Sensitivity decrease / increase persist immediately; Select unmatched; Back from hub exits.
         var state = PreferenceAdjustmentController.openSensitivityAdjust(hub(), 5)
-        state = navigate(
-            process(
-                GuidedModeNavigation.DECREASE_VALUE_LEFT,
-                GuidedModeNavigation.DECREASE_VALUE_RIGHT,
-                state
-            )
+        val decreased = process(
+            GuidedModeNavigation.DECREASE_VALUE_LEFT,
+            GuidedModeNavigation.DECREASE_VALUE_RIGHT,
+            state
         )
+        assertTrue(decreased is GuidedSequenceResult.SavePreferencesAdjustment)
+        state = (decreased as GuidedSequenceResult.SavePreferencesAdjustment).newState
         assertEquals(4, state.draftSensitivityLevel)
-        state = navigate(
-            process(
-                GuidedModeNavigation.INCREASE_VALUE_LEFT,
-                GuidedModeNavigation.INCREASE_VALUE_RIGHT,
-                state
-            )
+        val increased = process(
+            GuidedModeNavigation.INCREASE_VALUE_LEFT,
+            GuidedModeNavigation.INCREASE_VALUE_RIGHT,
+            state
         )
+        assertTrue(increased is GuidedSequenceResult.SavePreferencesAdjustment)
+        state = (increased as GuidedSequenceResult.SavePreferencesAdjustment).newState
         assertEquals(5, state.draftSensitivityLevel)
-        state = navigate(
+        assertTrue(
             process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, state)
+                is GuidedSequenceResult.Unmatched
         )
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, state.preferencesAdjustMode)
         state = navigate(
             process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, hub())
         )
@@ -380,15 +386,18 @@ class Rc7D_42SettingsAndControlsMigrationTest {
     fun scrollUpAndDownChangeSelectionWithoutOpening() {
         var state = hub()
         assertEquals(0, state.settingsHubSelection)
-        assertTrue(
+        // RC8.32 — L2 R0 opens Sensitivity when it is the selected hub card.
+        val opened = navigate(
             process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state)
-                is GuidedSequenceResult.Unmatched
         )
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, opened.preferencesAdjustMode)
+        state = hub()
         state = navigate(process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state))
         assertEquals(1, state.settingsHubSelection)
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, state.preferencesAdjustMode)
         state = navigate(process(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT, state))
         assertEquals(2, state.settingsHubSelection)
+        // Scroll Up from a non-Sensitivity selection still moves selection.
         state = navigate(process(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT, state))
         assertEquals(1, state.settingsHubSelection)
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, state.preferencesAdjustMode)

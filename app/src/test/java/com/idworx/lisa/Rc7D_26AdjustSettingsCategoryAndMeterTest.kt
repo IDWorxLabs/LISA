@@ -276,10 +276,12 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
         )
         val increased = PreferenceAdjustmentController.increaseDraft(opened)
         assertEquals(6, increased.draftSensitivityLevel)
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(increased)
-        val saved = PreferenceAdjustmentController.saveAdjustment(confirming)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(opened)
+            as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(6, saved.sensitivityLevel)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, saved.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, saved.newState.preferencesAdjustMode)
+        val hub = PreferenceAdjustmentController.cancelAdjustment(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hub.preferencesAdjustMode)
         val cancelled = PreferenceAdjustmentController.cancelAdjustment(increased)
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, cancelled.preferencesAdjustMode)
     }
@@ -309,22 +311,26 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
         assertEquals(4, decreased.draftResponseTimeSec)
         val increased = PreferenceAdjustmentController.increaseDraft(opened)
         assertEquals(6, increased.draftResponseTimeSec)
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(increased)
-        val saved = PreferenceAdjustmentController.saveAdjustment(confirming)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(opened)
+            as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(6, saved.responseTimeSec)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, saved.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, saved.newState.preferencesAdjustMode)
+        val hub = PreferenceAdjustmentController.cancelAdjustment(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hub.preferencesAdjustMode)
         val cancelled = PreferenceAdjustmentController.cancelAdjustment(decreased)
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, cancelled.preferencesAdjustMode)
     }
 
     @Test
-    fun responseTimeMeterUiShowsSecondsAndHint() {
+    fun responseTimeMeterUiShowsSecondsWithoutExtraHint() {
         assertEquals("Response Time Adjustment", english.guidedResponseTimeAdjustmentTitle)
         assertTrue(english.guidedCurrentResponseTime(5).contains("5"))
-        assertTrue(english.guidedResponseTimeMeterHint.isNotBlank())
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
-        assertTrue(ui.contains("guidedResponseTimeMeterHint"))
+        val panel = ui.substringAfter("fun SharedSettingAdjustmentPanel(")
+            .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
+        assertFalse(panel.contains("guidedResponseTimeMeterHint"))
         assertTrue(ui.contains("formatResponseTimeTick"))
+        assertTrue(panel.contains("guidedChangesSaveAutomatically"))
     }
 
     // ------------------------------------------------------------------ G. Safety and regression
@@ -338,7 +344,8 @@ class Rc7D_26AdjustSettingsCategoryAndMeterTest {
             GuidedModeNavigation.DECREASE_VALUE_RIGHT,
             adjusting
         )
-        val state = navigate(result)
+        assertTrue(result is GuidedSequenceResult.SavePreferencesAdjustment)
+        val state = (result as GuidedSequenceResult.SavePreferencesAdjustment).newState
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, state.preferencesAdjustMode)
         assertEquals(4, state.draftSensitivityLevel)
         assertEquals(GuidedOverlayScreenMode.CategoryMenu, state.screenMode)

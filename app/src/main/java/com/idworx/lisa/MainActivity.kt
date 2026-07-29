@@ -2495,7 +2495,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             com.idworx.lisa.features.guidedsensitivitylesson
                 .GuidedSensitivityLessonAuthority.ID_ADJUST_SENSITIVITY -> {
-                // RC8.28 Lesson 23 — Category Menu; never pre-open Settings / Sensitivity / Increase / Save.
+                // RC8.32 Lesson 23 — Category Menu Page 1; never pre-open Page 2 / Settings /
+                // Sensitivity / adjust / Back / completion CTAs.
                 closeWorkspacePanelsOnly()
                 val authority = com.idworx.lisa.features.guidedsensitivitylesson
                     .GuidedSensitivityLessonAuthority
@@ -2504,11 +2505,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val practiceStart = authority.practiceStartingSensitivity(original)
                 sensitivityLessonStartLevel = practiceStart
                 if (practiceStart != original) {
-                    // Temporary practice floor when already at max — not persisted as the taught save.
                     applySensitivityLevel(practiceStart, persist = false)
                 }
+                val current = uiGuidedNavigationState.value
+                val pageCount = current.categoryViewportPageCount.coerceAtLeast(2)
                 uiGuidedNavigationState.value =
-                    GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
+                    GuidedNavigationController.communicationWorkspaceRoot(current).copy(
+                        categoryViewportPage = 0,
+                        categoryViewportPageCount = pageCount,
+                        categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
+                    )
                 medicalPhraseLessonArmed = false
             }
             else -> Unit
@@ -2535,6 +2541,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             .isMedicalPhraseWorkspaceOpen(uiGuidedNavigationState.value)
 
     private fun handleTrainingEvent(event: TrainingEvent) {
+        if (event is TrainingEvent.StartUsingLisa || event is TrainingEvent.ReplayTutorial) {
+            restoreSensitivityLessonPreferenceIfNeeded()
+        }
         trainingSession.dispatch(event)
         refreshTrainingActiveState()
     }
@@ -2572,6 +2581,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             refreshTrainingActiveState()
             return
         }
+        if (trainingSession.state.progress.currentPhase == TrainingPhase.Completion &&
+            trainingSession.state.awaitingCompletionChoice
+        ) {
+            handleTrainingCompletionChoice(left, right)
+            refreshTrainingActiveState()
+            return
+        }
         if (trainingSession.isNavigationTrainingActive()) {
             handleNavigationTrainingSequence(left, right)
             refreshTrainingActiveState()
@@ -2579,6 +2595,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         trainingSession.handleSequence(left, right, activeLanguage(), order)
         refreshTrainingActiveState()
+    }
+
+    /** RC8.32 — Training Complete: Start Communicating (L0 R3) or Restart Guided Learning (L3 R0). */
+    private fun handleTrainingCompletionChoice(left: Int, right: Int) {
+        val authority = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+        when {
+            authority.matchesStartCommunicating(left, right) -> {
+                handleTrainingEvent(TrainingEvent.StartUsingLisa)
+            }
+            authority.matchesRestartGuidedLearning(left, right) -> {
+                closeAllPanels()
+                handleTrainingEvent(TrainingEvent.ReplayTutorial)
+            }
+            else -> Unit
+        }
     }
 
     /**
@@ -2669,11 +2700,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .CategoryShortcutJump ->
                 false
-            // RC8.28 Sensitivity phases belong to AdjustSensitivity, not Lesson 16.
+            // RC8.28 / RC8.32 Sensitivity phases belong to AdjustSensitivity, not Lesson 16.
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .MoveToSettingsPage,
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .OpenSettingsAndControls,
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .OpenSensitivitySetting,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .AdjustSensitivity,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .ReturnToSettingsAndControls,
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .IncreaseSensitivityOnce,
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
@@ -3094,23 +3131,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    /** RC8.28 — Lesson 23 phases on production Settings & Controls / Sensitivity. */
+    /** RC8.32 — Lesson 23 five-phase Settings adjustment journey. */
     private fun acceptsAdjustSensitivityPhaseGesture(left: Int, right: Int): Boolean {
         val authority = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
         val phase = trainingSession.activeTeachingPhase()
         return when (phase?.requiredAction) {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .MoveToSettingsPage ->
+                authority.matchesMoveToSettingsPage(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .OpenSettingsAndControls ->
                 authority.matchesOpenSettings(left, right)
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
-                .OpenSensitivitySetting,
+                .OpenSensitivitySetting ->
+                authority.matchesOpenSensitivity(left, right)
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
-                .SaveSensitivity ->
-                authority.matchesSave(left, right)
+                .AdjustSensitivity,
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .IncreaseSensitivityOnce ->
-                authority.matchesIncrease(left, right)
-            else -> authority.matchesOpenSettings(left, right)
+                authority.matchesAdjust(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .ReturnToSettingsAndControls ->
+                authority.matchesReturnToSettings(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .SaveSensitivity -> false
+            else -> authority.matchesMoveToSettingsPage(left, right)
         }
     }
 
@@ -3120,8 +3165,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val state = uiGuidedNavigationState.value
         when (phase?.requiredAction) {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
-                .OpenSettingsAndControls,
+                .MoveToSettingsPage,
             null -> {
+                val pageAuthority = com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority
+                if (!guidedOverlayActive() || !authority.matchesMoveToSettingsPage(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                if (!authority.isMoveToSettingsPageStartState(state)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value
+                if (authority.isMoveToSettingsPageCompleted(state, after, left, right) ||
+                    pageAuthority.isNextPageCompleted(state, after, left, right)
+                ) {
+                    verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSettingsAndControls -> {
                 if (!guidedOverlayActive() || !authority.matchesOpenSettings(left, right)) {
                     rejectNavigationTrainingGesture()
                     return
@@ -3140,87 +3205,86 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     rejectNavigationTrainingGesture()
                     return
                 }
-                // Ensure Sensitivity remains the selected hub card (production default index 0).
-                if (state.settingsHubSelection != 0) {
-                    rejectNavigationTrainingGesture()
-                    return
-                }
                 handleGuidedOverlaySequence(left, right)
                 if (authority.isSensitivityAdjustmentOpen(uiGuidedNavigationState.value)) {
                     if (sensitivityLessonStartLevel == null) {
-                        sensitivityLessonStartLevel = uiGuidedNavigationState.value.draftSensitivityLevel
+                        sensitivityLessonStartLevel =
+                            uiGuidedNavigationState.value.draftSensitivityLevel
                     }
                     verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
                 }
             }
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .AdjustSensitivity,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .IncreaseSensitivityOnce -> {
                 if (!guidedOverlayActive() ||
                     !authority.isSensitivityAdjustmentOpen(state) ||
-                    !authority.matchesIncrease(left, right)
+                    !authority.matchesAdjust(left, right)
                 ) {
                     rejectNavigationTrainingGesture()
                     return
                 }
-                val start = sensitivityLessonStartLevel
-                    ?: state.draftSensitivityLevel
                 val before = state.draftSensitivityLevel
                 handleGuidedOverlaySequence(left, right)
-                val after = uiGuidedNavigationState.value.draftSensitivityLevel
-                if (authority.isIncreaseCompleted(before, after, start)) {
+                val afterState = uiGuidedNavigationState.value
+                val after = afterState.draftSensitivityLevel
+                val savedOk = authority.isAdjustCompleted(before, after) &&
+                    uiSensitivityLevel.value == after &&
+                    authority.isSensitivityAdjustmentOpen(afterState)
+                if (savedOk) {
                     sensitivityLessonTargetLevel = after
                     verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                    // RC8.32 — keep adjusted value through Back proof; restore after Well done /
+                    // before Start Communicating or Restart Guided Learning.
                 } else {
                     rejectNavigationTrainingGesture()
                 }
             }
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
-                .SaveSensitivity -> {
-                if (!guidedOverlayActive() || !authority.matchesSave(left, right)) {
+                .ReturnToSettingsAndControls -> {
+                if (!guidedOverlayActive() ||
+                    !authority.isSensitivityAdjustmentOpen(state) ||
+                    !authority.matchesReturnToSettings(left, right)
+                ) {
                     rejectNavigationTrainingGesture()
                     return
                 }
-                val wasAdjusting = authority.isSensitivityAdjustmentOpen(state)
-                val wasConfirming = authority.isSaveConfirmationOpen(state)
+                val adjusted = sensitivityLessonTargetLevel ?: state.draftSensitivityLevel
                 handleGuidedOverlaySequence(left, right)
-                val after = uiGuidedNavigationState.value
-                when {
-                    wasAdjusting && authority.isSaveConfirmationOpen(after) -> {
-                        // First L1 R1 — entered confirmation; wait for second L1 R1.
-                    }
-                    wasConfirming -> {
-                        val target = sensitivityLessonTargetLevel
-                        val savedOk = target != null &&
-                            uiSensitivityLevel.value == target &&
-                            !authority.isSensitivityAdjustmentOpen(after) &&
-                            !authority.isSaveConfirmationOpen(after)
-                        if (savedOk) {
-                            verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
-                            restoreSensitivityLessonPreferenceIfNeeded()
-                        }
-                    }
-                    !authority.isSensitivityAdjustmentOpen(after) &&
-                        !authority.isSaveConfirmationOpen(after) &&
-                        sensitivityLessonTargetLevel != null &&
-                        uiSensitivityLevel.value == sensitivityLessonTargetLevel -> {
-                        verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
-                        restoreSensitivityLessonPreferenceIfNeeded()
-                    }
-                    else -> Unit
+                val afterState = uiGuidedNavigationState.value
+                val backOk = authority.isSettingsHubOpen(afterState) &&
+                    !authority.isSensitivityAdjustmentOpen(afterState) &&
+                    uiSensitivityLevel.value == adjusted
+                if (backOk) {
+                    verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                    // RC8.32 — restore after Well done acknowledgement window, before Start Communicating.
+                    restoreSensitivityLessonPreferenceDelayed()
+                } else {
+                    rejectNavigationTrainingGesture()
                 }
             }
             else -> rejectNavigationTrainingGesture()
         }
     }
 
-    /** RC8.28 — restore the pre-lesson Sensitivity after a successful guided save. */
+    /**
+     * RC8.32 — restore the pre-lesson Sensitivity after Well done / before normal entry or restart.
+     * Not called immediately after adjustment so Back can prove the persisted value.
+     */
     private fun restoreSensitivityLessonPreferenceIfNeeded() {
         val original = sensitivityLessonOriginalLevel ?: return
+        applySensitivityLevel(original, persist = true)
+        sensitivityLessonOriginalLevel = null
+        sensitivityLessonStartLevel = null
+        sensitivityLessonTargetLevel = null
+    }
+
+    private fun restoreSensitivityLessonPreferenceDelayed() {
+        val original = sensitivityLessonOriginalLevel ?: return
         mainHandler.postDelayed({
-            applySensitivityLevel(original, persist = true)
-            sensitivityLessonOriginalLevel = null
-            sensitivityLessonStartLevel = null
-            sensitivityLessonTargetLevel = null
+            if (sensitivityLessonOriginalLevel != original) return@postDelayed
+            restoreSensitivityLessonPreferenceIfNeeded()
         }, 1_600L)
     }
 

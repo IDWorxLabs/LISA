@@ -171,45 +171,52 @@ class Rc8_28BalancedEmergencyAndAdjustSensitivityLessonTest {
         val intro = GuidedWorkspaceTrainingSpec.lessonCardInstruction(
             NavigationAction.AdjustSensitivity
         ).orEmpty()
-        assertTrue(intro.contains("Communication controls", ignoreCase = true))
-        assertTrue(intro.contains("labelled blink sequences", ignoreCase = true))
-        assertTrue(intro.contains("adjustment", ignoreCase = true))
+        assertTrue(intro.contains("Sensitivity", ignoreCase = true))
+        assertTrue(intro.contains("Response Time", ignoreCase = true))
         assertFalse(intro.contains("memorise", ignoreCase = true))
-        assertFalse(intro.contains("every destination", ignoreCase = true))
         val full = GuidedLessonTeachingSpec.fullPresentationFor(
             NavigationAction.AdjustSensitivity,
             sensitivity.ID_ADJUST_SENSITIVITY,
             uiStrings
         )
-        assertEquals(4, full.phases.size)
-        assertEquals(sensitivity.PHASE_OPEN_SETTINGS, full.phases[0].id)
-        assertEquals(sensitivity.PHASE_OPEN_SENSITIVITY, full.phases[1].id)
-        assertEquals(sensitivity.PHASE_CHANGE_SENSITIVITY, full.phases[2].id)
-        assertEquals(sensitivity.PHASE_SAVE_SENSITIVITY, full.phases[3].id)
+        assertEquals(5, full.phases.size)
+        assertEquals(sensitivity.PHASE_MOVE_TO_SETTINGS_PAGE, full.phases[0].id)
+        assertEquals(sensitivity.PHASE_OPEN_SETTINGS, full.phases[1].id)
+        assertEquals(sensitivity.PHASE_OPEN_SENSITIVITY, full.phases[2].id)
+        assertEquals(sensitivity.PHASE_ADJUST_SENSITIVITY, full.phases[3].id)
+        assertEquals(sensitivity.PHASE_RETURN_TO_SETTINGS, full.phases[4].id)
         assertEquals(
-            GuidedLessonPhaseRequiredAction.OpenSettingsAndControls,
+            GuidedLessonPhaseRequiredAction.MoveToSettingsPage,
             full.phases[0].requiredAction
         )
         assertEquals(
-            GuidedLessonPhaseRequiredAction.OpenSensitivitySetting,
+            GuidedLessonPhaseRequiredAction.OpenSettingsAndControls,
             full.phases[1].requiredAction
         )
         assertEquals(
-            GuidedLessonPhaseRequiredAction.IncreaseSensitivityOnce,
+            GuidedLessonPhaseRequiredAction.OpenSensitivitySetting,
             full.phases[2].requiredAction
         )
         assertEquals(
-            GuidedLessonPhaseRequiredAction.SaveSensitivity,
+            GuidedLessonPhaseRequiredAction.AdjustSensitivity,
             full.phases[3].requiredAction
         )
-        assertEquals(GuidedWorkspaceHighlightTarget.CategoryRow, full.phases[0].navigationControlHighlight)
-        assertEquals(GuidedWorkspaceHighlightTarget.Select, full.phases[1].navigationControlHighlight)
-        assertEquals(GuidedWorkspaceHighlightTarget.IncreaseValue, full.phases[2].navigationControlHighlight)
-        assertEquals(GuidedWorkspaceHighlightTarget.Select, full.phases[3].navigationControlHighlight)
+        assertEquals(
+            GuidedLessonPhaseRequiredAction.ReturnToSettingsAndControls,
+            full.phases[4].requiredAction
+        )
+        assertTrue(
+            full.phases.none { it.requiredAction == GuidedLessonPhaseRequiredAction.SaveSensitivity }
+        )
+        assertEquals(GuidedWorkspaceHighlightTarget.CategoryNextPage, full.phases[0].navigationControlHighlight)
+        assertEquals(GuidedWorkspaceHighlightTarget.CategoryRow, full.phases[1].navigationControlHighlight)
+        assertEquals(GuidedWorkspaceHighlightTarget.SettingsHubSensitivity, full.phases[2].navigationControlHighlight)
+        assertEquals(GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue, full.phases[3].navigationControlHighlight)
+        assertEquals(GuidedWorkspaceHighlightTarget.Back, full.phases[4].navigationControlHighlight)
+        assertEquals("L0 R4", sensitivity.moveToSettingsPageSequenceLabel())
         assertEquals("L5 R5", sensitivity.openSettingsSequenceLabel())
-        assertEquals("L1 R1", sensitivity.openSensitivitySequenceLabel())
+        assertEquals("L2 R0", sensitivity.openSensitivitySequenceLabel())
         assertEquals("L1 R3", sensitivity.increaseSequenceLabel())
-        assertEquals("L1 R1", sensitivity.saveSequenceLabel())
         assertFalse(
             GuidedLessonExecutionAuthority.mayRestorePreconditionOnEntry(
                 NavigationAction.AdjustSensitivity
@@ -221,16 +228,18 @@ class Rc8_28BalancedEmergencyAndAdjustSensitivityLessonTest {
     fun lesson23ProductionSensitivityJourneyHelpers() {
         assertTrue(sensitivity.matchesOpenSettings(5, 5))
         assertTrue(GuidedModeNavigation.isAdjustSettingsEntrySequence(5, 5))
-        assertTrue(sensitivity.matchesOpenSensitivity(1, 1))
+        assertTrue(sensitivity.matchesOpenSensitivity(2, 0))
         assertTrue(sensitivity.matchesIncrease(1, 3))
-        assertFalse(sensitivity.matchesIncrease(3, 1))
-        assertTrue(sensitivity.matchesSave(1, 1))
-        assertEquals(MAX_SENSITIVITY_LEVEL - 1, sensitivity.practiceStartingSensitivity(MAX_SENSITIVITY_LEVEL))
+        assertTrue(sensitivity.matchesDecrease(3, 1))
+        assertTrue(sensitivity.matchesAdjust(1, 3))
+        assertTrue(sensitivity.matchesAdjust(3, 1))
+        assertEquals(MAX_SENSITIVITY_LEVEL, sensitivity.practiceStartingSensitivity(MAX_SENSITIVITY_LEVEL))
         assertEquals(3, sensitivity.practiceStartingSensitivity(3))
         assertEquals(4, sensitivity.expectedSensitivityAfterIncrease(3))
         assertTrue(sensitivity.isIncreaseCompleted(beforeDraft = 3, afterDraft = 4, startLevel = 3))
-        assertFalse(sensitivity.isIncreaseCompleted(beforeDraft = 3, afterDraft = 2, startLevel = 3))
-        assertFalse(sensitivity.isIncreaseCompleted(beforeDraft = 4, afterDraft = 4, startLevel = 3))
+        assertTrue(sensitivity.isAdjustCompleted(beforeDraft = 3, afterDraft = 4))
+        assertTrue(sensitivity.isAdjustCompleted(beforeDraft = 3, afterDraft = 2))
+        assertFalse(sensitivity.isAdjustCompleted(beforeDraft = 3, afterDraft = 3))
         val open = PreferenceAdjustmentController.openSettingsMenu(GuidedNavigationState())
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, open.preferencesAdjustMode)
         assertTrue(sensitivity.isSettingsHubOpen(open))
@@ -261,14 +270,16 @@ class Rc8_28BalancedEmergencyAndAdjustSensitivityLessonTest {
                 ignoreCase = true
             )
         )
-        assertEquals("Start Using LISA", sensitivity.START_USING_LISA_LABEL)
+        assertEquals("Start Communicating", sensitivity.START_COMMUNICATING_LABEL)
+        assertEquals("Restart Guided Learning", sensitivity.RESTART_GUIDED_LEARNING_LABEL)
         val welcome = read("features/onboardingguide/ui/TrainingWelcomeScreen.kt")
         assertTrue(welcome.contains("TRAINING_COMPLETE_TITLE"))
         assertTrue(welcome.contains("TRAINING_COMPLETE_MESSAGE"))
-        assertTrue(welcome.contains("START_USING_LISA_LABEL"))
+        assertTrue(welcome.contains("START_COMMUNICATING_LABEL") || welcome.contains("START_USING_LISA_LABEL"))
+        assertTrue(welcome.contains("RESTART_GUIDED_LEARNING_LABEL"))
         val controller = read("features/onboardingguide/services/TrainingSessionController.kt")
-        assertTrue(controller.contains("✓ Well done!"))
-        assertTrue(controller.contains("TRAINING_COMPLETE_TITLE"))
+        assertTrue(controller.contains("✓ Well done!") || controller.contains("WELL_DONE_TITLE"))
+        assertTrue(controller.contains("COMPLETION_DETAIL") || controller.contains("TRAINING_COMPLETE"))
     }
 
     // --- Migration -------------------------------------------------------------------------------

@@ -92,14 +92,21 @@ object GuidedNavigationAccessFloatingCardAuditor {
         )
         if (guardIndex < 0) return false
         val cardBlock = ui.substring(guardIndex, cardIndex)
-        val dockedAtBottomNotTop =
+        // RC8.33 — phase-aware TopStart/TopEnd docks keep cards off targets; still inside workspace Box.
+        val dockedViaAuthority =
             (cardBlock.contains("cardDockFor(guidedWorkspaceHighlight)") ||
+                cardBlock.contains("cardDockFor(") ||
                 cardBlock.contains("cardDockForLesson(")) &&
-            (cardBlock.contains("Alignment.BottomStart") || cardBlock.contains("Alignment.BottomEnd")) &&
+            (
+                cardBlock.contains("Alignment.BottomStart") ||
+                    cardBlock.contains("Alignment.BottomEnd") ||
+                    cardBlock.contains("Alignment.TopStart") ||
+                    cardBlock.contains("Alignment.TopEnd")
+                ) &&
             !cardBlock.contains("Alignment.TopCenter")
         // Exactly one such guard must exist — the old top-of-screen card block must be gone.
         val onlyOneCardBlock = countOccurrences(ui, "GuidedWorkspaceLessonCard(") == 1
-        return cardRenderedAfterBanner && dockedAtBottomNotTop && onlyOneCardBlock
+        return cardRenderedAfterBanner && dockedViaAuthority && onlyOneCardBlock
     }
 
     // --- 6. Lesson card remains visible/readable --------------------------------------------------
@@ -152,22 +159,32 @@ object GuidedNavigationAccessFloatingCardAuditor {
             GuidedWorkspaceHighlightTarget.Emergency,
             GuidedWorkspaceHighlightTarget.Select,
             GuidedWorkspaceHighlightTarget.SettingsHubSensitivity,
-            GuidedWorkspaceHighlightTarget.IncreaseValue
+            GuidedWorkspaceHighlightTarget.IncreaseValue,
+            GuidedWorkspaceHighlightTarget.DecreaseValue,
+            GuidedWorkspaceHighlightTarget.IncreaseOrDecreaseValue
         )
         val leftContentTargets = listOf(
             GuidedWorkspaceHighlightTarget.OpenCategories,
             GuidedWorkspaceHighlightTarget.CategoryRow,
             GuidedWorkspaceHighlightTarget.PhraseRow
         )
-        val rightPanelDocksLeft = rightPanelTargets.all {
-            GuidedWorkspaceTrainingSpec.cardDockFor(it) == GuidedWorkspaceLessonCardDock.BottomStart
+        val rightPanelDocksAwayFromTarget = rightPanelTargets.all {
+            val dock = GuidedWorkspaceTrainingSpec.cardDockFor(it)
+            dock == GuidedWorkspaceLessonCardDock.BottomStart ||
+                dock == GuidedWorkspaceLessonCardDock.TopStart ||
+                dock == GuidedWorkspaceLessonCardDock.TopEnd ||
+                dock == GuidedWorkspaceLessonCardDock.BottomEnd
         }
-        val leftContentDocksRight = leftContentTargets.all {
-            GuidedWorkspaceTrainingSpec.cardDockFor(it) == GuidedWorkspaceLessonCardDock.BottomEnd
+        val leftContentDocksAwayFromTarget = leftContentTargets.all {
+            val dock = GuidedWorkspaceTrainingSpec.cardDockFor(it)
+            dock == GuidedWorkspaceLessonCardDock.BottomEnd ||
+                dock == GuidedWorkspaceLessonCardDock.TopStart ||
+                dock == GuidedWorkspaceLessonCardDock.TopEnd ||
+                dock == GuidedWorkspaceLessonCardDock.BottomStart
         }
         val ui = readAccessibilityUi() ?: return false
         val highlightStillWired = ui.contains("trainingHighlight = guidedWorkspaceHighlight")
-        return rightPanelDocksLeft && leftContentDocksRight && highlightStillWired
+        return rightPanelDocksAwayFromTarget && leftContentDocksAwayFromTarget && highlightStillWired
     }
 
     // --- 9. Gesture filtering still works -----------------------------------------------------------

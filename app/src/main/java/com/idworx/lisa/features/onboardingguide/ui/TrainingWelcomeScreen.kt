@@ -559,8 +559,16 @@ fun TrainingWelcomeScreen(
 fun TrainingCompletionScreen(
     uiStrings: LisaUiStrings,
     showCelebration: Boolean,
-    onNarrationStarted: () -> Unit
+    onNarrationStarted: () -> Unit,
+    eyeTrackingStatus: EyeTrackingStatusUiState = EyeTrackingStatusUiState(),
+    onStartCommunicating: () -> Unit = {},
+    onRestartGuidedLearning: () -> Unit = {},
+    onDecreaseSensitivity: () -> Unit = {},
+    onIncreaseSensitivity: () -> Unit = {},
+    onDecreaseResponseTime: () -> Unit = {},
+    onIncreaseResponseTime: () -> Unit = {}
 ) {
+    val authority = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
     LaunchedEffect(Unit) {
         if (LisaSpeechPolicy.allowsNarration()) onNarrationStarted()
     }
@@ -568,53 +576,63 @@ fun TrainingCompletionScreen(
     TrainingSoftBackground {
         TrainingCelebrationOverlay(visible = showCelebration)
         Column(
-            modifier = Modifier.fillMaxSize().padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            TrainingLisaLogo(modifier = Modifier.size(112.dp))
-            Spacer(modifier = Modifier.height(36.dp))
+            UniversalEyeTrackingHeader(
+                state = eyeTrackingStatus,
+                uiStrings = uiStrings,
+                showSensitivityControls = true,
+                compact = true,
+                onDecreaseSensitivity = onDecreaseSensitivity,
+                onIncreaseSensitivity = onIncreaseSensitivity,
+                onDecreaseResponseTime = onDecreaseResponseTime,
+                onIncreaseResponseTime = onIncreaseResponseTime,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = com.idworx.lisa.features.guidedsensitivitylesson
-                    .GuidedSensitivityLessonAuthority.TRAINING_COMPLETE_TITLE,
-                fontSize = 32.sp,
+                text = authority.TRAINING_COMPLETE_TITLE,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = LisaBlueDark,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = com.idworx.lisa.features.guidedsensitivitylesson
-                    .GuidedSensitivityLessonAuthority.TRAINING_COMPLETE_MESSAGE,
-                fontSize = 20.sp,
+                text = authority.TRAINING_COMPLETE_MESSAGE,
+                fontSize = 17.sp,
                 color = LisaBlueDark.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,
-                lineHeight = 28.sp
+                lineHeight = 24.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "The same Move, Select, Back and adjustment controls work throughout LISA.",
-                fontSize = 18.sp,
+                text = authority.TRAINING_COMPLETE_ADJUSTMENT_HINT,
+                fontSize = 15.sp,
                 color = LisaGray,
-                lineHeight = 26.sp,
+                lineHeight = 22.sp,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = com.idworx.lisa.features.guidedsensitivitylesson
-                    .GuidedSensitivityLessonAuthority.START_USING_LISA_LABEL,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = LisaBlueDark,
-                textAlign = TextAlign.Center
+            Spacer(modifier = Modifier.weight(1f))
+            TrainingPrimaryButton(
+                text = authority.START_COMMUNICATING_LABEL,
+                onClick = onStartCommunicating,
+                contentDescription = "${authority.START_COMMUNICATING_LABEL} ${authority.startCommunicatingSequenceLabel()}",
+                secondaryText = authority.startCommunicatingSequenceLabel(),
+                minHeight = 64.dp
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Lisa is speaking…",
-                fontSize = 14.sp,
-                color = LisaGray,
-                textAlign = TextAlign.Center
+            Spacer(modifier = Modifier.height(12.dp))
+            TrainingPrimaryButton(
+                text = authority.RESTART_GUIDED_LEARNING_LABEL,
+                onClick = onRestartGuidedLearning,
+                contentDescription = "${authority.RESTART_GUIDED_LEARNING_LABEL} ${authority.restartGuidedLearningSequenceLabel()}",
+                secondaryText = authority.restartGuidedLearningSequenceLabel(),
+                minHeight = 64.dp
             )
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

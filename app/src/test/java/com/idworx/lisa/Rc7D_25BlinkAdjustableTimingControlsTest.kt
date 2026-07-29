@@ -10,12 +10,12 @@ import org.junit.Test
 /**
  * RC7D.25 — Blink-Adjustable Sensitivity and Response Time via the Adjust Settings sub-mode.
  *
- * Interaction model (RC7D.27 simplified):
+ * Interaction model (RC7D.27 hub + RC8.30 immediate save):
  *   • L5 R5 opens the Adjust Settings menu.
- *   • Inside it: L2 R0 opens Sensitivity, L0 R2 opens Response Time, L2 R2 backs out.
- *     Emergency L6 R0 stays global. L1 R1 has no open-selected role on the menu.
- *   • While editing: L3 R1 decrease, L1 R3 increase, L1 R1 enters save confirmation, L2 R2 cancels
- *     back to Adjust Settings. Confirm save with L1 R1; cancel confirmation with R1 L1.
+ *   • Hub: Scroll Down/Up highlights a card; L1 R1 Select opens it. L2 R2 backs out.
+ *     Emergency L6 R0 stays global.
+ *   • While editing: L3 R1 decrease and L1 R3 increase persist immediately and stay on screen.
+ *     L1 R1 Select is unmatched on adjustment screens. L2 R2 returns to the Settings hub.
  *
  * These are pure behaviour tests over the canonical controller/state plus targeted source checks for
  * the shared UI wiring.
@@ -49,6 +49,14 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         assertTrue("Expected Navigate but was $result", result is GuidedSequenceResult.Navigate)
         return (result as GuidedSequenceResult.Navigate).newState
     }
+
+    /** RC8.30 — value gestures return SavePreferencesAdjustment when changed, Navigate at bounds. */
+    private fun stateAfterValueGesture(result: GuidedSequenceResult): GuidedNavigationState =
+        when (result) {
+            is GuidedSequenceResult.Navigate -> result.newState
+            is GuidedSequenceResult.SavePreferencesAdjustment -> result.newState
+            else -> error("Expected Navigate or SavePreferencesAdjustment but was $result")
+        }
 
     private fun vocab() = GuidedNavigationState(screenMode = GuidedOverlayScreenMode.Vocabulary)
     private fun categoryMenu() = GuidedNavigationState(screenMode = GuidedOverlayScreenMode.CategoryMenu)
@@ -199,10 +207,10 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
                 ctx(sensitivity = 5)
             )
         )
-        s = navigate(process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, s))
         assertEquals(4, s.draftSensitivityLevel)
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
         assertEquals(6, s.draftSensitivityLevel)
     }
 
@@ -232,7 +240,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     }
 
     @Test
-    fun sensitivitySaveEmitsSaveResultAndExits() {
+    fun sensitivityIncreasePersistsImmediatelyAndBackReturnsToHub() {
         var s = navigate(
             process(
                 GuidedModeNavigation.SELECT_LEFT,
@@ -241,20 +249,23 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
                 ctx(sensitivity = 5)
             )
         )
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
-        // RC7D.27 — first L1 R1 enters confirmation; second confirms persistence.
-        s = navigate(process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, s))
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, s.preferencesAdjustMode)
-        val saveResult = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, s)
+        val saveResult = process(
+            GuidedModeNavigation.INCREASE_VALUE_LEFT,
+            GuidedModeNavigation.INCREASE_VALUE_RIGHT,
+            s
+        )
         assertTrue(saveResult is GuidedSequenceResult.SavePreferencesAdjustment)
         val save = saveResult as GuidedSequenceResult.SavePreferencesAdjustment
         assertEquals(6, save.sensitivityLevel)
         assertNull("Sensitivity save must not carry a response-time value", save.responseTimeSec)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, save.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, save.newState.preferencesAdjustMode)
+        s = save.newState
+        val back = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, s))
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, back.preferencesAdjustMode)
     }
 
     @Test
-    fun sensitivityCancelRestoresOriginalAndDoesNotPersist() {
+    fun sensitivityBackReturnsToHubWithPersistedValue() {
         var s = navigate(
             process(
                 GuidedModeNavigation.SELECT_LEFT,
@@ -263,10 +274,12 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
                 ctx(sensitivity = 5)
             )
         )
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(
+            process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s)
+        )
         assertEquals(6, s.draftSensitivityLevel)
         val cancelled = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, s))
-        // RC7D.27 — Cancel returns to Adjust Settings without persisting.
+        // RC8.30 — Back returns to Settings hub; value was already persisted on increase.
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, cancelled.preferencesAdjustMode)
     }
 
@@ -315,9 +328,9 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     fun responseTimeDecreaseIncreaseAndBounds() {
         var s = openResponseTimeAdjust(SequenceProcessingDelay.DEFAULT_SECONDS)
         val start = s.draftResponseTimeSec
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
         assertEquals(SequenceProcessingDelay.coerce(start + 1), s.draftResponseTimeSec)
-        s = navigate(process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, s))
+        s = stateAfterValueGesture(process(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT, s))
         assertEquals(start, s.draftResponseTimeSec)
 
         var atMin = openResponseTimeAdjust(SequenceProcessingDelay.MIN_SECONDS)
@@ -330,26 +343,26 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     }
 
     @Test
-    fun responseTimeSaveAndCancel() {
+    fun responseTimeIncreasePersistsAndBackReturnsToHub() {
         var s = openResponseTimeAdjust(SequenceProcessingDelay.MIN_SECONDS)
-        s = navigate(process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, s))
-        val expected = s.draftResponseTimeSec
-        s = navigate(process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, s))
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveResponseTime, s.preferencesAdjustMode)
-        val saveResult = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, s)
+        val saveResult = process(
+            GuidedModeNavigation.INCREASE_VALUE_LEFT,
+            GuidedModeNavigation.INCREASE_VALUE_RIGHT,
+            s
+        )
         assertTrue(saveResult is GuidedSequenceResult.SavePreferencesAdjustment)
         val save = saveResult as GuidedSequenceResult.SavePreferencesAdjustment
-        assertEquals(expected, save.responseTimeSec)
         assertNull(save.sensitivityLevel)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, save.newState.preferencesAdjustMode)
+        assertEquals(GuidedPreferencesAdjustMode.ResponseTime, save.newState.preferencesAdjustMode)
+        s = save.newState
+        val back = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, s))
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, back.preferencesAdjustMode)
 
-        // After save, Back from Adjust Settings exits the sub-mode entirely.
-        val exited = navigate(
-            process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, save.newState)
-        )
+        // After back from hub, L2 R2 exits the sub-mode entirely.
+        val exited = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, back))
         assertEquals(GuidedPreferencesAdjustMode.None, exited.preferencesAdjustMode)
 
-        // Adjustment cancel from editing returns to Adjust Settings (not None).
+        // Back from editing without changing value returns to Settings hub.
         val editing = openResponseTimeAdjust(SequenceProcessingDelay.MIN_SECONDS)
         val cancelled = navigate(
             process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, editing)
@@ -375,18 +388,15 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     }
 
     @Test
-    fun gestureRoutingDoesNotDuplicateMutationFormulas() {
-        // The controller never mutates a persisted value itself — save produces a result object that
-        // MainActivity applies through the one authority. Decrease/Increase only edit the draft.
+    fun gestureRoutingPersistsOnIncreaseWithoutDuplicateFormulas() {
+        // Increase persists through SavePreferencesAdjustment; Select is unmatched on adjustment.
         val menu = openSettings(vocab(), ctx(sensitivity = 5))
         val opened = navigate(
             process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, menu, ctx(sensitivity = 5))
         )
-        val confirming = navigate(
-            process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, opened)
-        )
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, confirming.preferencesAdjustMode)
-        val save = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, confirming)
+        val onSelect = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, opened)
+        assertEquals(GuidedSequenceResult.Unmatched, onSelect)
+        val save = process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, opened)
         assertTrue(save is GuidedSequenceResult.SavePreferencesAdjustment)
     }
 
@@ -427,7 +437,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
     }
 
     @Test
-    fun selectEntersSaveConfirmationRatherThanOpeningPhraseAndBackCancelsToSettingsMenu() {
+    fun selectIsUnmatchedOnAdjustmentAndBackReturnsToSettingsMenu() {
         val opened = navigate(
             process(
                 GuidedModeNavigation.SELECT_LEFT,
@@ -436,13 +446,13 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
                 ctx(sensitivity = 5)
             )
         )
-        // Select => enter confirmation (not Speak / phrase open). Confirm then persists.
-        val onSelect = navigate(process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, opened))
-        assertEquals(GuidedPreferencesAdjustMode.ConfirmSaveSensitivity, onSelect.preferencesAdjustMode)
-        val saved = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, onSelect)
+        // Select => unmatched on adjustment (not Speak / phrase open / save confirmation).
+        val onSelect = process(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT, opened)
+        assertEquals(GuidedSequenceResult.Unmatched, onSelect)
+        val saved = process(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT, opened)
         assertTrue(saved is GuidedSequenceResult.SavePreferencesAdjustment)
         assertFalse(saved is GuidedSequenceResult.Speak)
-        // Back from editing => Adjust Settings, preserving underlying vocabulary screen.
+        // Back from editing => Settings hub, preserving underlying vocabulary screen.
         val onBack = navigate(process(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT, opened))
         assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, onBack.preferencesAdjustMode)
         assertEquals(GuidedOverlayScreenMode.Vocabulary, onBack.screenMode)
@@ -460,11 +470,11 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
                 ctx(sensitivity = 5)
             )
         )
-        val dec = navigate(process(3, 1, opened))
+        val dec = stateAfterValueGesture(process(3, 1, opened))
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, dec.preferencesAdjustMode)
         assertEquals(GuidedOverlayScreenMode.Vocabulary, dec.screenMode)
         assertEquals(4, dec.draftSensitivityLevel)
-        val inc = navigate(process(1, 3, dec))
+        val inc = stateAfterValueGesture(process(1, 3, dec))
         assertEquals(5, inc.draftSensitivityLevel)
         assertEquals(GuidedOverlayScreenMode.Vocabulary, inc.screenMode)
     }
@@ -537,7 +547,7 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
 
     @Test
     fun adjustmentOverlayShowsValueAndAdjustmentSequences() {
-        // Decrease L3 R1, Increase L1 R3, Save L1 R1, Cancel L2 R2 must appear in the adjustment panel.
+        // Decrease L3 R1, Increase L1 R3, Cancel L2 R2 — no separate Save row (RC8.30).
         assertEquals(3, GuidedModeNavigation.DECREASE_VALUE_LEFT)
         assertEquals(1, GuidedModeNavigation.DECREASE_VALUE_RIGHT)
         assertEquals(1, GuidedModeNavigation.INCREASE_VALUE_LEFT)
@@ -545,6 +555,10 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaGuidedModeUi.kt")
         assertTrue(ui.contains("GuidedModeNavigation.DECREASE_VALUE_LEFT"))
         assertTrue(ui.contains("GuidedModeNavigation.INCREASE_VALUE_LEFT"))
+        assertTrue(ui.contains("guidedChangesSaveAutomatically"))
+        val panel = ui.substringAfter("private fun SharedSettingAdjustmentPanel(")
+            .substringBefore("\n/** @deprecated Replaced by [SettingsAndControlsHubPanel]")
+        assertFalse(panel.contains("onSave"))
     }
 
     @Test
@@ -554,8 +568,10 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
         assertEquals("Sensitivity changes cancelled", english.guidedSensitivityChangesCancelled)
         assertEquals("Response time changes cancelled", english.guidedResponseTimeChangesCancelled)
         assertEquals("Settings & Controls", english.guidedAdjustSettingsTitle)
-        assertEquals("Cancel / Back", english.guidedCancelBack)
-        assertFalse(english.guidedCancelBack.contains("Preferences", ignoreCase = true))
+        assertEquals("Back", english.guidedCancelAdjustment)
+        assertEquals("Back", english.guidedBack)
+        assertFalse(english.guidedCancelAdjustment.contains("Cancel", ignoreCase = true))
+        assertFalse(english.guidedCancelAdjustment.contains("Preferences", ignoreCase = true))
     }
 
     // ------------------------------------------------------------------ G. Regression
@@ -581,13 +597,15 @@ class Rc7D_25BlinkAdjustableTimingControlsTest {
 
     @Test
     fun preferencesCategoryDirectAdjustmentStillWorks() {
-        // Direct open still works; RC7D.27 save returns to Adjust Settings (canonical post-save home).
+        // Direct open + immediate persist; Back returns to Settings hub (RC8.30).
         val direct = PreferenceAdjustmentController.openSensitivityAdjust(vocab(), 5)
         assertEquals(GuidedPreferencesAdjustMode.Sensitivity, direct.preferencesAdjustMode)
-        val confirming = PreferenceAdjustmentController.beginSaveConfirmation(direct)
-        val save = PreferenceAdjustmentController.saveAdjustment(confirming)
-        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, save.newState.preferencesAdjustMode)
-        assertEquals(5, save.sensitivityLevel)
+        val saved = PreferenceAdjustmentController.increaseAndPersist(direct)
+            as GuidedSequenceResult.SavePreferencesAdjustment
+        assertEquals(6, saved.sensitivityLevel)
+        assertEquals(GuidedPreferencesAdjustMode.Sensitivity, saved.newState.preferencesAdjustMode)
+        val hub = PreferenceAdjustmentController.cancelAdjustment(saved.newState)
+        assertEquals(GuidedPreferencesAdjustMode.SettingsMenu, hub.preferencesAdjustMode)
     }
 
     @Test

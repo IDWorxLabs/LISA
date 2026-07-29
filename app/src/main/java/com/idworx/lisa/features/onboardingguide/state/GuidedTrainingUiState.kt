@@ -78,6 +78,12 @@ data class GuidedTrainingUiState(
      */
     val completionPendingFeedback: Boolean = false,
     /**
+     * RC8.32 — true while Training Complete is on screen waiting for Start Communicating or
+     * Restart Guided Learning. Keeps guided training UI/eye routing active even though
+     * [TrainingProgress.tutorialCompleted] is already true.
+     */
+    val awaitingCompletionChoice: Boolean = false,
+    /**
      * RC8.23 — active practical phase index within the current navigation lesson
      * (0-based). Always 0 for single-step lessons. Reset when the catalog lesson advances.
      */

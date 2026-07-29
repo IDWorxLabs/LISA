@@ -312,7 +312,8 @@ fun LisaRootUI(
                 blinkDiagnostics = trainingBlinkDiagnostics,
                 showBlinkDiagnostics = showBlinkDiagnostics,
                 onCalibrationStarted = onTrainingCalibrationStarted,
-                onAdvanceCalibrationDot = onTrainingAdvanceCalibrationDot
+                onAdvanceCalibrationDot = onTrainingAdvanceCalibrationDot,
+                onReplayTutorial = onTrainingReplayTutorial
             )
         }
         return
@@ -821,14 +822,15 @@ fun LisaRootUI(
         // (never a root-level overlay that can cover UniversalEyeTrackingHeader).
         if (guidedWorkspaceTrainingActive && activeNavigationLesson != null) {
             val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(guidedTrainingState.progress)
-            val cardDock = GuidedWorkspaceTrainingSpec.cardDockForLesson(
-                activeNavigationLesson.action,
-                activeNavigationLesson.id
+            val cardDock = GuidedWorkspaceTrainingSpec.cardDockFor(
+                guidedWorkspaceHighlight
+                    ?: GuidedWorkspaceTrainingSpec.highlightTargetFor(activeNavigationLesson.action)
             )
-            val cardAlignment = if (cardDock == GuidedWorkspaceLessonCardDock.BottomStart) {
-                Alignment.BottomStart
-            } else {
-                Alignment.BottomEnd
+            val cardAlignment = when (cardDock) {
+                GuidedWorkspaceLessonCardDock.TopStart -> Alignment.TopStart
+                GuidedWorkspaceLessonCardDock.TopEnd -> Alignment.TopEnd
+                GuidedWorkspaceLessonCardDock.BottomStart -> Alignment.BottomStart
+                GuidedWorkspaceLessonCardDock.BottomEnd -> Alignment.BottomEnd
             }
             val exploreFinish =
                 activeNavigationLesson.action == NavigationAction.FinishGuidedLearning
