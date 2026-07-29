@@ -16,6 +16,8 @@ import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -23,6 +25,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -159,6 +162,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiEyesDetected = mutableStateOf(false)
     private val uiTrackingLost = mutableStateOf(false)
     private val uiEmergencyActive = mutableStateOf(false)
+    /** RC8.41/RC8.42 — branded Compose splash until dismiss authority releases. */
+    private val uiBrandedSplashVisible = mutableStateOf(true)
+    private var brandedSplashShownAtElapsedRealtime: Long = 0L
+    private var brandedSplashComposeReady: Boolean = false
     private val uiLastSpoken = mutableStateOf("")
     private val uiDiagLeftEye = mutableStateOf("--")
     private val uiDiagRightEye = mutableStateOf("--")
@@ -263,6 +270,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // RC8.42 — install SplashScreen but do not hold it; exit instantly with no icon animation.
+        val splashScreen = installSplashScreen()
+        splashScreen.setOnExitAnimationListener { provider ->
+            provider.remove()
+        }
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
 // TTS
@@ -407,7 +420,33 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         setContent {
             LISATheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = com.idworx.lisa.ui.theme.LisaSplashBackground
+                ) {
+                    // RC8.42 — branded splash is the first meaningful Compose frame (exclusive).
+                    if (uiBrandedSplashVisible.value) {
+                        com.idworx.lisa.features.brandedsplash.LisaBrandedSplashScreen(
+                            onFirstFrame = {
+                                if (!brandedSplashComposeReady) {
+                                    brandedSplashComposeReady = true
+                                    brandedSplashShownAtElapsedRealtime =
+                                        android.os.SystemClock.elapsedRealtime()
+                                    scheduleBrandedSplashDismissCheck()
+                                }
+                            }
+                        )
+                    } else {
+                    // RC8.43 — one root safe-area authority for normal app content only.
+                    // Splash stays edge-to-edge; do not leave LisaRootUI drawing under system bars.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                com.idworx.lisa.features.systembarinsets
+                                    .LisaSystemBarInsetAuthority.safeApplicationContent()
+                            )
+                    ) {
                     val uiStrings = LisaUiStrings.forLanguage(uiActiveLanguage.value)
                     val customMappingsRevision = uiCustomMappingsRevision.value
                     val customPhrases = remember(customMappingsRevision) { customPhrasesForManagement() }
@@ -907,9 +946,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             )
                         }
                     )
+                    }
+                    }
                 }
             }
         }
+    }
+
+    private fun scheduleBrandedSplashDismissCheck() {
+        val authority = com.idworx.lisa.features.brandedsplash.LisaBrandedSplashAuthority
+        mainHandler.postDelayed({
+            if (!uiBrandedSplashVisible.value) return@postDelayed
+            val elapsed = android.os.SystemClock.elapsedRealtime() - brandedSplashShownAtElapsedRealtime
+            if (!authority.shouldKeepShowing(elapsed, brandedSplashComposeReady)) {
+                uiBrandedSplashVisible.value = false
+            } else {
+                scheduleBrandedSplashDismissCheck()
+            }
+        }, 50L)
     }
 
     override fun onPause() {
