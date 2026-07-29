@@ -31,37 +31,35 @@ object GuidedTrainingExitRefinementAuditor {
     // --- 1. Final navigation lesson completes Guided Learning (RC8.13 Explore Finish) -----------
 
     fun finalLessonIsResetSequence(): Boolean =
-        // RC8.13 — Explore LISA Finish is the terminal navigation lesson; ResetSequence remains
-        // in the catalog (nav_reset) and still teaches Finish Training L0 R3 earlier.
+        // RC8.28 — final catalogue lesson is Adjust Sensitivity; Explore Finish removed.
         TrainingLessonCatalog.navigationLessons.lastOrNull()?.action ==
-            NavigationAction.FinishGuidedLearning &&
-            TrainingLessonCatalog.navigationLessons.any { it.action == NavigationAction.ResetSequence }
+            NavigationAction.AdjustSensitivity &&
+            TrainingLessonCatalog.navigationLessons.none {
+                it.action == NavigationAction.FinishGuidedLearning
+            }
 
     fun finalLessonNeverInstructsATap(): Boolean {
         val flow = readGuidedTrainingFlow() ?: return false
-        // Historical "Tap Reset" must stay gone; Finish Training L0 R3 remains taught on nav_reset.
-        return !flow.contains("Tap Reset", ignoreCase = true) &&
-            flow.contains(
-                "formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, " +
-                    "GuidedModeNavigation.FINISH_TRAINING_RIGHT)"
-            )
+        return !flow.contains("Tap Reset", ignoreCase = true)
     }
 
     fun lessonWordingUsesNaturalStartCommunicatingPhrase(): Boolean {
-        val title = GuidedWorkspaceTrainingSpec.lessonCardTitle(NavigationAction.ResetSequence, englishUiStrings)
-        val spec = readGuidedWorkspaceTrainingSpec() ?: return false
-        val flow = readGuidedTrainingFlow() ?: return false
-        return title.equals("Start Communicating", ignoreCase = true) &&
-            !spec.contains("main workspace", ignoreCase = true) &&
-            !flow.contains("main workspace", ignoreCase = true)
+        // RC8.28 — final lesson teaches Sensitivity adjustment, not "Start Communicating".
+        val title = GuidedWorkspaceTrainingSpec.lessonCardTitle(NavigationAction.AdjustSensitivity, englishUiStrings)
+        val instruction = GuidedWorkspaceTrainingSpec.lessonCardInstruction(NavigationAction.AdjustSensitivity).orEmpty()
+        return title.equals("Adjust Sensitivity", ignoreCase = true) &&
+            instruction.contains("labelled blink sequences", ignoreCase = true) &&
+            !instruction.contains("Finish training", ignoreCase = true) &&
+            !title.contains("Start Communicating", ignoreCase = true)
     }
 
     fun lessonCardTeachesFinishTrainingGestureDynamically(): Boolean {
-        val expected = formatWinkSequenceShort(
-            GuidedModeNavigation.FINISH_TRAINING_LEFT,
-            GuidedModeNavigation.FINISH_TRAINING_RIGHT
-        )
-        return GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.ResetSequence) == expected
+        // RC8.28 — final lesson opens Settings via L5 R5, not Finish Training L0 R3.
+        return GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.AdjustSensitivity) ==
+            formatWinkSequenceShort(
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_LEFT,
+                GuidedModeNavigation.ADJUST_SETTINGS_ENTRY_RIGHT
+            )
     }
 
     // --- 2. The gesture is wired end-to-end, independent of any screen touch -------------------
@@ -134,7 +132,17 @@ object GuidedTrainingExitRefinementAuditor {
     fun completionScreenCongratulatesBeforeReturningToWorkspace(): Boolean {
         val welcome = readTrainingWelcomeScreen() ?: return false
         val controller = readTrainingSessionController() ?: return false
-        return welcome.contains("ready to communicate", ignoreCase = true) &&
+        // RC8.28 — Training Complete + Start Using LISA (replaces "ready to communicate").
+        val congratulates =
+            welcome.contains("TRAINING_COMPLETE_TITLE") ||
+                welcome.contains("Training Complete", ignoreCase = true) ||
+                welcome.contains("ready to communicate", ignoreCase = true)
+        val startAction =
+            welcome.contains("START_USING_LISA_LABEL") ||
+                welcome.contains("Start Using LISA", ignoreCase = true) ||
+                welcome.contains("goToCommunication")
+        return congratulates &&
+            startAction &&
             controller.contains("TrainingPhase.Completion -> {") &&
             controller.contains("onTrainingFinished()")
     }

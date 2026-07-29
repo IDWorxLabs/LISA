@@ -67,7 +67,15 @@ class TrainingProgressStore(context: Context) {
             currentLessonSuccessCount = prefs.getInt(KEY_LESSON_SUCCESS_COUNT, 0),
             sessionLessonsThisVisit = prefs.getInt(KEY_SESSION_LESSONS, 0)
         )
-        return WelcomeStatePriorityGate.applyForColdLaunch(loaded)
+        val migrated = com.idworx.lisa.features.guidedsensitivitylesson.GuidedCatalogueMigrationRc828
+            .migrate(loaded)
+        if (migrated.navigationLessonIndex != loaded.navigationLessonIndex ||
+            migrated.currentPhase != loaded.currentPhase ||
+            migrated.tutorialCompleted != loaded.tutorialCompleted
+        ) {
+            save(migrated)
+        }
+        return WelcomeStatePriorityGate.applyForColdLaunch(migrated)
     }
 
     private fun resolvePhase(prefs: android.content.SharedPreferences): TrainingPhase {

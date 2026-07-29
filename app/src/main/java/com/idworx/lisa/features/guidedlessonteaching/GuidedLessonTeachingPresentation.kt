@@ -32,7 +32,15 @@ enum class GuidedLessonPhaseRequiredAction {
      * Perform the category's labelled shortcut until production opens that category
      * (e.g. Medical L3 R1 → openCategoryDirectly).
      */
-    CategoryShortcutJump
+    CategoryShortcutJump,
+    /** RC8.28 — open Settings & Controls via production L5 R5. */
+    OpenSettingsAndControls,
+    /** RC8.28 — open Sensitivity from the Settings hub via L1 R1. */
+    OpenSensitivitySetting,
+    /** RC8.28 — increase Sensitivity one valid step via L1 R3. */
+    IncreaseSensitivityOnce,
+    /** RC8.28 — save Sensitivity via production L1 R1 confirm path. */
+    SaveSensitivity
 }
 
 /**

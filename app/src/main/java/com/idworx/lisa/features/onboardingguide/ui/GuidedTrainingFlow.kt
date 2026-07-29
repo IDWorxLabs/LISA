@@ -37,7 +37,11 @@ object NavigationLessonContent {
         NavigationAction.OpenCommunicationHistory -> uiStrings.t("History", "Geskiedenis", "Umlando")
         NavigationAction.NextPage -> uiStrings.t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
         NavigationAction.PreviousPage -> uiStrings.t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
-        NavigationAction.ResetSequence -> uiStrings.t("Start Communicating", "Begin Kommunikeer", "Qala Ukuxhumana")
+        NavigationAction.ResetSequence -> uiStrings.t(
+            "Continue to the Menu",
+            "Gaan voort na die Kieslys",
+            "Qhubekela kwiMenyu"
+        )
         NavigationAction.TriggerEmergency -> uiStrings.t("Emergency", "Nood", "Usizo oluphuthumayo")
         NavigationAction.OpenQuickControls -> uiStrings.t("Quick Phrases", "Vinnige Kontroles", "Izilawuli Esisheshayo")
         NavigationAction.OpenSettings -> uiStrings.t("Settings", "Instellings", "Izilungiselelo")
@@ -48,6 +52,8 @@ object NavigationLessonContent {
         NavigationAction.BackFromDestination -> uiStrings.t("Go Back", "Gaan Terug", "Buyela Emuva")
         NavigationAction.FinishGuidedLearning ->
             com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.LESSON_TITLE
+        NavigationAction.AdjustSensitivity ->
+            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_TITLE
     }
 
     fun instruction(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
@@ -86,21 +92,27 @@ object NavigationLessonContent {
             "Vula umlando wakho wokuxhumana."
         )
         NavigationAction.NextPage -> uiStrings.t(
-            "Move to the next page with ${formatWinkSequenceShort(0, 2)}.",
-            "Beweeg na die volgende bladsy met L0 R2.",
-            "Yiya ekhasini elilandelayo nge-L0 R2."
+            "Move to the next page with ${formatWinkSequenceShort(
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+            )}.",
+            "Beweeg na die volgende bladsy met L0 R4.",
+            "Yiya ekhasini elilandelayo nge-L0 R4."
         )
         NavigationAction.PreviousPage -> uiStrings.t(
-            "Move to the previous page with ${formatWinkSequenceShort(2, 0)}.",
-            "Beweeg na die vorige bladsy met L2 R0.",
-            "Yiya ekhasini elidlule nge-L2 R0."
+            "Move to the previous page with ${formatWinkSequenceShort(
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+            )}.",
+            "Beweeg na die vorige bladsy met L4 R0.",
+            "Yiya ekhasini elidlule nge-L4 R0."
         )
         NavigationAction.ResetSequence -> uiStrings.t(
-            "Finish training with " +
+            "You have learned the Communication controls. Continue with " +
                 "${formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, GuidedModeNavigation.FINISH_TRAINING_RIGHT)} " +
-                "— no tap needed. You're ready to start communicating.",
-            "Voltooi opleiding met jou gebaar — geen tik nodig nie.",
-            "Qeda ukuqeqeshwa ngesenzo sakho — akudingeki ukuthinta."
+                "to learn how to use the Menu.",
+            "Jy het die Kommunikasie-kontroles geleer. Gaan voort om die Kieslys te leer.",
+            "Ufunde izilawuli zokuxhumana. Qhubeka ukuze ufunde ukusebenzisa iMenyu."
         )
         NavigationAction.TriggerEmergency -> uiStrings.t(
             "This is the real Emergency alert, just like in Communication. Blink ${formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)}, " +
@@ -136,6 +148,8 @@ object NavigationLessonContent {
             com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(
                 NavigationAction.FinishGuidedLearning
             )
+        NavigationAction.AdjustSensitivity ->
+            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_INTRO
     }
 
     private fun LisaUiStrings.t(en: String, af: String, zu: String): String = when (language) {

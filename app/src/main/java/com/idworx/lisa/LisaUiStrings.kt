@@ -284,8 +284,12 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         t("New value: ${seconds}s", "Nuwe waarde: ${seconds}s", "Inani elisha: ${seconds}s")
     val guidedConfirmSave: String get() = t("Confirm", "Bevestig", "Qinisekisa")
     val guidedCancelSaveConfirmation: String get() = t("Cancel", "Kanselleer", "Khansela")
-    /** Display label for R1 L1 (confirmation cancel). */
+    /** Display label for L1 R1 (confirmation confirm / Emergency Active stop). */
+    val guidedConfirmSequenceLabel: String get() = "L1 R1"
+    /** Display label for R1 L1 (confirmation cancel while Emergency is only armed). */
     val guidedConfirmCancelSequenceLabel: String get() = "R1 L1"
+    /** RC8.27 — Display label for L1 R1 (Stop Emergency while the alarm is active). */
+    val guidedEmergencyStopSequenceLabel: String get() = "L1 R1"
     fun guidedDraftResponseTime(seconds: Int): String =
         t("$seconds seconds", "$seconds sekondes", "$seconds imizuzwana")
     fun guidedDraftSensitivity(level: Int): String = level.toString()
@@ -606,6 +610,12 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Cancel Emergency",
         "Kanselleer Nood",
         "Khansela Usizo Oluphuthumayo"
+    )
+    /** RC8.28 — armed Emergency confirm control (parity with Cancel). */
+    val confirmEmergency: String get() = t(
+        "Confirm Emergency",
+        "Bevestig Nood",
+        "Qinisekisa Usizo Oluphuthumayo"
     )
     val stopEmergency: String get() = t(
         "Stop Emergency",

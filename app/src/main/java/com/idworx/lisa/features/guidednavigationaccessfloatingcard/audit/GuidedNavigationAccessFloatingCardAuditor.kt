@@ -147,7 +147,12 @@ object GuidedNavigationAccessFloatingCardAuditor {
             GuidedWorkspaceHighlightTarget.Back,
             GuidedWorkspaceHighlightTarget.NextPage,
             GuidedWorkspaceHighlightTarget.PreviousPage,
-            GuidedWorkspaceHighlightTarget.Emergency
+            GuidedWorkspaceHighlightTarget.CategoryNextPage,
+            GuidedWorkspaceHighlightTarget.CategoryPreviousPage,
+            GuidedWorkspaceHighlightTarget.Emergency,
+            GuidedWorkspaceHighlightTarget.Select,
+            GuidedWorkspaceHighlightTarget.SettingsHubSensitivity,
+            GuidedWorkspaceHighlightTarget.IncreaseValue
         )
         val leftContentTargets = listOf(
             GuidedWorkspaceHighlightTarget.OpenCategories,
@@ -211,6 +216,8 @@ object GuidedNavigationAccessFloatingCardAuditor {
         GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
+        GuidedModeNavigation.isNextCategoryPageSequence(left, right) -> NavigationAction.NextPage
+        GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
         GuidedModeNavigation.isPreviousSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isSelectSequence(left, right) -> NavigationAction.SelectCategory
@@ -219,6 +226,13 @@ object GuidedNavigationAccessFloatingCardAuditor {
 
     /** Mirrors MainActivity's `acceptedByCurrentNavigationLesson` gate. */
     private fun accepted(expected: NavigationAction, left: Int, right: Int): Boolean {
+        when (expected) {
+            NavigationAction.NextPage ->
+                return GuidedModeNavigation.isNextCategoryPageSequence(left, right)
+            NavigationAction.PreviousPage ->
+                return GuidedModeNavigation.isPreviousCategoryPageSequence(left, right)
+            else -> Unit
+        }
         val classified = classify(left, right)
         if (classified == expected) return true
         if ((expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
@@ -229,7 +243,8 @@ object GuidedNavigationAccessFloatingCardAuditor {
         return when (expected) {
             NavigationAction.MenuSelectVoice,
             NavigationAction.MenuSelectSettings,
-            NavigationAction.MoveToMedicalCategory -> classified == NavigationAction.NextPage
+            NavigationAction.MoveToMedicalCategory ->
+                GuidedModeNavigation.isNextSequence(left, right)
             NavigationAction.OpenVoice ->
                 com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesVoiceDestination(left, right)
             NavigationAction.OpenSettings ->

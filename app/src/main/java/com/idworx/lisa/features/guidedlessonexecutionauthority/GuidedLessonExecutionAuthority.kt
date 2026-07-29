@@ -58,6 +58,7 @@ object GuidedLessonExecutionAuthority {
         NavigationAction.NextPage,
         NavigationAction.PreviousPage,
         NavigationAction.TriggerEmergency,
+        NavigationAction.AdjustSensitivity,
         NavigationAction.ResetSequence,
         NavigationAction.FinishGuidedLearning,
         NavigationAction.BackFromDestination,
@@ -72,12 +73,15 @@ object GuidedLessonExecutionAuthority {
         NavigationAction.SelectCategory,
         NavigationAction.SelectPhrase,
         NavigationAction.CloseMenu,
+        NavigationAction.NextPage,
+        NavigationAction.PreviousPage,
         NavigationAction.MenuSelectVoice,
         NavigationAction.MenuSelectSettings,
         NavigationAction.OpenVoice,
         NavigationAction.OpenSettings,
         NavigationAction.BackFromDestination,
-        NavigationAction.TriggerEmergency -> true
+        NavigationAction.TriggerEmergency,
+        NavigationAction.AdjustSensitivity -> true
         else -> false
     }
 }

@@ -36,13 +36,15 @@ class GuidedTrainingExitRefinementAuthorityV1Test {
     }
 
     @Test
-    fun finalNavigationLesson_endsWithExploreFinishAndKeepsResetEarlier() {
+    fun finalNavigationLesson_endsWithAdjustSensitivity() {
         assertEquals(
-            NavigationAction.FinishGuidedLearning,
+            NavigationAction.AdjustSensitivity,
             TrainingLessonCatalog.navigationLessons.last().action
         )
         assertTrue(
-            TrainingLessonCatalog.navigationLessons.any { it.action == NavigationAction.ResetSequence }
+            TrainingLessonCatalog.navigationLessons.none {
+                it.action == NavigationAction.FinishGuidedLearning
+            }
         )
         assertTrue(GuidedTrainingExitRefinementAuditor.finalLessonIsResetSequence())
         assertTrue(GuidedTrainingExitRefinementAuditor.finalLessonNeverInstructsATap())

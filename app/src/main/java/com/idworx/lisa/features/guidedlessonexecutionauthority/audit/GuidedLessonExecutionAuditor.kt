@@ -49,8 +49,13 @@ object GuidedLessonExecutionAuditor {
     fun mainActivityDoesNotAutoBackOnLesson19Entry(): Boolean {
         val main = read("MainActivity.kt") ?: return false
         if (!main.contains("ID_WORKSPACE_BACK")) return false
+        // RC8.26 — Lesson 19 prep is followed by Lesson 20 page-nav prep; bound to that case.
         val backPrep = main.substringAfter("execution.ID_WORKSPACE_BACK -> {")
-            .substringBefore("else -> Unit")
+            .substringBefore("CategoryPageNavigationAuthority.ID_NEXT_PAGE")
+            .ifBlank {
+                main.substringAfter("execution.ID_WORKSPACE_BACK -> {")
+                    .substringBefore("else -> Unit")
+            }
         return backPrep.contains("isWorkspaceBackStartState") &&
             !backPrep.contains("openCategoryMenu(") &&
             !backPrep.contains("communicationWorkspaceRoot(") &&

@@ -235,6 +235,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var preparedMedicalJourneyLessonId: String? = null
     /** RC8.25 — Lesson 18 accepts phrase Speak only after this lesson's entry prep armed it. */
     private var medicalPhraseLessonArmed: Boolean = false
+    /**
+     * RC8.28 — snapshot of the user's Sensitivity before Lesson 23 practice.
+     * Restored after the lesson completes so guided practice does not permanently overwrite it.
+     */
+    private var sensitivityLessonOriginalLevel: Int? = null
+    /** Practice starting level recorded when Lesson 23 Change phase arms (after optional max clamp). */
+    private var sensitivityLessonStartLevel: Int? = null
+    /** Draft value after the taught Increase — must match the eventual save. */
+    private var sensitivityLessonTargetLevel: Int? = null
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -308,8 +317,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         trainingSession.onEmergencyConfirmed = {
             startEmergencyMode()
-            // RC8.14 — Guided Learning Emergency advances only after Stop Emergency
-            // (touch or R1 L1), never automatically when the alarm starts.
+            // RC8.14 / RC8.27 — Guided Learning Emergency advances only after Stop Emergency
+            // (touch or L1 R1), never automatically when the alarm starts.
         }
         trainingSession.onRecalibrationConfirmed = {
             trainingSession.startRecalibrationFlow()
@@ -802,6 +811,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
                         onCancelOrStopEmergency = { cancelOrStopEmergency() },
+                        onConfirmEmergency = { confirmArmedEmergencyFromTouch() },
                         hasSavedEyeCalibration = activeProfile()?.eyeCalibration != null,
                         settingsRecalibrationState = uiSettingsRecalibrationState.value,
                         onSettingsRecalibrationRetry = { settingsRecalibrationController.retry() },
@@ -2135,9 +2145,29 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         resetSequence()
     }
 
+    /**
+     * RC8.28 — touch Confirm Emergency on the armed overlay. Same production outcome as blink
+     * L1 R1 through Brain1 confirm → [startEmergencyMode].
+     */
+    private fun confirmArmedEmergencyFromTouch() {
+        if (emergencyActive) return
+        if (!trainingSession.hasActiveBrain1Decision() &&
+            !emergencyAwaitingConfirm(trainingSession.state.brain1Decision)
+        ) {
+            return
+        }
+        trainingSession.clearBrain1Decision()
+        refreshTrainingActiveState()
+        startEmergencyMode()
+    }
+
     private fun cancelOrStopEmergency() {
         val stoppingActiveAlarm = emergencyActive
-        val advanceEmergencyLesson = stoppingActiveAlarm &&
+        val advanceEmergencyLesson = com.idworx.lisa.features.guidedemergencylesson
+            .GuidedEmergencyLessonAuthority.mayCompleteAfterStop(
+                wasEmergencyActive = stoppingActiveAlarm,
+                isEmergencyActiveNow = false
+            ) &&
             trainingSession.isNavigationTrainingActive() &&
             trainingSession.expectedNavigationAction() == NavigationAction.TriggerEmergency
         emergencyAlarmController.stop()
@@ -2150,7 +2180,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         resetSequence()
         updateReadyOrWaitingState()
-        // RC8.14 — learner advances only after successfully stopping the active lesson alarm.
+        // RC8.14 / RC8.26 — learner advances only after successfully stopping the active lesson alarm.
         if (advanceEmergencyLesson) {
             verifyTrainingNavigation(NavigationAction.TriggerEmergency)
         }
@@ -2412,6 +2442,75 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
                 medicalPhraseLessonArmed = false
             }
+            com.idworx.lisa.features.guidedcategorypagenavigation
+                .CategoryPageNavigationAuthority.ID_NEXT_PAGE -> {
+                // RC8.26 Lesson 20 — Category Menu on Page 1; never pre-execute Next Page.
+                closeWorkspacePanelsOnly()
+                val current = uiGuidedNavigationState.value
+                val pageCount = current.categoryViewportPageCount.coerceAtLeast(2)
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(current).copy(
+                        categoryViewportPage = 0,
+                        categoryViewportPageCount = pageCount,
+                        categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
+                    )
+                medicalPhraseLessonArmed = false
+            }
+            com.idworx.lisa.features.guidedcategorypagenavigation
+                .CategoryPageNavigationAuthority.ID_PREVIOUS_PAGE -> {
+                // RC8.26 Lesson 21 — preserve Page 2 from Lesson 20; never pre-execute Previous.
+                closeWorkspacePanelsOnly()
+                val pageAuthority = com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority
+                val current = uiGuidedNavigationState.value
+                if (!pageAuthority.isPreviousPageStartState(current)) {
+                    val pageCount = current.categoryViewportPageCount.coerceAtLeast(2)
+                    uiGuidedNavigationState.value = current.copy(
+                        screenMode = GuidedOverlayScreenMode.CategoryMenu,
+                        preferencesAdjustMode = GuidedPreferencesAdjustMode.None,
+                        phrasePageIndex = 0,
+                        categoryViewportPage = 1,
+                        categoryViewportPageCount = pageCount,
+                        categoryMenuSelection = (GuidedVocabularyCategory.PAGE_COUNT - 1)
+                            .coerceAtLeast(0),
+                        categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
+                    )
+                }
+                medicalPhraseLessonArmed = false
+            }
+            com.idworx.lisa.features.guidedemergencylesson
+                .GuidedEmergencyLessonAuthority.ID_EMERGENCY -> {
+                // RC8.26 Lesson 22 — Category Menu on Page 1; never arm/confirm/stop Emergency.
+                closeWorkspacePanelsOnly()
+                val current = uiGuidedNavigationState.value
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(current).copy(
+                        categoryViewportPage = 0,
+                        categoryViewportPageCount = current.categoryViewportPageCount.coerceAtLeast(1),
+                        categoryNavigationCause = CategoryNavigationCause.MENU_RESTORE
+                    )
+                medicalPhraseLessonArmed = false
+                sensitivityLessonOriginalLevel = null
+                sensitivityLessonStartLevel = null
+            }
+            com.idworx.lisa.features.guidedsensitivitylesson
+                .GuidedSensitivityLessonAuthority.ID_ADJUST_SENSITIVITY -> {
+                // RC8.28 Lesson 23 — Category Menu; never pre-open Settings / Sensitivity / Increase / Save.
+                closeWorkspacePanelsOnly()
+                val authority = com.idworx.lisa.features.guidedsensitivitylesson
+                    .GuidedSensitivityLessonAuthority
+                val original = uiSensitivityLevel.value
+                sensitivityLessonOriginalLevel = original
+                val practiceStart = authority.practiceStartingSensitivity(original)
+                sensitivityLessonStartLevel = practiceStart
+                if (practiceStart != original) {
+                    // Temporary practice floor when already at max — not persisted as the taught save.
+                    applySensitivityLevel(practiceStart, persist = false)
+                }
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
+                medicalPhraseLessonArmed = false
+            }
             else -> Unit
         }
         preparedMedicalJourneyLessonId = lessonId
@@ -2494,6 +2593,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
+        // RC8.26 — viewport page jumps classify as Next/Previous Page before item Move Down/Up.
+        GuidedModeNavigation.isNextCategoryPageSequence(left, right) -> NavigationAction.NextPage
+        GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
         GuidedModeNavigation.isPreviousSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isSelectSequence(left, right) -> NavigationAction.SelectCategory
@@ -2507,6 +2609,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      */
     private fun acceptedByCurrentNavigationLesson(left: Int, right: Int): Boolean {
         val expected = trainingSession.expectedNavigationAction() ?: return true
+        // RC8.26 — Lessons 20–21 accept only production viewport page jumps (L0 R4 / L4 R0),
+        // never Move Down/Up (L0 R2 / L2 R0) which still classify as NextPage/PreviousPage names.
+        when (expected) {
+            NavigationAction.NextPage ->
+                return com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority.matchesNextPage(left, right)
+            NavigationAction.PreviousPage ->
+                return com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority.matchesPreviousPage(left, right)
+            NavigationAction.AdjustSensitivity ->
+                return acceptsAdjustSensitivityPhaseGesture(left, right)
+            else -> Unit
+        }
         val classified = classifyNavigationGesture(left, right)
         if (classified == expected) return true
         // Select (category menu) and a phrase's own code (vocabulary) both surface as "Select" —
@@ -2520,7 +2635,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         // RC8.15 / RC8.23 — Move to Medical phases use Next (scroll) or Medical shortcut (jump).
         return when (expected) {
             NavigationAction.MenuSelectVoice,
-            NavigationAction.MenuSelectSettings -> classified == NavigationAction.NextPage
+            NavigationAction.MenuSelectSettings ->
+                GuidedModeNavigation.isNextSequence(left, right)
             NavigationAction.MoveToMedicalCategory ->
                 acceptsMoveToMedicalPhaseGesture(left, right, classified)
             NavigationAction.OpenVoice ->
@@ -2546,12 +2662,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         return when (phase.requiredAction) {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .MoveDownUntilCategorySelected ->
-                classified == NavigationAction.NextPage
+                GuidedModeNavigation.isNextSequence(left, right)
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .OpenSelectedCategory ->
                 authority.matchesOpenSelected(left, right)
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .CategoryShortcutJump ->
+                false
+            // RC8.28 Sensitivity phases belong to AdjustSensitivity, not Lesson 16.
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSettingsAndControls,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSensitivitySetting,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .IncreaseSensitivityOnce,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .SaveSensitivity ->
                 false
         }
     }
@@ -2642,6 +2768,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             NavigationAction.MoveToMedicalCategory -> {
                 handleMoveToMedicalLessonPhase(left, right)
+                return
+            }
+            NavigationAction.AdjustSensitivity -> {
+                handleAdjustSensitivityLessonPhase(left, right)
                 return
             }
             NavigationAction.SelectCategory -> {
@@ -2778,6 +2908,46 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
                 return
             }
+            NavigationAction.NextPage -> {
+                // RC8.26 — production Next Page (L0 R4) via nextCategoryPage; never Move Down.
+                val pageAuthority = com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority
+                if (!guidedOverlayActive() || !pageAuthority.matchesNextPage(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val before = uiGuidedNavigationState.value
+                if (!pageAuthority.isNextPageStartState(before)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value
+                if (pageAuthority.isNextPageCompleted(before, after, left, right)) {
+                    verifyTrainingNavigation(NavigationAction.NextPage)
+                }
+                return
+            }
+            NavigationAction.PreviousPage -> {
+                // RC8.26 — production Previous Page (L4 R0) via previousCategoryPage; never Move Up.
+                val pageAuthority = com.idworx.lisa.features.guidedcategorypagenavigation
+                    .CategoryPageNavigationAuthority
+                if (!guidedOverlayActive() || !pageAuthority.matchesPreviousPage(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val before = uiGuidedNavigationState.value
+                if (!pageAuthority.isPreviousPageStartState(before)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value
+                if (pageAuthority.isPreviousPageCompleted(before, after, left, right)) {
+                    verifyTrainingNavigation(NavigationAction.PreviousPage)
+                }
+                return
+            }
             else -> Unit
         }
 
@@ -2822,10 +2992,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
                     GuidedModeNavigation.isBackSequence(left, right) ->
                         verifyTrainingNavigation(NavigationAction.CloseMenu)
-                    GuidedModeNavigation.isNextSequence(left, right) ->
-                        verifyTrainingNavigation(NavigationAction.NextPage)
-                    GuidedModeNavigation.isPreviousSequence(left, right) ->
-                        verifyTrainingNavigation(NavigationAction.PreviousPage)
+                    // RC8.26 — Next/Previous Page complete only via dedicated production page gates above.
+                    // Item Move Down/Up (L0 R2 / L2 R0) must never complete Lessons 20–21.
                 }
             }
             guidedOverlayActive() -> {
@@ -2922,7 +3090,138 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 // RC8.25 — direct Medical open belongs to Lesson 17, not Lesson 16.
                 rejectNavigationTrainingGesture()
             }
+            else -> rejectNavigationTrainingGesture()
         }
+    }
+
+    /** RC8.28 — Lesson 23 phases on production Settings & Controls / Sensitivity. */
+    private fun acceptsAdjustSensitivityPhaseGesture(left: Int, right: Int): Boolean {
+        val authority = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+        val phase = trainingSession.activeTeachingPhase()
+        return when (phase?.requiredAction) {
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSettingsAndControls ->
+                authority.matchesOpenSettings(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSensitivitySetting,
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .SaveSensitivity ->
+                authority.matchesSave(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .IncreaseSensitivityOnce ->
+                authority.matchesIncrease(left, right)
+            else -> authority.matchesOpenSettings(left, right)
+        }
+    }
+
+    private fun handleAdjustSensitivityLessonPhase(left: Int, right: Int) {
+        val authority = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+        val phase = trainingSession.activeTeachingPhase()
+        val state = uiGuidedNavigationState.value
+        when (phase?.requiredAction) {
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSettingsAndControls,
+            null -> {
+                if (!guidedOverlayActive() || !authority.matchesOpenSettings(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                if (authority.isSettingsHubOpen(uiGuidedNavigationState.value)) {
+                    verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSensitivitySetting -> {
+                if (!guidedOverlayActive() ||
+                    !authority.isSettingsHubOpen(state) ||
+                    !authority.matchesOpenSensitivity(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                // Ensure Sensitivity remains the selected hub card (production default index 0).
+                if (state.settingsHubSelection != 0) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                if (authority.isSensitivityAdjustmentOpen(uiGuidedNavigationState.value)) {
+                    if (sensitivityLessonStartLevel == null) {
+                        sensitivityLessonStartLevel = uiGuidedNavigationState.value.draftSensitivityLevel
+                    }
+                    verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .IncreaseSensitivityOnce -> {
+                if (!guidedOverlayActive() ||
+                    !authority.isSensitivityAdjustmentOpen(state) ||
+                    !authority.matchesIncrease(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val start = sensitivityLessonStartLevel
+                    ?: state.draftSensitivityLevel
+                val before = state.draftSensitivityLevel
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value.draftSensitivityLevel
+                if (authority.isIncreaseCompleted(before, after, start)) {
+                    sensitivityLessonTargetLevel = after
+                    verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                } else {
+                    rejectNavigationTrainingGesture()
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .SaveSensitivity -> {
+                if (!guidedOverlayActive() || !authority.matchesSave(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val wasAdjusting = authority.isSensitivityAdjustmentOpen(state)
+                val wasConfirming = authority.isSaveConfirmationOpen(state)
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value
+                when {
+                    wasAdjusting && authority.isSaveConfirmationOpen(after) -> {
+                        // First L1 R1 — entered confirmation; wait for second L1 R1.
+                    }
+                    wasConfirming -> {
+                        val target = sensitivityLessonTargetLevel
+                        val savedOk = target != null &&
+                            uiSensitivityLevel.value == target &&
+                            !authority.isSensitivityAdjustmentOpen(after) &&
+                            !authority.isSaveConfirmationOpen(after)
+                        if (savedOk) {
+                            verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                            restoreSensitivityLessonPreferenceIfNeeded()
+                        }
+                    }
+                    !authority.isSensitivityAdjustmentOpen(after) &&
+                        !authority.isSaveConfirmationOpen(after) &&
+                        sensitivityLessonTargetLevel != null &&
+                        uiSensitivityLevel.value == sensitivityLessonTargetLevel -> {
+                        verifyTrainingNavigationPhase(NavigationAction.AdjustSensitivity)
+                        restoreSensitivityLessonPreferenceIfNeeded()
+                    }
+                    else -> Unit
+                }
+            }
+            else -> rejectNavigationTrainingGesture()
+        }
+    }
+
+    /** RC8.28 — restore the pre-lesson Sensitivity after a successful guided save. */
+    private fun restoreSensitivityLessonPreferenceIfNeeded() {
+        val original = sensitivityLessonOriginalLevel ?: return
+        mainHandler.postDelayed({
+            applySensitivityLevel(original, persist = true)
+            sensitivityLessonOriginalLevel = null
+            sensitivityLessonStartLevel = null
+            sensitivityLessonTargetLevel = null
+        }, 1_600L)
     }
 
     private fun saveFeedbackEntry(
@@ -4648,8 +4947,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         detector.process(image)
             .addOnSuccessListener { faces ->
-                // RC8.14 — while the alarm is active, still process eyes so Stop Emergency
-                // (R1 L1) can match touch. No other sequences are executed in that mode.
+                // RC8.27 — while the alarm is active, keep processing eyes so Stop Emergency
+                // (L1 R1) can match touch. No other sequences are executed in that mode.
                 if (emergencyActive) {
                     if (faces.isEmpty()) {
                         updateDiagnostics(null, null)
@@ -4792,8 +5091,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * RC8.14 — while the alarm is sounding, only the production cancel sequence (R1 L1) is
-     * accepted. Touch Stop Emergency and this blink path share [cancelOrStopEmergency].
+     * RC8.27 — while the alarm is sounding, only L1 R1 (confirm / left-then-right) stops
+     * Emergency. Touch Stop Emergency and this blink path share [cancelOrStopEmergency].
+     * Armed confirmation still uses L1 R1 to confirm and R1 L1 to cancel — phases never overlap.
      */
     private fun processActiveEmergencyStopWinks(leftProb: Float, rightProb: Float) {
         val now = System.currentTimeMillis()
@@ -4803,19 +5103,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             acceptedLeftCount = leftWinks,
             acceptedRightCount = rightWinks
         )
-        updateDiagnostics(leftProb, rightProb, result)
         if (result.acceptLeft) {
             flashAcceptedBlink(isLeft = true)
             leftWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             lastWinkTimeMs = now
+            recordWinkSide(isLeft = true)
         }
         if (result.acceptRight) {
             flashAcceptedBlink(isLeft = false)
             rightWinks += 1
             if (sequenceStartMs == 0L) sequenceStartMs = now
             lastWinkTimeMs = now
+            recordWinkSide(isLeft = false)
         }
+        // Publish live counters after increments so Emergency Active Left/Right update immediately.
+        updateDiagnostics(leftProb, rightProb, result)
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0
         val activelyWinking = result.leftCandidate || result.rightCandidate
         if (!hasCountedWinks || lastWinkTimeMs == 0L) return
@@ -4836,7 +5139,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val right = rightWinks
         resetSequence()
         if (com.idworx.lisa.features.brain1interactionstandard.model.UniversalInteractionGestures
-                .isCancel(left, right, order)
+                .isConfirm(left, right, order)
         ) {
             cancelOrStopEmergency()
         }

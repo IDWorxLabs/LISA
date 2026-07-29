@@ -46,6 +46,8 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
+        GuidedModeNavigation.isNextCategoryPageSequence(left, right) -> NavigationAction.NextPage
+        GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
         GuidedModeNavigation.isPreviousSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isSelectSequence(left, right) -> NavigationAction.SelectCategory
@@ -54,6 +56,14 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
 
     /** Mirrors MainActivity's `acceptedByCurrentNavigationLesson` gate. */
     private fun accepted(expected: NavigationAction, left: Int, right: Int): Boolean {
+        // RC8.26 — page lessons accept only viewport page jumps.
+        when (expected) {
+            NavigationAction.NextPage ->
+                return GuidedModeNavigation.isNextCategoryPageSequence(left, right)
+            NavigationAction.PreviousPage ->
+                return GuidedModeNavigation.isPreviousCategoryPageSequence(left, right)
+            else -> Unit
+        }
         val classified = classify(left, right)
         if (classified == expected) return true
         if ((expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
@@ -63,8 +73,10 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         }
         return when (expected) {
             NavigationAction.MenuSelectVoice,
-            NavigationAction.MenuSelectSettings,
-            NavigationAction.MoveToMedicalCategory -> classified == NavigationAction.NextPage
+            NavigationAction.MenuSelectSettings ->
+                GuidedModeNavigation.isNextSequence(left, right)
+            NavigationAction.MoveToMedicalCategory ->
+                GuidedModeNavigation.isNextSequence(left, right)
             NavigationAction.OpenVoice ->
                 com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesVoiceDestination(left, right)
             NavigationAction.OpenSettings ->
@@ -80,10 +92,16 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
     private val selectCategoryGesture = GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT
     private val selectPhraseGesture = 2 to 1 // first Medical phrase slot — not a global nav sequence
     private val backGesture = GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT
-    private val nextPageGesture = GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT
-    private val previousPageGesture = GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT
+    private val nextPageGesture =
+        GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT to GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+    private val previousPageGesture =
+        GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT to GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
     private val emergencyGesture = 6 to 0
-    private val moveToMedicalGesture = nextPageGesture
+    private val moveToMedicalGesture =
+        GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT
+    private val moveDownGesture = moveToMedicalGesture
+    private val moveUpGesture =
+        GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT
     // --- 1. Navigation training no longer uses blank fake screens ---------------------------
     fun navigationTrainingDoesNotUseBlankScreen(): Boolean {
         val flowSource = readGuidedTrainingFlow() ?: return false
@@ -176,16 +194,17 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         val allGestures = listOf(
             moveToMedicalGesture, selectCategoryGesture, selectPhraseGesture,
             backGesture, nextPageGesture, previousPageGesture, emergencyGesture,
-            openCategoriesGesture
+            openCategoriesGesture, moveDownGesture, moveUpGesture
         )
         val expectedByLesson = mapOf(
             NavigationAction.MoveToMedicalCategory to moveToMedicalGesture,
             NavigationAction.CloseMenu to backGesture,
+            NavigationAction.NextPage to nextPageGesture,
             NavigationAction.PreviousPage to previousPageGesture,
             NavigationAction.TriggerEmergency to emergencyGesture
         )
         // For every lesson with a distinct gesture, every *other* distinct gesture must be rejected.
-        // NextPage and MoveToMedical share L0 R2 — excluded from pairwise rejection.
+        // RC8.26 — Move Down (L0 R2) must not complete Next Page (L0 R4) and vice versa.
         val allOthersRejected = expectedByLesson.all { (action, target) ->
             allGestures.filter { it != target }.all { other ->
                 !accepted(action, other.first, other.second)
@@ -236,8 +255,10 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
             previous?.action == NavigationAction.PreviousPage &&
             emergency?.action == NavigationAction.TriggerEmergency &&
             GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.CloseMenu) == GuidedWorkspaceHighlightTarget.Back &&
-            GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.NextPage) == GuidedWorkspaceHighlightTarget.NextPage &&
-            GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.PreviousPage) == GuidedWorkspaceHighlightTarget.PreviousPage &&
+            GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.NextPage) ==
+            GuidedWorkspaceHighlightTarget.CategoryNextPage &&
+            GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.PreviousPage) ==
+            GuidedWorkspaceHighlightTarget.CategoryPreviousPage &&
             GuidedWorkspaceTrainingSpec.highlightTargetFor(NavigationAction.TriggerEmergency) == GuidedWorkspaceHighlightTarget.Emergency &&
             panelSource.contains("highlightTarget: GuidedWorkspaceHighlightTarget? = null")
     }

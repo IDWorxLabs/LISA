@@ -9,6 +9,7 @@ import com.idworx.lisa.GuidedNavigationController
 import com.idworx.lisa.GuidedNavigationPanelSpec
 import com.idworx.lisa.GuidedNavigationState
 import com.idworx.lisa.GuidedOverlayScreenMode
+import com.idworx.lisa.GuidedPanelActionKind
 import com.idworx.lisa.GuidedSequenceResult
 import com.idworx.lisa.GuidedVocabularyCatalog
 import com.idworx.lisa.GuidedVocabularyCategory
@@ -41,10 +42,24 @@ object GuidedTrainingGestureMismatchAuditor {
         GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
+        GuidedModeNavigation.isNextCategoryPageSequence(left, right) -> NavigationAction.NextPage
+        GuidedModeNavigation.isPreviousCategoryPageSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
         GuidedModeNavigation.isPreviousSequence(left, right) -> NavigationAction.PreviousPage
         GuidedModeNavigation.isSelectSequence(left, right) -> NavigationAction.SelectCategory
         else -> NavigationAction.SelectPhrase
+    }
+
+    /** Mirrors MainActivity's page-lesson acceptance (RC8.26). */
+    private fun acceptedForLesson(expected: NavigationAction, left: Int, right: Int): Boolean {
+        when (expected) {
+            NavigationAction.NextPage ->
+                return GuidedModeNavigation.isNextCategoryPageSequence(left, right)
+            NavigationAction.PreviousPage ->
+                return GuidedModeNavigation.isPreviousCategoryPageSequence(left, right)
+            else -> Unit
+        }
+        return classify(left, right) == expected
     }
 
     // --- 1. Every category lesson gesture equals the real workspace category gesture -----------
@@ -79,20 +94,26 @@ object GuidedTrainingGestureMismatchAuditor {
 
     // --- 3. Every navigation lesson gesture equals the real workspace navigation gesture ---------
     fun navigationLessonGesturesEqualRealPanelGestures(): Boolean {
-        val panelActions = GuidedNavigationPanelSpec.panelActions(uiStrings, GuidedNavigationPanelSpec.PanelContext.Vocabulary)
-        // Index order mirrors GuidedNavigationPanelSpec.panelActions: Previous, Select, Back, Categories, Emergency, Next.
-        val expectedIndexByAction = mapOf(
-            NavigationAction.PreviousPage to 0,
-            NavigationAction.CloseMenu to 2,
-            NavigationAction.OpenCategories to 3,
-            NavigationAction.TriggerEmergency to 4,
-            NavigationAction.NextPage to 5
+        // RC8.26 — Lessons 20–21 teach Category Menu viewport page controls (L0 R4 / L4 R0).
+        val panelActions = GuidedNavigationPanelSpec.panelActions(
+            uiStrings,
+            GuidedNavigationPanelSpec.PanelContext.CategoryMenu
         )
-        return expectedIndexByAction.all { (action, index) ->
-            val panelGesture = panelActions[index].sequenceLabel
-            val lessonGesture = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(action)
-            panelGesture == lessonGesture
-        }
+        val nextPage = panelActions.firstOrNull { it.kind == GuidedPanelActionKind.NextCategoryPage }
+            ?: return false
+        val previousPage = panelActions.firstOrNull { it.kind == GuidedPanelActionKind.PreviousCategoryPage }
+            ?: return false
+        val back = panelActions.firstOrNull { it.kind == GuidedPanelActionKind.Back } ?: return false
+        val emergency = panelActions.firstOrNull { it.kind == GuidedPanelActionKind.Emergency }
+            ?: return false
+        return GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.NextPage) ==
+            nextPage.sequenceLabel &&
+            GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.PreviousPage) ==
+            previousPage.sequenceLabel &&
+            GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.CloseMenu) ==
+            back.sequenceLabel &&
+            GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.TriggerEmergency) ==
+            emergency.sequenceLabel
     }
 
     // --- 4. Displayed floating-card gesture equals the accepted gesture ---------------------------
@@ -105,8 +126,9 @@ object GuidedTrainingGestureMismatchAuditor {
             NavigationAction.TriggerEmergency
         )
         val singleTargetsAgree = singleTargetActions.all { action ->
-            val (left, right) = parseGesture(GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(action)) ?: return@all false
-            classify(left, right) == action
+            val (left, right) = parseGesture(GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(action))
+                ?: return@all false
+            acceptedForLesson(action, left, right)
         }
         val (categoryLeft, categoryRight) = parseGesture(
             GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.SelectCategory)

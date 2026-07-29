@@ -201,6 +201,7 @@ fun LisaRootUI(
     onPhraseComposerKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPhraseComposerEmergency: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit = {},
+    onConfirmEmergency: () -> Unit = {},
     hasSavedEyeCalibration: Boolean = false,
     settingsRecalibrationState: SettingsRecalibrationState = SettingsRecalibrationState(),
     onSettingsRecalibrationRetry: () -> Unit = {},
@@ -406,10 +407,16 @@ fun LisaRootUI(
     }
     val guidedDestinationCategoryIndex = guidedLessonTeaching?.destinationCategoryIndex
     Box(modifier = Modifier.fillMaxSize()) {
-        if (!emergencyActive) {
+        // RC8.27 — keep front-camera analysis running under Emergency Active so live
+        // wink counters and L1 R1 stop remain connected to production eye detection.
+        // The full-screen emergency overlay covers the preview; analysis must not depend
+        // on the Communication workspace branch being composed.
         if (cameraPermissionGranted) {
             cameraView()
-        } else {
+        }
+
+        if (!emergencyActive) {
+        if (!cameraPermissionGranted) {
             CameraPermissionScreen(
                 uiStrings = uiStrings,
                 permanentlyDenied = cameraPermissionPermanentlyDenied,
@@ -938,6 +945,7 @@ fun LisaRootUI(
             emergencyAwaitingConfirm = emergencyAwaitingConfirm,
             blinkFeedback = composerEyeFeedback,
             onCancelOrStopEmergency = onCancelOrStopEmergency,
+            onConfirmEmergency = onConfirmEmergency,
             modifier = Modifier.fillMaxSize()
         )
     }

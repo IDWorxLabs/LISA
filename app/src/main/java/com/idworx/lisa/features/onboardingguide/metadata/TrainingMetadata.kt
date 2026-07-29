@@ -8,8 +8,8 @@ object TrainingMetadata {
     /** Beginner phrase curriculum taught before navigation in Guided Learning. */
     const val GUIDED_LEARNING_ESSENTIAL_PHRASE_COUNT: Int = 15
     const val MASTERY_ROUND_COUNT: Int = 10
-    /** Workspace navigation (8) + RC8.13 Explore LISA (9). */
-    const val NAVIGATION_LESSON_COUNT: Int = 17
+    /** Workspace navigation lessons ending in Sensitivity adjustment (RC8.28). Was 17 including Explore. */
+    const val NAVIGATION_LESSON_COUNT: Int = 8
 
     val GUIDED_LEARNING_ESSENTIAL_VOCABULARY_IDS: List<String> = listOf(
         "hello",

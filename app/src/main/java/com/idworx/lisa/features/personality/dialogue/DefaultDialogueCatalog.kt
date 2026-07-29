@@ -228,7 +228,7 @@ object DefaultDialogueCatalog : DialogueCatalog {
         d("jnav_repeat", "Let's practice Repeat.", DialogueCategory.NavigationGuidance, tags = setOf("nav_repeat")),
         d("jnav_menu", "Let's open the menu.", DialogueCategory.NavigationGuidance, tags = setOf("nav_menu")),
         d("jnav_history", "This is your communication history.", DialogueCategory.NavigationGuidance, tags = setOf("nav_history")),
-        d("jnav_reset", "Clear removes your current message when you need a fresh start.", DialogueCategory.NavigationGuidance, tags = setOf("nav_reset")),
+        d("jnav_reset", "Continue prepares you for the next section — learning the Menu.", DialogueCategory.NavigationGuidance, tags = setOf("nav_reset")),
         d("jnav_emerg", "This option is only for emergencies.", DialogueCategory.EmergencyTrainingGuidance, tags = setOf("nav_emergency")),
         d("jnav_emerg2", "We'll practice it safely together.", DialogueCategory.EmergencyTrainingGuidance, tags = setOf("nav_emergency")),
         // Brain 1 Interaction Standard — decision confirmation dialogue

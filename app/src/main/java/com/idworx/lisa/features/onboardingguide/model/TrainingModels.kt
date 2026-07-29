@@ -62,7 +62,11 @@ enum class NavigationAction {
      * RC8.15 — Category Menu already open: move selection down with L0 R2 until Medical
      * is selected (Conversation → Basic Needs → Medical). Completes only when Medical is selected.
      */
-    MoveToMedicalCategory
+    MoveToMedicalCategory,
+    /**
+     * RC8.28 — Final lesson: open Settings & Controls, open Sensitivity, increase once, save.
+     */
+    AdjustSensitivity
 }
 
 data class NavigationLesson(

@@ -8,7 +8,7 @@ import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceLesson
 import com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceTrainingSpec
 
 /**
- * RC8.16 / RC8.18 — Shared instructional-card system for Guided Learning lessons 16–32.
+ * RC8.16 / RC8.18 / RC8.28 — Shared instructional-card system for Guided Learning lessons 16–23.
  *
  * Presentation rules:
  * - content-wrapped height (never internal scrolling)
@@ -43,7 +43,7 @@ object GuidedWorkspaceLessonCardAuthority {
     fun stripSequencePrefix(displayed: String): String =
         displayed.removePrefix(SEQUENCE_PREFIX).trim()
 
-    /** Every real-workspace navigation lesson (lessons 16–32) uses this compact card. */
+    /** Every real-workspace navigation lesson (lessons 16–23) uses this compact card. */
     fun usesSharedCompactCard(action: NavigationAction): Boolean = when (action) {
         NavigationAction.MoveToMedicalCategory,
         NavigationAction.SelectCategory,
@@ -52,6 +52,7 @@ object GuidedWorkspaceLessonCardAuthority {
         NavigationAction.NextPage,
         NavigationAction.PreviousPage,
         NavigationAction.TriggerEmergency,
+        NavigationAction.AdjustSensitivity,
         NavigationAction.ResetSequence,
         NavigationAction.OpenMenu,
         NavigationAction.MenuSelectVoice,

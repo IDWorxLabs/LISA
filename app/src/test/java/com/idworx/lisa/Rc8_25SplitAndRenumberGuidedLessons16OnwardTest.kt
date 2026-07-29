@@ -77,7 +77,7 @@ class Rc8_25SplitAndRenumberGuidedLessons16OnwardTest {
         assertEquals(GuidedLessonExecutionAuthority.ID_WORKSPACE_BACK, nav[3].id)
         assertEquals(NavigationAction.CloseMenu, nav[3].action)
         assertEquals(TrainingMetadata.NAVIGATION_LESSON_COUNT, nav.size)
-        assertEquals(17, nav.size)
+        assertEquals(8, nav.size)
         // No duplicate open-Medical lessons.
         assertEquals(1, nav.count { it.action == NavigationAction.SelectCategory })
         assertEquals(1, nav.count { it.action == NavigationAction.MoveToMedicalCategory })
@@ -266,7 +266,8 @@ class Rc8_25SplitAndRenumberGuidedLessons16OnwardTest {
         assertEquals("nav_next_page", nav[4].id)
         assertEquals(NavigationAction.NextPage, nav[4].action)
         assertEquals(
-            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_FINISH,
+            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+                .ID_ADJUST_SENSITIVITY,
             nav.last().id
         )
         assertNotEquals(authority.ID_OPEN_MEDICAL, nav[4].id)

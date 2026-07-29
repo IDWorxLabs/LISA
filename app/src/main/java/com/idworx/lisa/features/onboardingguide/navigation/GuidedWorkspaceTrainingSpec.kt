@@ -29,11 +29,27 @@ enum class GuidedWorkspaceHighlightTarget {
     CategoryRow,
     PhraseRow,
     Back,
+    /**
+     * Item Move Down Category (ScrollDown / L0 R2) — used by Lesson 16.
+     * Not the viewport Next Page control.
+     */
     NextPage,
+    /**
+     * Item Move Up Category (ScrollUp / L2 R0).
+     * Not the viewport Previous Page control.
+     */
     PreviousPage,
+    /** RC8.26 — production Category Menu Next Page control (L0 R4). */
+    CategoryNextPage,
+    /** RC8.26 — production Category Menu Previous Page control (L4 R0). */
+    CategoryPreviousPage,
     Emergency,
     /** RC8.24 — Open Selected Category panel control (L1 R1). */
-    Select
+    Select,
+    /** RC8.28 — Settings hub Sensitivity card / Select Setting. */
+    SettingsHubSensitivity,
+    /** RC8.28 — Increase value control (L1 R3) on Sensitivity adjustment. */
+    IncreaseValue
 }
 
 /**
@@ -72,9 +88,11 @@ object GuidedWorkspaceTrainingSpec {
         NavigationAction.SelectCategory -> null
         NavigationAction.SelectPhrase -> GuidedWorkspaceHighlightTarget.PhraseRow
         NavigationAction.CloseMenu -> GuidedWorkspaceHighlightTarget.Back
-        NavigationAction.NextPage -> GuidedWorkspaceHighlightTarget.NextPage
-        NavigationAction.PreviousPage -> GuidedWorkspaceHighlightTarget.PreviousPage
+        // RC8.26 — Lessons 20–21 highlight viewport page controls, not Move Down/Up.
+        NavigationAction.NextPage -> GuidedWorkspaceHighlightTarget.CategoryNextPage
+        NavigationAction.PreviousPage -> GuidedWorkspaceHighlightTarget.CategoryPreviousPage
         NavigationAction.TriggerEmergency -> GuidedWorkspaceHighlightTarget.Emergency
+        NavigationAction.AdjustSensitivity -> GuidedWorkspaceHighlightTarget.CategoryRow
         // Explore LISA highlights live on Main Menu rows / panels — not workspace chrome.
         NavigationAction.OpenMenu,
         NavigationAction.MenuSelectVoice,
@@ -99,11 +117,9 @@ object GuidedWorkspaceTrainingSpec {
         NavigationAction.NextPage -> uiStrings.t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
         NavigationAction.PreviousPage -> uiStrings.t("Previous Page", "Vorige Bladsy", "Ikhasi Elidlule")
         NavigationAction.TriggerEmergency -> uiStrings.t("Emergency", "Nood", "Usizo Oluphuthumayo")
-        NavigationAction.ResetSequence -> uiStrings.t(
-            "Start Communicating",
-            "Begin Kommunikeer",
-            "Qala Ukuxhumana"
-        )
+        NavigationAction.AdjustSensitivity ->
+            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_TITLE
+        NavigationAction.ResetSequence -> uiStrings.t("Reset", "Herstel", "Setha Kabusha")
         NavigationAction.OpenMenu,
         NavigationAction.MenuSelectVoice,
         NavigationAction.OpenVoice,
@@ -146,9 +162,11 @@ object GuidedWorkspaceTrainingSpec {
             NavigationAction.NextPage -> "Move to the next page."
             NavigationAction.PreviousPage -> "Move to the previous page."
             NavigationAction.TriggerEmergency ->
-                "Practice Emergency, then stop it with the cancel sequence."
+                "Practice Emergency: arm, confirm, then stop with L1 R1."
+            NavigationAction.AdjustSensitivity ->
+                com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority.LESSON_INTRO
             NavigationAction.ResetSequence ->
-                "Finish training and start communicating."
+                "Reset your input sequence."
             NavigationAction.OpenCategories -> "Open Categories."
             else -> null
         }
@@ -177,8 +195,12 @@ object GuidedWorkspaceTrainingSpec {
         GuidedWorkspaceHighlightTarget.Back,
         GuidedWorkspaceHighlightTarget.NextPage,
         GuidedWorkspaceHighlightTarget.PreviousPage,
+        GuidedWorkspaceHighlightTarget.CategoryNextPage,
+        GuidedWorkspaceHighlightTarget.CategoryPreviousPage,
         GuidedWorkspaceHighlightTarget.Emergency,
-        GuidedWorkspaceHighlightTarget.Select -> GuidedWorkspaceLessonCardDock.BottomStart
+        GuidedWorkspaceHighlightTarget.Select,
+        GuidedWorkspaceHighlightTarget.SettingsHubSensitivity,
+        GuidedWorkspaceHighlightTarget.IncreaseValue -> GuidedWorkspaceLessonCardDock.BottomStart
         GuidedWorkspaceHighlightTarget.OpenCategories,
         GuidedWorkspaceHighlightTarget.CategoryRow,
         GuidedWorkspaceHighlightTarget.PhraseRow,
@@ -234,12 +256,22 @@ object GuidedWorkspaceTrainingSpec {
                 ?: GuidedMedicalCategoryJourneyAuthority.firstMedicalPhraseEntry().sequenceLabel
         NavigationAction.CloseMenu ->
             formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
+        // RC8.26 — real viewport Next/Previous Page (not Move Down/Up L0 R2 / L2 R0).
         NavigationAction.NextPage ->
-            formatWinkSequenceShort(GuidedModeNavigation.NEXT_LEFT, GuidedModeNavigation.NEXT_RIGHT)
+            formatWinkSequenceShort(
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.NEXT_CATEGORY_PAGE_RIGHT
+            )
         NavigationAction.PreviousPage ->
-            formatWinkSequenceShort(GuidedModeNavigation.PREVIOUS_LEFT, GuidedModeNavigation.PREVIOUS_RIGHT)
+            formatWinkSequenceShort(
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_LEFT,
+                GuidedModeNavigation.PREVIOUS_CATEGORY_PAGE_RIGHT
+            )
         NavigationAction.TriggerEmergency ->
             formatWinkSequenceShort(EMERGENCY_LEFT_WINKS, EMERGENCY_RIGHT_WINKS)
+        NavigationAction.AdjustSensitivity ->
+            com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+                .openSettingsSequenceLabel()
         NavigationAction.ResetSequence ->
             // Touch-independent by design — the same gesture that finishes training also
             // performs the real workspace Reset action afterward (MainActivity.performReset()).

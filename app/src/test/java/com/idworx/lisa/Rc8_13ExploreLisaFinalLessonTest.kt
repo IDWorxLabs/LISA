@@ -2,6 +2,7 @@ package com.idworx.lisa
 
 import com.idworx.lisa.features.brain1interactionstandard.model.UniversalInteractionGestures
 import com.idworx.lisa.features.explorelisa.ExploreLisaAuthority
+import com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
 import com.idworx.lisa.features.onboardingguide.metadata.TrainingMetadata
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
@@ -17,7 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * RC8.13 — Explore LISA final Guided Learning lesson.
+ * RC8.13 originally appended Explore LISA as the final guided block.
+ * RC8.28 removes Explore from the active catalogue; production Explore sequences remain.
  */
 class Rc8_13ExploreLisaFinalLessonTest {
 
@@ -30,28 +32,28 @@ class Rc8_13ExploreLisaFinalLessonTest {
     }
 
     @Test
-    fun catalogAppendsExploreAfterWorkspaceLessonsAndEndsWithFinish() {
-        assertEquals(17, TrainingMetadata.NAVIGATION_LESSON_COUNT)
-        assertEquals(17, TrainingLessonCatalog.navigationLessons.size)
-        assertEquals(NavigationAction.ResetSequence, TrainingLessonCatalog.navigationLessonAt(7)?.action)
-        assertEquals(ExploreLisaAuthority.ID_OPEN_MENU, TrainingLessonCatalog.navigationLessonAt(8)?.id)
-        assertEquals(NavigationAction.OpenMenu, TrainingLessonCatalog.navigationLessonAt(8)?.action)
-        assertEquals(NavigationAction.MenuSelectVoice, TrainingLessonCatalog.navigationLessonAt(9)?.action)
-        assertEquals(NavigationAction.OpenVoice, TrainingLessonCatalog.navigationLessonAt(10)?.action)
-        assertEquals(NavigationAction.BackFromDestination, TrainingLessonCatalog.navigationLessonAt(11)?.action)
-        assertEquals(NavigationAction.MenuSelectSettings, TrainingLessonCatalog.navigationLessonAt(12)?.action)
-        assertEquals(NavigationAction.OpenSettings, TrainingLessonCatalog.navigationLessonAt(13)?.action)
-        assertEquals(NavigationAction.BackFromDestination, TrainingLessonCatalog.navigationLessonAt(14)?.action)
-        assertEquals(NavigationAction.CloseMenu, TrainingLessonCatalog.navigationLessonAt(15)?.action)
+    fun catalogEndsWithAdjustSensitivityAndExcludesExplore() {
+        assertEquals(8, TrainingMetadata.NAVIGATION_LESSON_COUNT)
+        assertEquals(8, TrainingLessonCatalog.navigationLessons.size)
         assertEquals(
-            NavigationAction.FinishGuidedLearning,
-            TrainingLessonCatalog.navigationLessonAt(16)?.action
+            GuidedSensitivityLessonAuthority.ID_ADJUST_SENSITIVITY,
+            TrainingLessonCatalog.navigationLessons.last().id
         )
-        assertEquals(ExploreLisaAuthority.ID_FINISH, TrainingLessonCatalog.navigationLessons.last().id)
+        assertEquals(
+            NavigationAction.AdjustSensitivity,
+            TrainingLessonCatalog.navigationLessons.last().action
+        )
+        assertTrue(
+            TrainingLessonCatalog.navigationLessons.none {
+                ExploreLisaAuthority.isExploreLessonId(it.id) ||
+                    it.action == NavigationAction.FinishGuidedLearning ||
+                    it.action == NavigationAction.ResetSequence
+            }
+        )
     }
 
     @Test
-    fun completingEveryNavigationLessonIncludingExploreReachesCompletion() {
+    fun completingEveryNavigationLessonReachesCompletion() {
         var progress = TrainingProgress(
             currentPhase = TrainingPhase.NavigationLesson,
             navigationLessonIndex = 0,
@@ -104,7 +106,7 @@ class Rc8_13ExploreLisaFinalLessonTest {
     }
 
     @Test
-    fun productionNavigationPipelineOwnsExploreActions() {
+    fun productionNavigationPipelineStillOwnsExploreActionsForNormalUse() {
         val main = read("MainActivity.kt")
         assertTrue(main.contains("NavigationAction.OpenMenu"))
         assertTrue(main.contains("openMainMenu()"))
@@ -115,7 +117,6 @@ class Rc8_13ExploreLisaFinalLessonTest {
         assertTrue(main.contains("verifyTrainingNavigation(NavigationAction.FinishGuidedLearning)"))
         assertTrue(main.contains("closeAllPanels()"))
         assertTrue(main.contains("backFromMenuDestination()"))
-        // No simulated blink / duplicate gesture tables for Explore.
         assertFalse(main.contains("simulateBlink"))
         assertFalse(main.contains("fakeOpenMenu"))
     }
@@ -130,7 +131,7 @@ class Rc8_13ExploreLisaFinalLessonTest {
     }
 
     @Test
-    fun introAndFinalCopyMatchSpec() {
+    fun introAndFinalCopyRemainAvailableOnExploreAuthority() {
         assertTrue(ExploreLisaAuthority.introSpeech.contains("You already know how to use LISA."))
         assertTrue(ExploreLisaAuthority.introSpeech.contains("same blink sequences"))
         assertTrue(ExploreLisaAuthority.finalSpeech.contains("You've completed Guided Learning."))
@@ -141,29 +142,27 @@ class Rc8_13ExploreLisaFinalLessonTest {
     }
 
     @Test
-    fun lessonCardSurfacesFinishButtonForFinalStep() {
+    fun lessonCardFinishHookRemainsForCompatibility() {
         val ui = read("LisaAccessibilityUi.kt")
         assertTrue(ui.contains("onExploreFinishGuidedLearning"))
         assertTrue(ui.contains("FinishGuidedLearning"))
         assertTrue(ui.contains("FINISH_BUTTON_LABEL"))
         val components = read("features/onboardingguide/ui/TrainingComponents.kt")
         assertTrue(components.contains("finishLabel"))
-        assertTrue(components.contains("onFinish"))
     }
 
     @Test
-    fun existingWorkspaceSequenceCatalogueUnchanged() {
-        assertEquals(4, GuidedModeNavigation.OPEN_MAIN_MENU_LEFT)
-        assertEquals(6, GuidedModeNavigation.OPEN_MAIN_MENU_RIGHT)
-        assertEquals(0, GuidedModeNavigation.NEXT_LEFT)
-        assertEquals(2, GuidedModeNavigation.NEXT_RIGHT)
-        assertEquals(1, GuidedModeNavigation.SELECT_LEFT)
-        assertEquals(1, GuidedModeNavigation.SELECT_RIGHT)
-        assertEquals(2, GuidedModeNavigation.BACK_LEFT)
-        assertEquals(2, GuidedModeNavigation.BACK_RIGHT)
-        assertEquals(0, GuidedModeNavigation.FINISH_TRAINING_LEFT)
-        assertEquals(3, GuidedModeNavigation.FINISH_TRAINING_RIGHT)
-        assertEquals(3, GuidedModeNavigation.CATEGORIES_LEFT)
-        assertEquals(0, GuidedModeNavigation.CATEGORIES_RIGHT)
+    fun finalGuidedLessonIsAdjustSensitivityNotExploreFinish() {
+        assertEquals(
+            GuidedSensitivityLessonAuthority.LESSON_TITLE,
+            GuidedWorkspaceTrainingSpec.lessonCardTitle(
+                NavigationAction.AdjustSensitivity,
+                LisaUiStrings.forLanguage(PreferredLanguage.English)
+            )
+        )
+        assertEquals(
+            "L5 R5",
+            GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.AdjustSensitivity)
+        )
     }
 }

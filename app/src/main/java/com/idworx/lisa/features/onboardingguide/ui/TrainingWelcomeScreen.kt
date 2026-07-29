@@ -575,7 +575,8 @@ fun TrainingCompletionScreen(
             TrainingLisaLogo(modifier = Modifier.size(112.dp))
             Spacer(modifier = Modifier.height(36.dp))
             Text(
-                text = "You're ready to communicate",
+                text = com.idworx.lisa.features.guidedsensitivitylesson
+                    .GuidedSensitivityLessonAuthority.TRAINING_COMPLETE_TITLE,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = LisaBlueDark,
@@ -583,17 +584,28 @@ fun TrainingCompletionScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "You now know the basics.",
+                text = com.idworx.lisa.features.guidedsensitivitylesson
+                    .GuidedSensitivityLessonAuthority.TRAINING_COMPLETE_MESSAGE,
                 fontSize = 20.sp,
                 color = LisaBlueDark.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                lineHeight = 28.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = uiStrings.goToCommunication,
+                text = "The same Move, Select, Back and adjustment controls work throughout LISA.",
                 fontSize = 18.sp,
                 color = LisaGray,
                 lineHeight = 26.sp,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = com.idworx.lisa.features.guidedsensitivitylesson
+                    .GuidedSensitivityLessonAuthority.START_USING_LISA_LABEL,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaBlueDark,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))

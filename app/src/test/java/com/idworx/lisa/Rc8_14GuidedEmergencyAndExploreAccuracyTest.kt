@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * RC8.14 — Emergency volume removal, Stop Emergency R1 L1, Explore accuracy + compact card.
+ * RC8.14 / RC8.27 — Emergency volume removal, Stop Emergency L1 R1, Explore accuracy + compact card.
  */
 class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
 
@@ -49,25 +49,27 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
     }
 
     @Test
-    fun activeEmergencyDisplaysStopEmergencyWithR1L1() {
+    fun activeEmergencyDisplaysStopEmergencyWithL1R1() {
         val emergency = read("LisaEmergencyUi.kt")
         val alarm = emergency.substringAfter("fun EmergencyAlarmOverlay(")
             .substringBefore("fun Brain1EmergencyConfirmOverlay(")
         assertTrue(alarm.contains("stopEmergency"))
-        assertTrue(alarm.contains("guidedConfirmCancelSequenceLabel"))
+        assertTrue(alarm.contains("guidedEmergencyStopSequenceLabel"))
+        assertFalse(alarm.contains("guidedConfirmCancelSequenceLabel"))
+        assertEquals("L1 R1", LisaUiStrings.forLanguage(PreferredLanguage.English).guidedEmergencyStopSequenceLabel)
         assertEquals("R1 L1", LisaUiStrings.forLanguage(PreferredLanguage.English).guidedConfirmCancelSequenceLabel)
         assertTrue(
-            UniversalInteractionGestures.isCancel(
+            UniversalInteractionGestures.isConfirm(
                 UniversalInteractionGestures.CONFIRM_LEFT,
                 UniversalInteractionGestures.CONFIRM_RIGHT,
-                listOf(false, true) // right then left
+                listOf(true, false) // left then right = stop while active
             )
         )
         assertFalse(
-            UniversalInteractionGestures.isCancel(
+            UniversalInteractionGestures.isConfirm(
                 UniversalInteractionGestures.CONFIRM_LEFT,
                 UniversalInteractionGestures.CONFIRM_RIGHT,
-                listOf(true, false) // left then right = confirm, not cancel
+                listOf(false, true) // right then left = cancel while armed only
             )
         )
     }
@@ -82,7 +84,9 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
         val stopWinks = main.substringAfter("private fun processActiveEmergencyStopWinks")
             .substringBefore("private fun processSequenceWinks")
         assertTrue(stopWinks.contains("UniversalInteractionGestures"))
-        assertTrue(stopWinks.contains("isCancel("))
+        assertTrue(stopWinks.contains("isConfirm("))
+        assertFalse(stopWinks.contains("isCancel("))
+        assertTrue(stopWinks.contains("recordWinkSide"))
         assertTrue(stopWinks.contains("cancelOrStopEmergency()"))
         val cancelFn = main.substringAfter("private fun cancelOrStopEmergency() {")
             .substringBefore("\n    private fun ")
@@ -90,7 +94,7 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
         assertTrue(cancelFn.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)"))
     }
 
-    // --- Explore Voice / Settings direct destinations --------------------------------------------
+    // --- Explore Voice / Settings production destinations (outside guided catalogue) ------------
 
     @Test
     fun exploreOpenVoiceRequiresProductionL3R1NotSelect() {
@@ -102,18 +106,12 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
             "L3 R1",
             GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.OpenVoice)
         )
-        val openVoice = TrainingLessonCatalog.navigationLessons
-            .first { it.id == ExploreLisaAuthority.ID_OPEN_VOICE }
-        assertEquals(NavigationAction.OpenVoice, openVoice.action)
-        // Lesson numbers: 15 phrases + explore_open_voice index 10 → lesson 26 of 32
-        val progressPair = TrainingLessonCatalog.guidedLessonProgress(
-            com.idworx.lisa.features.onboardingguide.model.TrainingProgress(
-                currentPhase = com.idworx.lisa.features.onboardingguide.model.TrainingPhase.NavigationLesson,
-                navigationLessonIndex = TrainingLessonCatalog.navigationLessons
-                    .indexOfFirst { it.id == ExploreLisaAuthority.ID_OPEN_VOICE }
-            )
+        // RC8.28 — Explore Voice is no longer an active guided catalogue lesson.
+        assertTrue(
+            TrainingLessonCatalog.navigationLessons.none {
+                it.id == ExploreLisaAuthority.ID_OPEN_VOICE
+            }
         )
-        assertEquals(26 to 32, progressPair)
     }
 
     @Test
@@ -126,19 +124,15 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
             "L5 R5",
             GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.OpenSettings)
         )
-        val openSettingsIndex = TrainingLessonCatalog.navigationLessons
-            .indexOfFirst { it.id == ExploreLisaAuthority.ID_OPEN_SETTINGS }
-        val progressPair = TrainingLessonCatalog.guidedLessonProgress(
-            com.idworx.lisa.features.onboardingguide.model.TrainingProgress(
-                currentPhase = com.idworx.lisa.features.onboardingguide.model.TrainingPhase.NavigationLesson,
-                navigationLessonIndex = openSettingsIndex
-            )
+        assertTrue(
+            TrainingLessonCatalog.navigationLessons.none {
+                it.id == ExploreLisaAuthority.ID_OPEN_SETTINGS
+            }
         )
-        assertEquals(29 to 32, progressPair)
     }
 
     @Test
-    fun exploreMenuAndFinishSequencesUnchanged() {
+    fun exploreMenuAndFinishSequencesRemainAvailableOutsideCatalogue() {
         assertEquals("L4 R6", ExploreLisaAuthority.openMenuSequenceLabel())
         assertEquals("L1 R1", ExploreLisaAuthority.finishSequenceLabel())
         assertEquals(
@@ -149,26 +143,19 @@ class Rc8_14GuidedEmergencyAndExploreAccuracyTest {
             "L1 R1",
             GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.FinishGuidedLearning)
         )
-        val finishIndex = TrainingLessonCatalog.navigationLessons
-            .indexOfFirst { it.id == ExploreLisaAuthority.ID_FINISH }
-        val progressPair = TrainingLessonCatalog.guidedLessonProgress(
+        assertTrue(
+            TrainingLessonCatalog.navigationLessons.none {
+                it.id == ExploreLisaAuthority.ID_FINISH ||
+                    it.id == ExploreLisaAuthority.ID_OPEN_MENU
+            }
+        )
+        val finalProgress = TrainingLessonCatalog.guidedLessonProgress(
             com.idworx.lisa.features.onboardingguide.model.TrainingProgress(
                 currentPhase = com.idworx.lisa.features.onboardingguide.model.TrainingPhase.NavigationLesson,
-                navigationLessonIndex = finishIndex
+                navigationLessonIndex = TrainingLessonCatalog.navigationLessons.lastIndex
             )
         )
-        assertEquals(32 to 32, progressPair)
-        val openMenuIndex = TrainingLessonCatalog.navigationLessons
-            .indexOfFirst { it.id == ExploreLisaAuthority.ID_OPEN_MENU }
-        assertEquals(
-            24 to 32,
-            TrainingLessonCatalog.guidedLessonProgress(
-                com.idworx.lisa.features.onboardingguide.model.TrainingProgress(
-                    currentPhase = com.idworx.lisa.features.onboardingguide.model.TrainingPhase.NavigationLesson,
-                    navigationLessonIndex = openMenuIndex
-                )
-            )
-        )
+        assertEquals(23 to 23, finalProgress)
     }
 
     @Test

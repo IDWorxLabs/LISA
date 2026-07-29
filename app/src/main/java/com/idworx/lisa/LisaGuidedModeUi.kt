@@ -229,6 +229,7 @@ fun GuidedVocabularyOverlay(
                         onOpenControl = onSettingsControl,
                         onBack = onBack,
                         onEmergency = onEmergency,
+                        trainingHighlight = trainingHighlight,
                         modifier = Modifier.weight(1f)
                     )
                 } else if (safeState.isSaveConfirmationActive) {
@@ -271,6 +272,7 @@ fun GuidedVocabularyOverlay(
                         onSave = onSelectEnter,
                         onCancel = onBack,
                         onEmergency = onEmergency,
+                        trainingHighlight = trainingHighlight,
                         modifier = Modifier.weight(1f)
                     )
                 } else when (screenMode) {
@@ -879,8 +881,14 @@ private fun GuidedModeNavigationPanel(
         else -> true
     }
     fun highlightFor(kind: GuidedPanelActionKind): Boolean = when (kind) {
+        // Lesson 16 Move Down/Up still use NextPage/PreviousPage highlight targets.
         GuidedPanelActionKind.ScrollUp -> highlightTarget == GuidedWorkspaceHighlightTarget.PreviousPage
         GuidedPanelActionKind.ScrollDown -> highlightTarget == GuidedWorkspaceHighlightTarget.NextPage
+        // RC8.26 — Lessons 20–21 highlight the real viewport page controls.
+        GuidedPanelActionKind.PreviousCategoryPage ->
+            highlightTarget == GuidedWorkspaceHighlightTarget.CategoryPreviousPage
+        GuidedPanelActionKind.NextCategoryPage ->
+            highlightTarget == GuidedWorkspaceHighlightTarget.CategoryNextPage
         GuidedPanelActionKind.Back -> highlightTarget == GuidedWorkspaceHighlightTarget.Back
         GuidedPanelActionKind.Categories -> highlightTarget == GuidedWorkspaceHighlightTarget.OpenCategories
         GuidedPanelActionKind.Emergency -> highlightTarget == GuidedWorkspaceHighlightTarget.Emergency
@@ -1104,6 +1112,7 @@ private fun SettingsAndControlsHubPanel(
     onOpenControl: (SettingsControlKind) -> Unit,
     onBack: () -> Unit,
     onEmergency: () -> Unit,
+    trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
     modifier: Modifier = Modifier
 ) {
     val cards = listOf(
@@ -1135,12 +1144,17 @@ private fun SettingsAndControlsHubPanel(
         verticalArrangement = Arrangement.spacedBy(SettingsAndControlsHubVisualStyle.CardSpacing)
     ) {
         cards.forEachIndexed { index, (kind, title, status) ->
+            val hubHighlighted =
+                kind == SettingsControlKind.Sensitivity &&
+                    (trainingHighlight == GuidedWorkspaceHighlightTarget.SettingsHubSensitivity ||
+                        trainingHighlight == GuidedWorkspaceHighlightTarget.Select)
             SettingsHubCard(
                 title = title,
                 status = status,
                 sequenceLabel = SettingsAndControlsHubSequences.sequenceLabel(kind),
                 selected = index == selectedIndex,
                 onClick = { onOpenControl(kind) },
+                trainingHighlighted = hubHighlighted,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -1182,7 +1196,8 @@ private fun SettingsHubCard(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    emergency: Boolean = false
+    emergency: Boolean = false,
+    trainingHighlighted: Boolean = false
 ) {
     val shape = SettingsAndControlsHubVisualStyle.CardShape
     val titleColor = if (emergency) LisaEmergencyRed else LisaBlueDark
@@ -1202,6 +1217,7 @@ private fun SettingsHubCard(
         modifier = modifier
             .heightIn(min = SettingsAndControlsHubVisualStyle.CardMinHeight)
             .lisaFocusEmphasis(selected, SettingsAndControlsHubVisualStyle.CardCornerRadius)
+            .guidedTrainingHighlight(trainingHighlighted, radius = SettingsAndControlsHubVisualStyle.CardCornerRadius)
             .background(color = background, shape = shape)
             .border(
                 width = if (selected) LisaWorkspaceVisualStyle.CardSelectedBorderWidth else 0.dp,
@@ -1432,6 +1448,7 @@ private fun SharedSettingAdjustmentPanel(
     onSave: () -> Unit,
     onCancel: () -> Unit,
     onEmergency: () -> Unit,
+    trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -1533,7 +1550,8 @@ private fun SharedSettingAdjustmentPanel(
                     GuidedModeNavigation.INCREASE_VALUE_RIGHT
                 ),
                 onDecrease = onDecrease,
-                onIncrease = onIncrease
+                onIncrease = onIncrease,
+                highlightIncrease = trainingHighlight == GuidedWorkspaceHighlightTarget.IncreaseValue
             )
             GuidedPreferencesAdjustMode.SpeechVolume -> SettingAdjustmentMeter(
                 label = uiStrings.guidedSelectSpeechVolumeSetting,
@@ -1580,7 +1598,8 @@ private fun SharedSettingAdjustmentPanel(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT),
             gestureHint = uiStrings.guidedSelectEnterHint,
             title = saveTitle,
-            onClick = onSave
+            onClick = onSave,
+            trainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.Select
         )
         AdjustmentInstructionRow(
             sequenceLabel = formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT),
@@ -1678,7 +1697,8 @@ private fun SettingAdjustmentMeter(
     increaseLabel: String,
     increaseSequence: String,
     onDecrease: () -> Unit,
-    onIncrease: () -> Unit
+    onIncrease: () -> Unit,
+    highlightIncrease: Boolean = false
 ) {
     val activeCount = SettingAdjustmentMeterAuthority.activeSegmentCount(
         value = currentValue,
@@ -1757,6 +1777,7 @@ private fun SettingAdjustmentMeter(
                 label = increaseLabel,
                 sequence = increaseSequence,
                 onClick = onIncrease,
+                trainingHighlighted = highlightIncrease,
                 modifier = Modifier.widthIn(min = 72.dp)
             )
         }
@@ -1769,11 +1790,13 @@ private fun MeterSideControl(
     label: String,
     sequence: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trainingHighlighted: Boolean = false
 ) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
+            .guidedTrainingHighlight(trainingHighlighted, radius = 10.dp)
             .clickable(role = Role.Button, onClick = onClick)
             .background(EntryBackground)
             .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -1792,12 +1815,14 @@ private fun AdjustmentInstructionRow(
     gestureHint: String,
     title: String,
     onClick: () -> Unit,
-    emergency: Boolean = false
+    emergency: Boolean = false,
+    trainingHighlighted: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
+            .guidedTrainingHighlight(trainingHighlighted, radius = 12.dp)
             .clickable(role = Role.Button, onClick = onClick)
             .background(
                 if (emergency) LisaEmergencyRed.copy(alpha = 0.15f) else EntryBackground

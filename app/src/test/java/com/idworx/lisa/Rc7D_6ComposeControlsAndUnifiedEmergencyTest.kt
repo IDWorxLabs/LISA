@@ -256,8 +256,10 @@ class Rc7D_6ComposeControlsAndUnifiedEmergencyTest {
     @Test
     fun manualButtonHasAccessibilityDescription() {
         val emergency = readSource("app/src/main/java/com/idworx/lisa/LisaEmergencyUi.kt")
-        // RC8.14 — Stop/Cancel buttons include the R1 L1 sequence in contentDescription.
+        // RC8.14 / RC8.27 — Stop/Cancel buttons include the sequence label in contentDescription.
         assertTrue(emergency.contains("contentDescription = \"\$label, \$sequenceLabel\""))
+        assertTrue(emergency.contains("guidedEmergencyStopSequenceLabel") ||
+            emergency.contains("guidedConfirmCancelSequenceLabel"))
     }
 
     @Test

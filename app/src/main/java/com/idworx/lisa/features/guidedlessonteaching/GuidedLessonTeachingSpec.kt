@@ -11,7 +11,7 @@ import com.idworx.lisa.formatWinkSequenceShort
 import com.idworx.lisa.GuidedModeNavigation
 
 /**
- * RC8.19–RC8.25 — Resolves [GuidedLessonTeachingPresentation] for Guided Learning lessons 16–32.
+ * RC8.19–RC8.28 — Resolves [GuidedLessonTeachingPresentation] for Guided Learning lessons 16–23.
  *
  * RC8.25 catalogue (medical journey):
  * - Lesson 16 (`nav_move_medical`): scroll to Medical → open with L1 R1
@@ -52,6 +52,9 @@ object GuidedLessonTeachingSpec {
             action == NavigationAction.CloseMenu &&
                 lessonId == GuidedLessonExecutionAuthority.ID_WORKSPACE_BACK ->
                 return lesson19BackPresentation()
+            action == NavigationAction.AdjustSensitivity ->
+                return com.idworx.lisa.features.guidedsensitivitylesson
+                    .GuidedSensitivityLessonAuthority.teachingPresentation()
         }
         return GuidedLessonTeachingPresentation(
             title = GuidedWorkspaceTrainingSpec.lessonCardTitleForLesson(action, lessonId, uiStrings),

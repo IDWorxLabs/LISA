@@ -326,15 +326,15 @@ class Rc8_15GuidedMedicalCategoryJourneyTest {
     }
 
     @Test
-    fun lessonProgressNumbersAre16Through18Of32() {
+    fun lessonProgressNumbersAre16Through18Of23() {
         fun progressAt(navIndex: Int) = TrainingLessonCatalog.guidedLessonProgress(
             TrainingProgress(
                 currentPhase = TrainingPhase.NavigationLesson,
                 navigationLessonIndex = navIndex
             )
         )
-        assertEquals(16 to 32, progressAt(0))
-        assertEquals(17 to 32, progressAt(1))
-        assertEquals(18 to 32, progressAt(2))
+        assertEquals(16 to 23, progressAt(0))
+        assertEquals(17 to 23, progressAt(1))
+        assertEquals(18 to 23, progressAt(2))
     }
 }

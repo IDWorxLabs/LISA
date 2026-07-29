@@ -1508,10 +1508,20 @@ class TrainingSessionController(
      * length: driven by [TrainingLessonCatalog.navigationLessonAt], never a hardcoded lesson.
      */
     private fun beginFinalNavigationCompletionFeedback(completedLessonIndex: Int, lessonId: String) {
-        val phrase = GuidedFeedbackPhrases.positive(completedLessonIndex)
+        val sensitivity = com.idworx.lisa.features.guidedsensitivitylesson.GuidedSensitivityLessonAuthority
+        val phrase = if (lessonId == sensitivity.ID_ADJUST_SENSITIVITY) {
+            "✓ Well done!"
+        } else {
+            GuidedFeedbackPhrases.positive(completedLessonIndex)
+        }
+        val detail = if (lessonId == sensitivity.ID_ADJUST_SENSITIVITY) {
+            "${sensitivity.TRAINING_COMPLETE_TITLE}\n${sensitivity.TRAINING_COMPLETE_MESSAGE}"
+        } else {
+            null
+        }
         state = state.copy(
             navigationFeedbackMessage = phrase,
-            navigationFeedbackDetail = null,
+            navigationFeedbackDetail = detail,
             completionPendingFeedback = true
         )
         onPersist(state)
@@ -1522,6 +1532,7 @@ class TrainingSessionController(
             dispatch(TrainingEvent.NavigationActionCompleted(lessonId))
             state = state.copy(
                 navigationFeedbackMessage = null,
+                navigationFeedbackDetail = null,
                 completionPendingFeedback = false
             )
             onPersist(state)

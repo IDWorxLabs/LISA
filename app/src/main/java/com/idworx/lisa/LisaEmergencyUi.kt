@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionKind
 import com.idworx.lisa.features.brain1interactionstandard.model.Brain1DecisionState
+import com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow
 import com.idworx.lisa.ui.theme.LisaEmergencyRed
 import com.idworx.lisa.ui.theme.LisaWhite
 
@@ -37,8 +39,10 @@ fun emergencyAwaitingConfirm(brain1Decision: Brain1DecisionState): Boolean =
  * Global emergency layer — rendered last in [LisaRootUI] so it sits above Compose Mode,
  * Communication, Settings, and all other panels (RC7D.3).
  *
- * RC8.14 — no emergency volume adjustment on any emergency surface. Stop/Cancel uses the
- * production cancel sequence label (R1 L1) with touch sharing the same action.
+ * RC8.14 — no emergency volume adjustment on any emergency surface.
+ *
+ * RC8.26 / RC8.27 — Emergency Active shows live Left/Right blink counters. Stop uses L1 R1
+ * (same counts as confirm, distinct phase). Armed Cancel remains R1 L1.
  */
 @Composable
 fun GlobalEmergencyOverlayLayer(
@@ -47,17 +51,20 @@ fun GlobalEmergencyOverlayLayer(
     emergencyAwaitingConfirm: Boolean,
     blinkFeedback: ComposerEyeFeedback,
     onCancelOrStopEmergency: () -> Unit,
+    onConfirmEmergency: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     when {
         emergencyActive -> EmergencyAlarmOverlay(
             uiStrings = uiStrings,
+            blinkFeedback = blinkFeedback,
             onStopEmergency = onCancelOrStopEmergency,
             modifier = modifier
         )
         emergencyAwaitingConfirm -> Brain1EmergencyConfirmOverlay(
             uiStrings = uiStrings,
             blinkFeedback = blinkFeedback,
+            onConfirmEmergency = onConfirmEmergency,
             onCancelEmergency = onCancelOrStopEmergency,
             modifier = modifier
         )
@@ -68,11 +75,12 @@ fun GlobalEmergencyOverlayLayer(
 @Composable
 fun EmergencyAlarmOverlay(
     uiStrings: LisaUiStrings,
+    blinkFeedback: ComposerEyeFeedback,
     onStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val backgroundInteraction = remember { MutableInteractionSource() }
-    val stopSequence = uiStrings.guidedConfirmCancelSequenceLabel
+    val stopSequence = uiStrings.guidedEmergencyStopSequenceLabel
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -82,11 +90,34 @@ fun EmergencyAlarmOverlay(
                 indication = null,
                 interactionSource = backgroundInteraction,
                 onClick = { /* consume background taps */ }
-            ),
-        contentAlignment = Alignment.Center
+            )
     ) {
+        // RC8.26 — compact live eye-tracking strip at the top (shared blink state).
         Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = uiStrings.eyeTrackingStatusWatching,
+                color = LisaWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            EmergencyBlinkFeedbackRows(
+                uiStrings = uiStrings,
+                blinkFeedback = blinkFeedback
+            )
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
                 .padding(horizontal = 20.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color(0xFFB71C1C))
@@ -131,6 +162,7 @@ fun EmergencyAlarmOverlay(
 fun Brain1EmergencyConfirmOverlay(
     uiStrings: LisaUiStrings,
     blinkFeedback: ComposerEyeFeedback,
+    onConfirmEmergency: () -> Unit,
     onCancelEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -170,6 +202,13 @@ fun Brain1EmergencyConfirmOverlay(
                 blinkFeedback = blinkFeedback
             )
             Spacer(modifier = Modifier.padding(10.dp))
+            // RC8.28 — Confirm and Cancel share equal visual weight.
+            EmergencyManualButton(
+                label = uiStrings.confirmEmergency,
+                sequenceLabel = uiStrings.guidedConfirmSequenceLabel,
+                onClick = onConfirmEmergency
+            )
+            Spacer(modifier = Modifier.padding(6.dp))
             EmergencyManualButton(
                 label = uiStrings.cancelEmergency,
                 sequenceLabel = uiStrings.guidedConfirmCancelSequenceLabel,
@@ -188,7 +227,7 @@ private fun EmergencyBlinkFeedbackRows(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        com.idworx.lisa.features.eyetrackingstatus.BlinkCounterRow(
+        BlinkCounterRow(
             uiStrings = uiStrings,
             leftBlinkCount = blinkFeedback.leftWinkCount,
             rightBlinkCount = blinkFeedback.rightWinkCount

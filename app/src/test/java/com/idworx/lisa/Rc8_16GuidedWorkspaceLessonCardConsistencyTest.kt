@@ -34,8 +34,8 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
         }
 
     @Test
-    fun everyLesson16Through32HasNonEmptyDisplayedSequence() {
-        assertEquals(17, TrainingLessonCatalog.navigationLessons.size)
+    fun everyLesson16Through23HasNonEmptyDisplayedSequence() {
+        assertEquals(8, TrainingLessonCatalog.navigationLessons.size)
         TrainingLessonCatalog.navigationLessons.forEach { lesson ->
             assertTrue(
                 "Lesson ${lesson.id} (${lesson.action}) must show an executable sequence",
@@ -106,7 +106,7 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
     }
 
     @Test
-    fun exploreVoiceSettingsAndFinishSequencesMatchProduction() {
+    fun exploreVoiceSettingsAndFinishSequencesMatchProductionOutsideCatalogue() {
         assertEquals(
             "Sequence: L3 R1",
             GuidedWorkspaceLessonCardAuthority.displayedSequenceFor(NavigationAction.OpenVoice)
@@ -124,6 +124,10 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
         assertEquals("L3 R1", ExploreLisaAuthority.voiceSequenceLabel())
         assertEquals("L5 R5", ExploreLisaAuthority.settingsSequenceLabel())
         assertEquals("L1 R1", ExploreLisaAuthority.finishSequenceLabel())
+        assertEquals(
+            "Sequence: L5 R5",
+            GuidedWorkspaceLessonCardAuthority.displayedSequenceFor(NavigationAction.AdjustSensitivity)
+        )
     }
 
     @Test
@@ -218,9 +222,10 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
             NavigationAction.SelectCategory to (3 to 1),
             NavigationAction.SelectPhrase to (2 to 1),
             NavigationAction.CloseMenu to (2 to 2),
-            NavigationAction.NextPage to (0 to 2),
-            NavigationAction.PreviousPage to (2 to 0),
+            NavigationAction.NextPage to (0 to 4),
+            NavigationAction.PreviousPage to (4 to 0),
             NavigationAction.TriggerEmergency to (6 to 0),
+            NavigationAction.AdjustSensitivity to (5 to 5),
             NavigationAction.ResetSequence to (0 to 3),
             NavigationAction.OpenMenu to (4 to 6),
             NavigationAction.MenuSelectVoice to (0 to 2),
@@ -260,10 +265,8 @@ class Rc8_16GuidedWorkspaceLessonCardConsistencyTest {
         assertEquals(NavigationAction.NextPage, actions[4])
         assertEquals(NavigationAction.PreviousPage, actions[5])
         assertEquals(NavigationAction.TriggerEmergency, actions[6])
-        assertEquals(NavigationAction.ResetSequence, actions[7])
-        assertEquals(NavigationAction.OpenMenu, actions[8])
-        assertEquals(NavigationAction.FinishGuidedLearning, actions.last())
-        assertEquals(17, actions.size)
+        assertEquals(NavigationAction.AdjustSensitivity, actions[7])
+        assertEquals(8, actions.size)
     }
 
     @Test
