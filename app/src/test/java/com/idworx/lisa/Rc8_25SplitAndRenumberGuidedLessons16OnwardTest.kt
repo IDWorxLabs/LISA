@@ -95,13 +95,13 @@ class Rc8_25SplitAndRenumberGuidedLessons16OnwardTest {
     // --- Lesson 16 -------------------------------------------------------------------------------
 
     @Test
-    fun lesson16IsScrollThenOpenOnlyWithoutL3R1Phase() {
+    fun lesson16IsScrollOpenThenDirectMethod2InsideSameLesson() {
         val full = GuidedLessonTeachingSpec.fullPresentationFor(
             NavigationAction.MoveToMedicalCategory,
             authority.ID_MOVE_TO_MEDICAL,
             uiStrings
         )
-        assertEquals(2, full.phases.size)
+        assertEquals(3, full.phases.size)
         assertEquals(
             GuidedLessonPhaseRequiredAction.MoveDownUntilCategorySelected,
             full.phases[0].requiredAction
@@ -110,7 +110,7 @@ class Rc8_25SplitAndRenumberGuidedLessons16OnwardTest {
             GuidedLessonPhaseRequiredAction.OpenSelectedCategory,
             full.phases[1].requiredAction
         )
-        assertFalse(
+        assertTrue(
             full.phases.any {
                 it.requiredAction == GuidedLessonPhaseRequiredAction.CategoryShortcutJump
             }
@@ -121,6 +121,10 @@ class Rc8_25SplitAndRenumberGuidedLessons16OnwardTest {
         )
         assertTrue(
             GuidedLessonPhaseEngine.advanceResult(full, 1) is
+                GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted
+        )
+        assertTrue(
+            GuidedLessonPhaseEngine.advanceResult(full, 2) is
                 GuidedLessonPhaseAdvanceResult.FinalPhaseCompleted
         )
     }

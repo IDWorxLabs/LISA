@@ -17,8 +17,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * RC8.24 / RC8.25 — Lesson 16 requires complete Medical opening via scroll+L1 R1;
- * direct L3 R1 is Lesson 17.
+ * RC8.24 / RC8.25 / RC8.34 — Lesson 16 Method 1 requires complete Medical opening via
+ * scroll+L1 R1 (OPEN_SELECTED); Method 2 then teaches L3 R1; Lesson 17 re-teaches direct alone.
  */
 class Rc8_24Lesson16CompleteMedicalCategoryOpeningTest {
 
@@ -68,7 +68,7 @@ class Rc8_24Lesson16CompleteMedicalCategoryOpeningTest {
             authority.ID_MOVE_TO_MEDICAL,
             uiStrings
         )
-        assertEquals(2, full.phases.size)
+        assertEquals(3, full.phases.size)
         assertEquals(
             GuidedLesson16AssessmentPhase.Part1ScrollToMedical,
             GuidedLesson16AssessmentPhase.fromPhaseId(full.phases[0].id)
@@ -127,12 +127,21 @@ class Rc8_24Lesson16CompleteMedicalCategoryOpeningTest {
     }
 
     @Test
-    fun l1R1OpensMedicalViaSelectAndLesson16CompletesOnOpen() {
+    fun l1R1OpensMedicalViaSelectThenIntermediateWellDoneBeforeMethod2() {
         var state = root()
         repeat(authority.downsFromConversationToMedical()) { state = moveDown(state) }
+        val before = state
         state = openSelected(state)
         assertTrue(authority.isMedicalOpenedViaSelect(state))
         assertEquals(CategoryNavigationCause.OPEN_SELECTED, state.categoryNavigationCause)
+        assertTrue(
+            authority.isMethod1OpenCompleted(
+                before,
+                state,
+                GuidedModeNavigation.SELECT_LEFT,
+                GuidedModeNavigation.SELECT_RIGHT
+            )
+        )
 
         val openAdvance = GuidedLessonPhaseEngine.advanceResult(
             GuidedLessonTeachingSpec.fullPresentationFor(
@@ -140,10 +149,13 @@ class Rc8_24Lesson16CompleteMedicalCategoryOpeningTest {
             ),
             1
         )
-        assertTrue(openAdvance is GuidedLessonPhaseAdvanceResult.FinalPhaseCompleted)
-        val final = openAdvance as GuidedLessonPhaseAdvanceResult.FinalPhaseCompleted
-        assertEquals(authority.MOVE_PHASE1_FEEDBACK_DETAIL, final.completedPhase.completionFeedbackDetail)
-        assertEquals("Well done!", final.completedPhase.completionFeedbackMessage)
+        assertTrue(openAdvance is GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted)
+        val intermediate = openAdvance as GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted
+        assertTrue(intermediate.showCompletionFeedback)
+        assertTrue(intermediate.resetWorkspaceBeforeNextPhase)
+        assertEquals(2, intermediate.nextPhaseIndex)
+        assertEquals(authority.MOVE_PHASE1_FEEDBACK_DETAIL, intermediate.completedPhase.completionFeedbackDetail)
+        assertEquals("Well done!", intermediate.completedPhase.completionFeedbackMessage)
     }
 
     @Test
@@ -187,8 +199,8 @@ class Rc8_24Lesson16CompleteMedicalCategoryOpeningTest {
     @Test
     fun noSyntheticLessonOnlyOpenAndSelectPanelHighlightWired() {
         val main = read("MainActivity.kt")
-        assertTrue(main.contains("isMedicalOpenedViaSelect"))
-        assertTrue(main.contains("isMedicalOpenedViaDirectShortcut"))
+        assertTrue(main.contains("isMethod1OpenCompleted") || main.contains("isMedicalOpenedViaSelect"))
+        assertTrue(main.contains("isMethod2DirectCompleted") || main.contains("isMedicalOpenedViaDirectShortcut"))
         assertTrue(main.contains("OpenSelectedCategory"))
         val ui = read("LisaGuidedModeUi.kt")
         assertTrue(

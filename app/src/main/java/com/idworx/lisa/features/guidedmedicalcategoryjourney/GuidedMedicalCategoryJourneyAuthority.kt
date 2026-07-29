@@ -56,7 +56,7 @@ object GuidedMedicalCategoryJourneyAuthority {
 
     const val MOVE_PHASE_FEEDBACK_TITLE: String = "Well done!"
     const val MOVE_PHASE1_FEEDBACK_DETAIL: String =
-        "You scrolled to Medical and opened it with L1 R1."
+        "You selected Medical and opened it using L1 R1."
     const val OPEN_DIRECT_FEEDBACK_DETAIL: String =
         "L3 R1 opened Medical directly."
     /** @deprecated Prefer OPEN_DIRECT_FEEDBACK_DETAIL. */
@@ -73,15 +73,20 @@ object GuidedMedicalCategoryJourneyAuthority {
     const val BACK_TO_CATEGORIES_FEEDBACK_DETAIL: String =
         "You returned to the category menu with L2 R2."
 
-    const val PHASE_ID_PART1_SCROLL: String = "lesson16_part1_scroll"
-    const val PHASE_ID_PART1_OPEN: String = "lesson16_part1_open"
-    /** @deprecated Lesson 17 owns direct open (RC8.25). */
-    const val PHASE_ID_PART2_JUMP: String = "lesson17_direct_open"
+    const val PHASE_ID_METHOD1_SCROLL: String = "Method1ScrollToMedical"
+    const val PHASE_ID_METHOD1_OPEN: String = "Method1OpenSelectedMedical"
+    const val PHASE_ID_METHOD2_DIRECT: String = "Method2DirectOpenMedical"
+    /** @deprecated RC8.34 — use [PHASE_ID_METHOD1_SCROLL]. */
+    const val PHASE_ID_PART1_SCROLL: String = PHASE_ID_METHOD1_SCROLL
+    /** @deprecated RC8.34 — use [PHASE_ID_METHOD1_OPEN]. */
+    const val PHASE_ID_PART1_OPEN: String = PHASE_ID_METHOD1_OPEN
+    /** RC8.34 — Method 2 lives in Lesson 16 again (also taught alone as Lesson 17). */
+    const val PHASE_ID_PART2_JUMP: String = PHASE_ID_METHOD2_DIRECT
 
-    /** @deprecated Prefer PHASE_ID_PART1_SCROLL. */
-    const val PHASE_ID_METHOD_1: String = PHASE_ID_PART1_SCROLL
-    /** @deprecated Prefer ID_OPEN_MEDICAL / Lesson 17. */
-    const val PHASE_ID_METHOD_2: String = PHASE_ID_PART2_JUMP
+    /** @deprecated Prefer PHASE_ID_METHOD1_SCROLL. */
+    const val PHASE_ID_METHOD_1: String = PHASE_ID_METHOD1_SCROLL
+    /** @deprecated Prefer PHASE_ID_METHOD2_DIRECT. */
+    const val PHASE_ID_METHOD_2: String = PHASE_ID_METHOD2_DIRECT
 
     /** @deprecated Prefer Method 1 / Method 2 fields (RC8.22). */
     const val MOVE_NEXT_ACTION_INSTRUCTION: String = MOVE_METHOD_1_BODY
@@ -161,6 +166,43 @@ object GuidedMedicalCategoryJourneyAuthority {
     fun isMedicalOpenedViaDirectShortcut(state: com.idworx.lisa.GuidedNavigationState): Boolean =
         isMedicalPhraseWorkspaceOpen(state) &&
             state.categoryNavigationCause == com.idworx.lisa.CategoryNavigationCause.DIRECT_SHORTCUT
+
+    /**
+     * RC8.34 — Method 1 open gate: fresh L1 R1 while Medical was selected in the category menu
+     * must produce a visible Medical workspace via OPEN_SELECTED. Selection alone / stale open
+     * / direct shortcut must not pass.
+     */
+    fun isMethod1OpenCompleted(
+        before: com.idworx.lisa.GuidedNavigationState,
+        after: com.idworx.lisa.GuidedNavigationState,
+        left: Int,
+        right: Int
+    ): Boolean {
+        if (!matchesOpenSelected(left, right)) return false
+        if (!isMedicalSelectedInCategoryMenu(before)) return false
+        if (isMedicalPhraseWorkspaceOpen(before)) return false
+        return isMedicalOpenedViaSelect(after)
+    }
+
+    /**
+     * RC8.34 — Method 2 gate: fresh L3 R1 from category menu must open Medical via
+     * DIRECT_SHORTCUT. Stale Method 1 open state must not pass.
+     */
+    fun isMethod2DirectCompleted(
+        before: com.idworx.lisa.GuidedNavigationState,
+        after: com.idworx.lisa.GuidedNavigationState,
+        left: Int,
+        right: Int
+    ): Boolean {
+        if (!matchesOpenMedical(left, right)) return false
+        if (before.screenMode != com.idworx.lisa.GuidedOverlayScreenMode.CategoryMenu) return false
+        if (isMedicalPhraseWorkspaceOpen(before)) return false
+        return isMedicalOpenedViaDirectShortcut(after)
+    }
+
+    /** Deterministic Lesson 16 Method 2 start — Category Menu, Conversation selected, no open. */
+    fun isMethod2StartState(state: com.idworx.lisa.GuidedNavigationState): Boolean =
+        isLesson16StartState(state) && !isMedicalPhraseWorkspaceOpen(state)
 
     /**
      * First built-in Medical phrase from the production vocabulary catalogue

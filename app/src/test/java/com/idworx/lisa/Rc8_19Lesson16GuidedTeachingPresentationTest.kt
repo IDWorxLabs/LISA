@@ -48,7 +48,7 @@ class Rc8_19Lesson16GuidedTeachingPresentationTest {
         )
         assertEquals("L0 R2", teaching.methods.single().highlightedSequence)
         assertEquals("L0 R2", teaching.rawGestureLabel)
-        assertEquals(2, GuidedLessonTeachingSpec.phasesFor(lesson.action).size)
+        assertEquals(3, GuidedLessonTeachingSpec.phasesFor(lesson.action).size)
     }
 
     @Test

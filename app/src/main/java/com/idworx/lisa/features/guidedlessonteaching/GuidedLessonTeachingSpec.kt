@@ -118,10 +118,11 @@ object GuidedLessonTeachingSpec {
     private fun lesson16ScrollAndOpenPresentation(): GuidedLessonTeachingPresentation {
         val scrollSequence = GuidedMedicalCategoryJourneyAuthority.moveDownSequenceLabel()
         val selectSequence = GuidedMedicalCategoryJourneyAuthority.openSelectedSequenceLabel()
+        val medicalSequence = GuidedMedicalCategoryJourneyAuthority.openMedicalSequenceLabel()
         val medicalIndex = GuidedMedicalCategoryJourneyAuthority.medicalCategoryIndex
 
         val scroll = GuidedLessonTeachingPhase(
-            id = GuidedMedicalCategoryJourneyAuthority.PHASE_ID_PART1_SCROLL,
+            id = GuidedMedicalCategoryJourneyAuthority.PHASE_ID_METHOD1_SCROLL,
             title = GuidedMedicalCategoryJourneyAuthority.MOVE_LESSON_TITLE,
             description = null,
             methods = listOf(
@@ -142,7 +143,7 @@ object GuidedLessonTeachingSpec {
             resetWorkspaceBeforeNextPhase = false
         )
         val open = GuidedLessonTeachingPhase(
-            id = GuidedMedicalCategoryJourneyAuthority.PHASE_ID_PART1_OPEN,
+            id = GuidedMedicalCategoryJourneyAuthority.PHASE_ID_METHOD1_OPEN,
             title = GuidedMedicalCategoryJourneyAuthority.MOVE_LESSON_TITLE,
             description = null,
             methods = listOf(
@@ -161,6 +162,30 @@ object GuidedLessonTeachingSpec {
             requiredAction = GuidedLessonPhaseRequiredAction.OpenSelectedCategory,
             completionFeedbackMessage = GuidedMedicalCategoryJourneyAuthority.MOVE_PHASE_FEEDBACK_TITLE,
             completionFeedbackDetail = GuidedMedicalCategoryJourneyAuthority.MOVE_PHASE1_FEEDBACK_DETAIL,
+            // RC8.34 — Well done while Medical is open; reset only after acknowledgement.
+            showCompletionFeedback = true,
+            resetWorkspaceBeforeNextPhase = true
+        )
+        val direct = GuidedLessonTeachingPhase(
+            id = GuidedMedicalCategoryJourneyAuthority.PHASE_ID_METHOD2_DIRECT,
+            title = GuidedMedicalCategoryJourneyAuthority.MOVE_LESSON_TITLE,
+            description = null,
+            methods = listOf(
+                GuidedLessonTeachingMethod(
+                    title = GuidedMedicalCategoryJourneyAuthority.MOVE_METHOD_2_TITLE,
+                    instructionalLines = listOf(
+                        GuidedMedicalCategoryJourneyAuthority.OPEN_DIRECT_BODY
+                    ),
+                    highlightedSequence = medicalSequence
+                )
+            ),
+            rawGestureLabel = medicalSequence,
+            navigationControlHighlight = null,
+            productionTargetCategoryIndex = medicalIndex,
+            destinationCategoryIndex = medicalIndex,
+            requiredAction = GuidedLessonPhaseRequiredAction.CategoryShortcutJump,
+            completionFeedbackMessage = GuidedMedicalCategoryJourneyAuthority.MOVE_PHASE_FEEDBACK_TITLE,
+            completionFeedbackDetail = GuidedMedicalCategoryJourneyAuthority.OPEN_DIRECT_FEEDBACK_DETAIL,
             showCompletionFeedback = true,
             resetWorkspaceBeforeNextPhase = false
         )
@@ -172,7 +197,7 @@ object GuidedLessonTeachingSpec {
             navigationControlHighlight = GuidedWorkspaceHighlightTarget.NextPage,
             productionTargetCategoryIndex = medicalIndex,
             destinationCategoryIndex = null,
-            phases = listOf(scroll, open)
+            phases = listOf(scroll, open, direct)
         )
     }
 

@@ -326,7 +326,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         trainingSession.onNavigationPhaseAdvanced = { resetWorkspace ->
             if (resetWorkspace) {
-                // RC8.23 — intentional Lesson 16 Part 1→2 reset to Conversation selection.
+                // RC8.34 — after Method 1 Well done, close Medical and restore Category Menu for
+                // Method 2. Cleared navigation cause / selection come from communicationWorkspaceRoot.
                 preparedMedicalJourneyLessonId = null
                 closeWorkspacePanelsOnly()
                 uiGuidedNavigationState.value =
@@ -2699,7 +2700,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 authority.matchesOpenSelected(left, right)
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .CategoryShortcutJump ->
-                false
+                // RC8.34 — Lesson 16 Method 2 (also Lesson 17's sole phase).
+                authority.matchesOpenMedical(left, right)
             // RC8.28 / RC8.32 Sensitivity phases belong to AdjustSensitivity, not Lesson 16.
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .MoveToSettingsPage,
@@ -3078,27 +3080,29 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * RC8.23 / RC8.24 — Lesson 16 stages using production Category Menu behaviour only.
-     * Never advances to Lesson 17 until scroll+open and direct-open both succeed.
+     * RC8.23 / RC8.34 — Lesson 16 Method 1 (scroll + OPEN_SELECTED) then Method 2 (DIRECT_SHORTCUT).
+     * Method 1 completes only when Medical is visibly open via OPEN_SELECTED; Well done shows
+     * while Medical remains open, then [onNavigationPhaseAdvanced] resets for Method 2.
+     * Lesson 17 is reached only after Method 2 success + final acknowledgement.
      */
     private fun handleMoveToMedicalLessonPhase(left: Int, right: Int) {
         val authority = com.idworx.lisa.features.guidedmedicalcategoryjourney
             .GuidedMedicalCategoryJourneyAuthority
         val phase = trainingSession.activeTeachingPhase()
-        val state = uiGuidedNavigationState.value
+        val before = uiGuidedNavigationState.value
         when (phase?.requiredAction) {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .MoveDownUntilCategorySelected,
             null -> {
                 if (!guidedOverlayActive() ||
-                    state.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    before.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
                     !GuidedModeNavigation.isNextSequence(left, right)
                 ) {
                     rejectNavigationTrainingGesture()
                     return
                 }
                 handleGuidedOverlaySequence(left, right)
-                // Selecting Medical alone does not complete Part 1 — advance to open stage.
+                // Medical selection alone never completes Method 1 — silent advance to open phase.
                 if (authority.isMedicalSelectedInCategoryMenu(uiGuidedNavigationState.value)) {
                     verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
                 }
@@ -3106,26 +3110,49 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .OpenSelectedCategory -> {
                 if (!guidedOverlayActive() ||
-                    state.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    before.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
                     !authority.matchesOpenSelected(left, right)
                 ) {
                     rejectNavigationTrainingGesture()
                     return
                 }
                 // Must still be on Medical before Select; otherwise opening another category fails.
-                if (!authority.isMedicalSelectedInCategoryMenu(state)) {
+                if (!authority.isMedicalSelectedInCategoryMenu(before)) {
                     rejectNavigationTrainingGesture()
                     return
                 }
                 handleGuidedOverlaySequence(left, right)
-                if (authority.isMedicalOpenedViaSelect(uiGuidedNavigationState.value)) {
+                // RC8.34 — gate requires fresh L1 R1 + OPEN_SELECTED + visible Medical workspace.
+                if (authority.isMethod1OpenCompleted(
+                        before,
+                        uiGuidedNavigationState.value,
+                        left,
+                        right
+                    )
+                ) {
                     verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
                 }
             }
             com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
                 .CategoryShortcutJump -> {
-                // RC8.25 — direct Medical open belongs to Lesson 17, not Lesson 16.
-                rejectNavigationTrainingGesture()
+                if (!guidedOverlayActive() ||
+                    before.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    !authority.matchesOpenMedical(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                // RC8.34 — Method 2 requires fresh L3 R1 + DIRECT_SHORTCUT + visible Medical.
+                if (authority.isMethod2DirectCompleted(
+                        before,
+                        uiGuidedNavigationState.value,
+                        left,
+                        right
+                    )
+                ) {
+                    verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
+                }
             }
             else -> rejectNavigationTrainingGesture()
         }

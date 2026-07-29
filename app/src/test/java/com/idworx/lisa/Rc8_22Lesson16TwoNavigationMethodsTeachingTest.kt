@@ -35,7 +35,7 @@ class Rc8_22Lesson16TwoNavigationMethodsTeachingTest {
             uiStrings
         )
         assertEquals("Explore Communication", full.title)
-        assertEquals(2, full.phases.size)
+        assertEquals(3, full.phases.size)
 
         val method1 = full.phases[0].methods.single()
         assertEquals("Method 1", method1.title)
@@ -47,6 +47,7 @@ class Rc8_22Lesson16TwoNavigationMethodsTeachingTest {
         assertEquals("L0 R2", method1.highlightedSequence)
 
         assertEquals("L1 R1", full.phases[1].methods.single().highlightedSequence)
+        assertEquals("L3 R1", full.phases[2].methods.single().highlightedSequence)
 
         val lesson17 = GuidedLessonTeachingSpec.presentationFor(
             NavigationAction.SelectCategory,

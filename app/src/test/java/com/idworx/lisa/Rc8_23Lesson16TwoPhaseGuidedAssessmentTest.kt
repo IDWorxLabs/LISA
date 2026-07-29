@@ -16,7 +16,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * RC8.23 / RC8.25 — Lesson 16 multi-stage scroll+open (direct open is Lesson 17).
+ * RC8.23 / RC8.25 / RC8.34 — Lesson 16 Method 1 (scroll+open) then Method 2 (direct);
+ * Lesson 17 still re-teaches direct open alone.
  */
 class Rc8_23Lesson16TwoPhaseGuidedAssessmentTest {
 
@@ -29,14 +30,14 @@ class Rc8_23Lesson16TwoPhaseGuidedAssessmentTest {
     }
 
     @Test
-    fun lesson16HasScrollThenOpenStagesOnly() {
+    fun lesson16HasScrollOpenThenDirectStages() {
         val full = GuidedLessonTeachingSpec.fullPresentationFor(
             NavigationAction.MoveToMedicalCategory,
             GuidedMedicalCategoryJourneyAuthority.ID_MOVE_TO_MEDICAL,
             uiStrings
         )
         assertTrue(full.isMultiPhase)
-        assertEquals(2, full.phases.size)
+        assertEquals(3, full.phases.size)
         assertEquals(
             GuidedLessonPhaseRequiredAction.MoveDownUntilCategorySelected,
             full.phases[0].requiredAction
@@ -45,8 +46,13 @@ class Rc8_23Lesson16TwoPhaseGuidedAssessmentTest {
             GuidedLessonPhaseRequiredAction.OpenSelectedCategory,
             full.phases[1].requiredAction
         )
+        assertEquals(
+            GuidedLessonPhaseRequiredAction.CategoryShortcutJump,
+            full.phases[2].requiredAction
+        )
         assertFalse(full.phases[0].resetWorkspaceBeforeNextPhase)
-        assertFalse(full.phases[1].resetWorkspaceBeforeNextPhase)
+        assertTrue(full.phases[1].resetWorkspaceBeforeNextPhase)
+        assertFalse(full.phases[2].resetWorkspaceBeforeNextPhase)
     }
 
     @Test
@@ -104,7 +110,7 @@ class Rc8_23Lesson16TwoPhaseGuidedAssessmentTest {
     }
 
     @Test
-    fun phaseEngineCompletesLesson16AfterOpenStage() {
+    fun phaseEngineCompletesLesson16AfterMethod2DirectStage() {
         val full = GuidedLessonTeachingSpec.fullPresentationFor(
             NavigationAction.MoveToMedicalCategory,
             null,
@@ -115,8 +121,14 @@ class Rc8_23Lesson16TwoPhaseGuidedAssessmentTest {
         assertEquals(1, afterScroll.nextPhaseIndex)
         assertFalse(afterScroll.showCompletionFeedback)
 
+        val afterOpen = GuidedLessonPhaseEngine.advanceResult(full, 1)
+            as GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted
+        assertEquals(2, afterOpen.nextPhaseIndex)
+        assertTrue(afterOpen.showCompletionFeedback)
+        assertTrue(afterOpen.resetWorkspaceBeforeNextPhase)
+
         assertTrue(
-            GuidedLessonPhaseEngine.advanceResult(full, 1) is
+            GuidedLessonPhaseEngine.advanceResult(full, 2) is
                 GuidedLessonPhaseAdvanceResult.FinalPhaseCompleted
         )
     }
