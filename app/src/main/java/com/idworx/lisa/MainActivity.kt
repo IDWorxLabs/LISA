@@ -3,6 +3,8 @@ package com.idworx.lisa
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
 import android.net.Uri
 import android.provider.Settings
 import android.content.pm.PackageManager
@@ -106,8 +108,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val emergencyAlarmController by lazy {
         EmergencyAlarmController(
             context = this,
-            speak = { text -> speak(text) },
-            stopSpeech = { tts?.stop() }
+            // RC8.37 — emergency TTS uses alarm stream + full volume, not normal speech volume.
+            speak = { text -> speakEmergencyPhrase(text) },
+            stopSpeech = {
+                tts?.stop()
+                restoreDefaultTtsAudioAttributes()
+            }
         )
     }
 
@@ -972,6 +978,36 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         )
         tts?.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(uiSpeechRateLevel.value))
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_SPEAK")
+    }
+
+    /**
+     * RC8.37 — emergency announcement path. Uses STREAM_ALARM / USAGE_ALARM at full utterance
+     * volume so speech tracks the alarm path instead of media/speech-volume settings.
+     * Does not stop or recreate the emergency ExoPlayer.
+     */
+    private fun speakEmergencyPhrase(text: String) {
+        if (!LisaSpeechPolicy.allowsPhraseTranslation()) return
+        val engine = tts ?: return
+        engine.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
+        val params = Bundle()
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_ALARM)
+        engine.setSpeechRate(SpeechSpeedAuthority.toSpeechRate(uiSpeechRateLevel.value))
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_SPEAK")
+    }
+
+    private fun restoreDefaultTtsAudioAttributes() {
+        tts?.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+        )
     }
 
     private fun speakNarration(text: String) {

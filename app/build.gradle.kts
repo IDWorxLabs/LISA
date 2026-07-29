@@ -79,6 +79,10 @@ dependencies {
 // JSON (JVM-compatible for unit tests and export/import)
     implementation("org.json:json:20240303")
 
+// RC8.40 — Media3 ExoPlayer for seamless emergency alarm looping (minimum audio module only)
+    // 1.4.1 is the newest Media3 line compatible with this module's compileSdk 34.
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+
 // Tests (keep these if Android Studio added them)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
