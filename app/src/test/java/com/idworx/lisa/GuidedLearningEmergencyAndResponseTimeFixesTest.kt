@@ -130,14 +130,19 @@ class GuidedLearningEmergencyAndResponseTimeFixesTest {
     }
 
     @Test
-    fun emergencyConfirmed_startsRealAlarmAndOnlyThenAdvancesTheLesson() {
+    fun emergencyConfirmed_startsRealAlarm_andAdvancesOnlyAfterStop() {
         val main = mainActivitySource()
         assertTrue(main.contains("trainingSession.onEmergencyConfirmed = {"))
         val wiring = main.substringAfter("trainingSession.onEmergencyConfirmed = {").substringBefore("\n        }")
         assertTrue(wiring.contains("startEmergencyMode()"))
-        assertTrue(wiring.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)"))
-        // Real alarm must start before (never instead of) the lesson being allowed to advance.
-        assertTrue(wiring.indexOf("startEmergencyMode()") < wiring.indexOf("verifyTrainingNavigation(NavigationAction.TriggerEmergency)"))
+        // RC8.14 — do not advance on confirm; advance when Stop Emergency clears the alarm.
+        assertFalse(wiring.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)"))
+        val stopFn = main.substringAfter("private fun cancelOrStopEmergency() {")
+            .substringBefore("\n    private fun ")
+        assertTrue(stopFn.contains("advanceEmergencyLesson"))
+        assertTrue(stopFn.contains("verifyTrainingNavigation(NavigationAction.TriggerEmergency)"))
+        assertTrue(main.contains("processActiveEmergencyStopWinks"))
+        assertTrue(main.contains("MAX_EMERGENCY_VOLUME"))
     }
 
     @Test

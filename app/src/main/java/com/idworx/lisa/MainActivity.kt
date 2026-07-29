@@ -228,6 +228,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var phraseManagementOpenedFromMainMenu = false
     /** When set, guided Back from the viewed category restores this Success (or similar) composer state. */
     private var composerReturnAfterCategoryView: PhraseComposerState? = null
+    /**
+     * RC8.17 — one-shot workspace preparation per Medical-journey lesson id so recomposition /
+     * wink refresh cannot reset the learner's category selection mid-lesson.
+     */
+    private var preparedMedicalJourneyLessonId: String? = null
+    /** RC8.25 — Lesson 18 accepts phrase Speak only after this lesson's entry prep armed it. */
+    private var medicalPhraseLessonArmed: Boolean = false
 
     private val requestCameraPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -301,12 +308,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         trainingSession.onEmergencyConfirmed = {
             startEmergencyMode()
-            // No-ops outside the Emergency lesson (verifyNavigation checks the active phase/target
-            // itself) — only advances Guided Training once the REAL alarm has actually fired.
-            verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+            // RC8.14 — Guided Learning Emergency advances only after Stop Emergency
+            // (touch or R1 L1), never automatically when the alarm starts.
         }
         trainingSession.onRecalibrationConfirmed = {
             trainingSession.startRecalibrationFlow()
+            refreshTrainingActiveState()
+        }
+        trainingSession.onNavigationPhaseAdvanced = { resetWorkspace ->
+            if (resetWorkspace) {
+                // RC8.23 — intentional Lesson 16 Part 1→2 reset to Conversation selection.
+                preparedMedicalJourneyLessonId = null
+                closeWorkspacePanelsOnly()
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
+                preparedMedicalJourneyLessonId =
+                    com.idworx.lisa.features.guidedmedicalcategoryjourney
+                        .GuidedMedicalCategoryJourneyAuthority.ID_MOVE_TO_MEDICAL
+            }
             refreshTrainingActiveState()
         }
         startupSession = com.idworx.lisa.features.intelligentstartup.StartupSessionController(
@@ -783,28 +802,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onPhraseComposerEmergency = { triggerGuidedEmergencyTouch() },
                         onCancelOrStopEmergency = { cancelOrStopEmergency() },
-                        onDecreaseEmergencyAlarmVolume = {
-                            updateActiveProfile {
-                                it.withUpdatedSettings(
-                                    uiSettingsState.value.copy(
-                                        emergencyAlarmVolume =
-                                            (uiSettingsState.value.emergencyAlarmVolume - 0.1f)
-                                                .coerceIn(0.5f, 1f)
-                                    )
-                                )
-                            }
-                        },
-                        onIncreaseEmergencyAlarmVolume = {
-                            updateActiveProfile {
-                                it.withUpdatedSettings(
-                                    uiSettingsState.value.copy(
-                                        emergencyAlarmVolume =
-                                            (uiSettingsState.value.emergencyAlarmVolume + 0.1f)
-                                                .coerceIn(0.5f, 1f)
-                                    )
-                                )
-                            }
-                        },
                         hasSavedEyeCalibration = activeProfile()?.eyeCalibration != null,
                         settingsRecalibrationState = uiSettingsRecalibrationState.value,
                         onSettingsRecalibrationRetry = { settingsRecalibrationController.retry() },
@@ -882,6 +879,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         },
                         onTrainingPreferencesChange = { prefs ->
                             trainingSession.updatePreferences { prefs }
+                        },
+                        onExploreFinishGuidedLearning = {
+                            verifyTrainingNavigation(NavigationAction.FinishGuidedLearning)
                         },
                         cameraView = {
                             CameraPreview(
@@ -1372,6 +1372,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             LisaPanel.MyCommunication -> verifyTrainingNavigation(NavigationAction.OpenCommunicationHistory)
             LisaPanel.Settings -> verifyTrainingNavigation(NavigationAction.OpenSettings)
+            LisaPanel.Voice,
+            LisaPanel.VoiceDevice,
+            LisaPanel.VoicePremium,
+            LisaPanel.VoiceMyVoice,
+            LisaPanel.VoiceFamily -> {
+                uiMainMenuState.value = MainMenuController.close()
+                if (panel == LisaPanel.Voice) {
+                    verifyTrainingNavigation(NavigationAction.OpenVoice)
+                }
+            }
             LisaPanel.VocabularyTraining -> {
                 phraseManagementOpenedFromMainMenu = previousPanel == LisaPanel.Menu
                 resetPhraseManagementState()
@@ -1472,15 +1482,71 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun applyMainMenuResult(result: MainMenuSequenceResult) {
+        val expected = trainingSession.expectedNavigationAction()
         when (result) {
-            is MainMenuSequenceResult.Navigate -> uiMainMenuState.value = result.newState
+            is MainMenuSequenceResult.Navigate -> {
+                uiMainMenuState.value = result.newState
+                // RC8.13 — Move Down until the Explore target destination is selected.
+                when (expected) {
+                    NavigationAction.MenuSelectVoice -> {
+                        if (result.newState.selectedDestination == MainMenuDestination.Voice) {
+                            verifyTrainingNavigation(NavigationAction.MenuSelectVoice)
+                        }
+                    }
+                    NavigationAction.MenuSelectSettings -> {
+                        if (result.newState.selectedDestination == MainMenuDestination.Settings) {
+                            verifyTrainingNavigation(NavigationAction.MenuSelectSettings)
+                        }
+                    }
+                    else -> Unit
+                }
+            }
             is MainMenuSequenceResult.CloseMenu -> {
                 uiMainMenuState.value = result.newState
                 closeAllPanels()
             }
             is MainMenuSequenceResult.OpenDestination -> {
-                uiMainMenuState.value = result.newState
-                openPanel(result.destination.panel)
+                when (expected) {
+                    NavigationAction.MenuSelectVoice -> {
+                        // No shortcuts during "move until Voice" — selection only.
+                        uiMainMenuState.value = MainMenuController.selectDestination(
+                            uiMainMenuState.value,
+                            MainMenuCatalog.destinations.indexOf(result.destination)
+                        )
+                        if (result.destination == MainMenuDestination.Voice) {
+                            verifyTrainingNavigation(NavigationAction.MenuSelectVoice)
+                        }
+                    }
+                    NavigationAction.MenuSelectSettings -> {
+                        uiMainMenuState.value = MainMenuController.selectDestination(
+                            uiMainMenuState.value,
+                            MainMenuCatalog.destinations.indexOf(result.destination)
+                        )
+                        if (result.destination == MainMenuDestination.Settings) {
+                            verifyTrainingNavigation(NavigationAction.MenuSelectSettings)
+                        }
+                    }
+                    NavigationAction.OpenVoice -> {
+                        if (result.destination != MainMenuDestination.Voice) {
+                            rejectNavigationTrainingGesture()
+                            return
+                        }
+                        uiMainMenuState.value = result.newState
+                        openPanel(result.destination.panel)
+                    }
+                    NavigationAction.OpenSettings -> {
+                        if (result.destination != MainMenuDestination.Settings) {
+                            rejectNavigationTrainingGesture()
+                            return
+                        }
+                        uiMainMenuState.value = result.newState
+                        openPanel(result.destination.panel)
+                    }
+                    else -> {
+                        uiMainMenuState.value = result.newState
+                        openPanel(result.destination.panel)
+                    }
+                }
             }
             MainMenuSequenceResult.Unmatched -> Unit
         }
@@ -1917,6 +1983,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             MenuDestinationInteractionStage.Browsing -> {
                 uiMenuDestinationState.value = state.copy(isActive = false)
                 openPanel(LisaPanel.Menu)
+                // RC8.13 — Explore Back from Voice/Settings shares production Back (L2 R2).
+                verifyTrainingNavigation(NavigationAction.BackFromDestination)
             }
         }
     }
@@ -2056,16 +2124,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiEmergencyActive.value = true
         uiLastSpoken.value = "Emergency"
         setCommunicationState(LisaCommunicationState.EmergencyAlarmActive)
+        // RC8.14 — fixed maximum emergency volume; no in-emergency adjustment.
         emergencyAlarmController.start(
             leftWinks,
             rightWinks,
-            activeProfile()?.emergencyVolume ?: 1.0f,
+            com.idworx.lisa.features.accessibilityconsistency.metadata.AccessibilityMetadata
+                .MAX_EMERGENCY_VOLUME,
             speechPhrase = LisaUiStrings.forLanguage(uiActiveLanguage.value).emergencySpeechPhrase
         )
         resetSequence()
     }
 
     private fun cancelOrStopEmergency() {
+        val stoppingActiveAlarm = emergencyActive
+        val advanceEmergencyLesson = stoppingActiveAlarm &&
+            trainingSession.isNavigationTrainingActive() &&
+            trainingSession.expectedNavigationAction() == NavigationAction.TriggerEmergency
         emergencyAlarmController.stop()
         tts?.stop()
         emergencyActive = false
@@ -2076,6 +2150,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         resetSequence()
         updateReadyOrWaitingState()
+        // RC8.14 — learner advances only after successfully stopping the active lesson alarm.
+        if (advanceEmergencyLesson) {
+            verifyTrainingNavigation(NavigationAction.TriggerEmergency)
+        }
     }
 
     private fun refreshCameraPermissionState() {
@@ -2275,7 +2353,87 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun refreshTrainingActiveState() {
         uiGuidedTrainingState.value = trainingSession.state
+        prepareMedicalJourneyLessonWorkspaceIfNeeded()
     }
+
+    /**
+     * RC8.17 / RC8.18 — establish the real Communication workspace state once when entering each
+     * Medical-journey / workspace-Back lesson. Never re-runs for the same lesson id (so mid-lesson
+     * progress is kept). Never pre-executes the action the current lesson teaches.
+     */
+    private fun prepareMedicalJourneyLessonWorkspaceIfNeeded() {
+        if (!trainingSession.isNavigationTrainingActive()) {
+            preparedMedicalJourneyLessonId = null
+            return
+        }
+        val lessonId = trainingSession.navigationLessonId() ?: return
+        if (lessonId == preparedMedicalJourneyLessonId) return
+        val authority = com.idworx.lisa.features.guidedmedicalcategoryjourney
+            .GuidedMedicalCategoryJourneyAuthority
+        val execution = com.idworx.lisa.features.guidedlessonexecutionauthority
+            .GuidedLessonExecutionAuthority
+        when (lessonId) {
+            authority.ID_MOVE_TO_MEDICAL -> {
+                // Lesson 16 — Category Menu at Conversation (do not select/open Medical).
+                closeWorkspacePanelsOnly()
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
+                medicalPhraseLessonArmed = false
+            }
+            authority.ID_OPEN_MEDICAL -> {
+                // RC8.25 Lesson 17 — clean Category Menu so L3 R1 is genuinely required.
+                // Close Medical left open by Lesson 16; never pre-execute the direct open.
+                closeWorkspacePanelsOnly()
+                uiGuidedNavigationState.value =
+                    GuidedNavigationController.communicationWorkspaceRoot(GuidedNavigationState())
+                medicalPhraseLessonArmed = false
+            }
+            authority.ID_USE_MEDICAL_PHRASE -> {
+                // Lesson 18 — Medical must stay open from Lesson 17; never speak the phrase.
+                val current = uiGuidedNavigationState.value
+                uiGuidedNavigationState.value = if (!authority.isMedicalPhraseWorkspaceOpen(current)) {
+                    GuidedNavigationController.openCategoryDirectly(
+                        current,
+                        authority.medicalCategoryIndex
+                    )
+                } else {
+                    current.copy(phrasePageIndex = 0)
+                }
+                medicalPhraseLessonArmed = true
+            }
+            execution.ID_WORKSPACE_BACK -> {
+                // Lesson 19 — Medical phrase workspace must remain OPEN; never pre-execute Back.
+                val current = uiGuidedNavigationState.value
+                if (!execution.isWorkspaceBackStartState(current)) {
+                    uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
+                        current,
+                        authority.medicalCategoryIndex
+                    )
+                }
+                medicalPhraseLessonArmed = false
+            }
+            else -> Unit
+        }
+        preparedMedicalJourneyLessonId = lessonId
+    }
+
+    /**
+     * Close Menu / Voice / Settings panels without resetting the Communication workspace
+     * navigation state (RC8.18 — CloseMenu must not pre-execute workspace Back).
+     */
+    private fun closeWorkspacePanelsOnly() {
+        uiPanelReturnTarget.value = null
+        uiActivePanel.value = LisaPanel.None
+        uiMainMenuState.value = MainMenuController.close()
+        uiPhraseComposerState.value = PhraseComposerController.initialState()
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationState(MainMenuDestination.CommunicationProfile)
+        resumeCommunicationPhraseProcessing()
+    }
+
+    private fun isMedicalPhraseWorkspaceOpen(): Boolean =
+        com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+            .isMedicalPhraseWorkspaceOpen(uiGuidedNavigationState.value)
 
     private fun handleTrainingEvent(event: TrainingEvent) {
         trainingSession.dispatch(event)
@@ -2333,6 +2491,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun classifyNavigationGesture(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
         GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
+        GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
@@ -2352,8 +2511,49 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (classified == expected) return true
         // Select (category menu) and a phrase's own code (vocabulary) both surface as "Select" —
         // let both through so the real screenMode decides which one actually applies.
-        return (expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
+        if ((expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
             (expected == NavigationAction.SelectPhrase && classified == NavigationAction.SelectCategory)
+        ) {
+            return true
+        }
+        // RC8.13 / RC8.14 Explore LISA — same production sequences, aliased to Explore actions.
+        // RC8.15 / RC8.23 — Move to Medical phases use Next (scroll) or Medical shortcut (jump).
+        return when (expected) {
+            NavigationAction.MenuSelectVoice,
+            NavigationAction.MenuSelectSettings -> classified == NavigationAction.NextPage
+            NavigationAction.MoveToMedicalCategory ->
+                acceptsMoveToMedicalPhaseGesture(left, right, classified)
+            NavigationAction.OpenVoice ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesVoiceDestination(left, right)
+            NavigationAction.OpenSettings ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesSettingsDestination(left, right)
+            NavigationAction.FinishGuidedLearning -> classified == NavigationAction.SelectCategory
+            NavigationAction.BackFromDestination -> classified == NavigationAction.CloseMenu
+            else -> false
+        }
+    }
+
+    /** RC8.23 / RC8.24 — Lesson 16 phase-aware gesture acceptance (production sequences only). */
+    private fun acceptsMoveToMedicalPhaseGesture(
+        left: Int,
+        right: Int,
+        classified: NavigationAction
+    ): Boolean {
+        val phase = trainingSession.activeTeachingPhase()
+            ?: return classified == NavigationAction.NextPage
+        val authority = com.idworx.lisa.features.guidedmedicalcategoryjourney
+            .GuidedMedicalCategoryJourneyAuthority
+        return when (phase.requiredAction) {
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .MoveDownUntilCategorySelected ->
+                classified == NavigationAction.NextPage
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSelectedCategory ->
+                authority.matchesOpenSelected(left, right)
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .CategoryShortcutJump ->
+                false
+        }
     }
 
     /**
@@ -2380,7 +2580,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 // row shows another.
                 val targetCategoryIndex = GuidedCategoryShortcuts.categoryIndexForGesture(left, right)
                 val isHighlightedCategory =
-                    targetCategoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+                    targetCategoryIndex == GuidedWorkspaceTrainingSpec.medicalCategoryIndex
                 !GuidedTrainingFocusPolicy.isTargetAllowed(
                     expected, NavigationAction.SelectCategory, isHighlightedCategory
                 )
@@ -2413,6 +2613,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun handleNavigationTrainingSequence(left: Int, right: Int) {
+        if (trainingSession.state.navigationPhasePendingFeedback ||
+            trainingSession.state.completionPendingFeedback
+        ) {
+            return
+        }
         if (!acceptedByCurrentNavigationLesson(left, right)) {
             rejectNavigationTrainingGesture()
             return
@@ -2420,6 +2625,160 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (isNavigationLessonOffTargetAttempt(left, right)) {
             rejectNavigationTrainingGesture()
             return
+        }
+
+        val expected = trainingSession.expectedNavigationAction()
+
+        // RC8.13 — Explore LISA uses the same production Menu / Voice / Settings pipeline.
+        // RC8.15 — Move to Medical uses production Category Menu Next until Medical is selected.
+        when (expected) {
+            NavigationAction.OpenMenu -> {
+                if (GuidedModeNavigation.isOpenMainMenuSequence(left, right)) {
+                    openMainMenu()
+                } else {
+                    rejectNavigationTrainingGesture()
+                }
+                return
+            }
+            NavigationAction.MoveToMedicalCategory -> {
+                handleMoveToMedicalLessonPhase(left, right)
+                return
+            }
+            NavigationAction.SelectCategory -> {
+                // RC8.25 Lesson 17 — Open Medical only via production L3 R1 (DIRECT_SHORTCUT).
+                val authority = com.idworx.lisa.features.guidedmedicalcategoryjourney
+                    .GuidedMedicalCategoryJourneyAuthority
+                if (!guidedOverlayActive() ||
+                    uiGuidedNavigationState.value.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    !authority.matchesOpenMedical(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                if (authority.isMedicalOpenedViaDirectShortcut(uiGuidedNavigationState.value)) {
+                    verifyTrainingNavigation(NavigationAction.SelectCategory)
+                }
+                return
+            }
+            NavigationAction.MenuSelectVoice,
+            NavigationAction.MenuSelectSettings -> {
+                if (uiActivePanel.value != LisaPanel.Menu ||
+                    !GuidedModeNavigation.isNextSequence(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val result = MainMenuController.processSequence(
+                    left = left,
+                    right = right,
+                    state = uiMainMenuState.value,
+                    viewportHeightPx = uiMainMenuViewportHeightPx.value,
+                    maxScrollPx = uiMainMenuMaxScrollPx.value
+                )
+                applyMainMenuResult(result)
+                return
+            }
+            NavigationAction.OpenVoice -> {
+                if (uiActivePanel.value != LisaPanel.Menu ||
+                    !com.idworx.lisa.features.explorelisa.ExploreLisaAuthority
+                        .matchesVoiceDestination(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val result = MainMenuController.processSequence(
+                    left = left,
+                    right = right,
+                    state = uiMainMenuState.value,
+                    viewportHeightPx = uiMainMenuViewportHeightPx.value,
+                    maxScrollPx = uiMainMenuMaxScrollPx.value
+                )
+                applyMainMenuResult(result)
+                return
+            }
+            NavigationAction.OpenSettings -> {
+                if (uiActivePanel.value != LisaPanel.Menu ||
+                    !com.idworx.lisa.features.explorelisa.ExploreLisaAuthority
+                        .matchesSettingsDestination(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val result = MainMenuController.processSequence(
+                    left = left,
+                    right = right,
+                    state = uiMainMenuState.value,
+                    viewportHeightPx = uiMainMenuViewportHeightPx.value,
+                    maxScrollPx = uiMainMenuMaxScrollPx.value
+                )
+                applyMainMenuResult(result)
+                return
+            }
+            NavigationAction.BackFromDestination -> {
+                if (!GuidedModeNavigation.isBackSequence(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                backFromMenuDestination()
+                return
+            }
+            NavigationAction.CloseMenu -> {
+                // Workspace Back vs Explore Close Menu — both are L2 R2; route by active panel.
+                if (uiActivePanel.value == LisaPanel.Menu &&
+                    GuidedModeNavigation.isBackSequence(left, right)
+                ) {
+                    val result = MainMenuController.processSequence(
+                        left = left,
+                        right = right,
+                        state = uiMainMenuState.value,
+                        viewportHeightPx = uiMainMenuViewportHeightPx.value,
+                        maxScrollPx = uiMainMenuMaxScrollPx.value
+                    )
+                    applyMainMenuResult(result)
+                    return
+                }
+                val exploreClose = trainingSession.navigationLessonId() ==
+                    com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_CLOSE_MENU
+                if (exploreClose) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                // RC8.18 — Lesson 19 (nav_back): wait for learner Back; complete only after
+                // production Category Selection is open.
+                if (!GuidedModeNavigation.isBackSequence(left, right)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                val execution = com.idworx.lisa.features.guidedlessonexecutionauthority
+                    .GuidedLessonExecutionAuthority
+                val before = uiGuidedNavigationState.value
+                if (!execution.isWorkspaceBackStartState(before) &&
+                    trainingSession.navigationLessonId() == execution.ID_WORKSPACE_BACK
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                val after = uiGuidedNavigationState.value
+                if (trainingSession.navigationLessonId() == execution.ID_WORKSPACE_BACK) {
+                    if (execution.isWorkspaceBackCompleted(before, after)) {
+                        verifyTrainingNavigation(NavigationAction.CloseMenu)
+                    }
+                } else if (GuidedModeNavigation.isBackSequence(left, right)) {
+                    verifyTrainingNavigation(NavigationAction.CloseMenu)
+                }
+                return
+            }
+            NavigationAction.FinishGuidedLearning -> {
+                if (GuidedModeNavigation.isSelectSequence(left, right)) {
+                    verifyTrainingNavigation(NavigationAction.FinishGuidedLearning)
+                } else {
+                    rejectNavigationTrainingGesture()
+                }
+                return
+            }
+            else -> Unit
         }
 
         when {
@@ -2451,8 +2810,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             guidedOverlayActive() && GuidedModeNavigation.isGlobalNavigationSequence(left, right) -> {
                 handleGuidedOverlaySequence(left, right)
                 when {
-                    GuidedModeNavigation.isSelectSequence(left, right) ->
-                        verifyTrainingNavigation(NavigationAction.SelectCategory)
+                    GuidedModeNavigation.isSelectSequence(left, right) -> {
+                        // RC8.17 — do not complete Open Medical on generic L1 R1; require Medical workspace.
+                        if (trainingSession.expectedNavigationAction() == NavigationAction.SelectCategory) {
+                            if (isMedicalPhraseWorkspaceOpen()) {
+                                verifyTrainingNavigation(NavigationAction.SelectCategory)
+                            }
+                        } else {
+                            verifyTrainingNavigation(NavigationAction.SelectCategory)
+                        }
+                    }
                     GuidedModeNavigation.isBackSequence(left, right) ->
                         verifyTrainingNavigation(NavigationAction.CloseMenu)
                     GuidedModeNavigation.isNextSequence(left, right) ->
@@ -2470,7 +2837,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val isCategoryShortcutGesture = screenModeBeforeHandling == GuidedOverlayScreenMode.CategoryMenu &&
                     GuidedCategoryShortcuts.categoryIndexForGesture(left, right) != null
                 handleGuidedOverlaySequence(left, right)
-                if (isCategoryShortcutGesture) {
+                if (isCategoryShortcutGesture &&
+                    trainingSession.expectedNavigationAction() == NavigationAction.SelectCategory &&
+                    isMedicalPhraseWorkspaceOpen()
+                ) {
                     verifyTrainingNavigation(NavigationAction.SelectCategory)
                 }
             }
@@ -2491,6 +2861,68 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun verifyTrainingNavigation(action: NavigationAction) {
         trainingSession.verifyNavigation(action)
         refreshTrainingActiveState()
+    }
+
+    /**
+     * RC8.23 — complete the active practical phase for a multi-phase navigation lesson
+     * (Lesson 16), or the whole lesson when it is single-step / on its final phase.
+     */
+    private fun verifyTrainingNavigationPhase(action: NavigationAction) {
+        trainingSession.completeNavigationLessonPhase(action)
+        refreshTrainingActiveState()
+    }
+
+    /**
+     * RC8.23 / RC8.24 — Lesson 16 stages using production Category Menu behaviour only.
+     * Never advances to Lesson 17 until scroll+open and direct-open both succeed.
+     */
+    private fun handleMoveToMedicalLessonPhase(left: Int, right: Int) {
+        val authority = com.idworx.lisa.features.guidedmedicalcategoryjourney
+            .GuidedMedicalCategoryJourneyAuthority
+        val phase = trainingSession.activeTeachingPhase()
+        val state = uiGuidedNavigationState.value
+        when (phase?.requiredAction) {
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .MoveDownUntilCategorySelected,
+            null -> {
+                if (!guidedOverlayActive() ||
+                    state.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    !GuidedModeNavigation.isNextSequence(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                // Selecting Medical alone does not complete Part 1 — advance to open stage.
+                if (authority.isMedicalSelectedInCategoryMenu(uiGuidedNavigationState.value)) {
+                    verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .OpenSelectedCategory -> {
+                if (!guidedOverlayActive() ||
+                    state.screenMode != GuidedOverlayScreenMode.CategoryMenu ||
+                    !authority.matchesOpenSelected(left, right)
+                ) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                // Must still be on Medical before Select; otherwise opening another category fails.
+                if (!authority.isMedicalSelectedInCategoryMenu(state)) {
+                    rejectNavigationTrainingGesture()
+                    return
+                }
+                handleGuidedOverlaySequence(left, right)
+                if (authority.isMedicalOpenedViaSelect(uiGuidedNavigationState.value)) {
+                    verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
+                }
+            }
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .CategoryShortcutJump -> {
+                // RC8.25 — direct Medical open belongs to Lesson 17, not Lesson 16.
+                rejectNavigationTrainingGesture()
+            }
+        }
     }
 
     private fun saveFeedbackEntry(
@@ -3108,10 +3540,45 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             refreshTrainingActiveState()
             return
         }
+        // RC8.18 — touch Back during workspace Go Back: same production gate as blink L2 R2.
+        if (trainingSession.isNavigationTrainingActive() &&
+            trainingSession.expectedNavigationAction() == NavigationAction.CloseMenu &&
+            trainingSession.navigationLessonId() ==
+            com.idworx.lisa.features.guidedlessonexecutionauthority
+                .GuidedLessonExecutionAuthority.ID_WORKSPACE_BACK &&
+            GuidedModeNavigation.isBackSequence(left, right)
+        ) {
+            val execution = com.idworx.lisa.features.guidedlessonexecutionauthority
+                .GuidedLessonExecutionAuthority
+            val before = uiGuidedNavigationState.value
+            if (!execution.isWorkspaceBackStartState(before)) {
+                rejectNavigationTrainingGesture()
+                refreshTrainingActiveState()
+                return
+            }
+            handleGuidedOverlaySequence(left, right, blinkOrder)
+            if (execution.isWorkspaceBackCompleted(before, uiGuidedNavigationState.value)) {
+                verifyTrainingNavigation(NavigationAction.CloseMenu)
+            }
+            return
+        }
         if (GuidedModeNavigation.isCategoriesSequence(left, right)) {
             verifyTrainingNavigation(NavigationAction.OpenCategories)
         }
         handleGuidedOverlaySequence(left, right, blinkOrder)
+        // RC8.15 / RC8.24 — touch Next during Lesson 16 scroll stage advances when Medical is selected.
+        if (trainingSession.isNavigationTrainingActive() &&
+            trainingSession.expectedNavigationAction() == NavigationAction.MoveToMedicalCategory &&
+            GuidedModeNavigation.isNextSequence(left, right) &&
+            trainingSession.activeTeachingPhase()?.requiredAction ==
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                .MoveDownUntilCategorySelected &&
+            com.idworx.lisa.features.guidedmedicalcategoryjourney
+                .GuidedMedicalCategoryJourneyAuthority
+                .isMedicalSelectedInCategoryMenu(uiGuidedNavigationState.value)
+        ) {
+            verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
+        }
     }
 
     /**
@@ -3134,6 +3601,63 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun openGuidedCategoryFromTouch(categoryIndex: Int) {
+        if (trainingSession.isNavigationTrainingActive()) {
+            val expected = trainingSession.expectedNavigationAction()
+            // RC8.15 / RC8.24 — Lesson 16 phase-aware Medical touch.
+            if (expected == NavigationAction.MoveToMedicalCategory) {
+                if (categoryIndex != GuidedWorkspaceTrainingSpec.medicalCategoryIndex) {
+                    rejectNavigationTrainingGesture()
+                    refreshTrainingActiveState()
+                    return
+                }
+                val phaseAction = trainingSession.activeTeachingPhase()?.requiredAction
+                when (phaseAction) {
+                    com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                        .CategoryShortcutJump -> {
+                        rejectNavigationTrainingGesture()
+                    }
+                    com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseRequiredAction
+                        .OpenSelectedCategory -> {
+                        // Part 1 open stage requires L1 R1 / Select — category touch alone is not enough.
+                        rejectNavigationTrainingGesture()
+                    }
+                    else -> {
+                        // Scroll stage — select only; silent advance when Medical is selected.
+                        uiGuidedNavigationState.value = uiGuidedNavigationState.value.copy(
+                            categoryMenuSelection = GuidedWorkspaceTrainingSpec.medicalCategoryIndex,
+                            categoryNavigationCause = CategoryNavigationCause.ITEM_MOVEMENT
+                        )
+                        if (com.idworx.lisa.features.guidedmedicalcategoryjourney
+                                .GuidedMedicalCategoryJourneyAuthority
+                                .isMedicalSelectedInCategoryMenu(uiGuidedNavigationState.value)
+                        ) {
+                            verifyTrainingNavigationPhase(NavigationAction.MoveToMedicalCategory)
+                        }
+                    }
+                }
+                refreshTrainingActiveState()
+                return
+            }
+            // RC8.17 — Open Medical: only Medical may open; never advance via other destinations.
+            if (expected == NavigationAction.SelectCategory) {
+                if (categoryIndex != GuidedWorkspaceTrainingSpec.medicalCategoryIndex) {
+                    rejectNavigationTrainingGesture()
+                    refreshTrainingActiveState()
+                    return
+                }
+            } else {
+                val isHighlightedCategory = categoryIndex == GuidedWorkspaceTrainingSpec.medicalCategoryIndex
+                val allowed = expected != null &&
+                    GuidedTrainingFocusPolicy.isTargetAllowed(
+                        expected, NavigationAction.SelectCategory, isHighlightedCategory
+                    )
+                if (!allowed) {
+                    rejectNavigationTrainingGesture()
+                    refreshTrainingActiveState()
+                    return
+                }
+            }
+        }
         when (CategoryAreaDestination.forCategoryIndex(categoryIndex)) {
             CategoryAreaDestination.CreateCustomPhrase -> {
                 openComposeModeFromCustom()
@@ -3152,22 +3676,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             is CategoryAreaDestination.CommunicationCategory -> Unit
         }
-        if (trainingSession.isNavigationTrainingActive()) {
-            val expected = trainingSession.expectedNavigationAction()
-            val isHighlightedCategory = categoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
-            val allowed = expected != null &&
-                GuidedTrainingFocusPolicy.isTargetAllowed(expected, NavigationAction.SelectCategory, isHighlightedCategory)
-            if (!allowed) {
-                rejectNavigationTrainingGesture()
-                refreshTrainingActiveState()
-                return
-            }
-        }
         uiGuidedNavigationState.value = GuidedNavigationController.openCategoryDirectly(
             uiGuidedNavigationState.value,
             categoryIndex
         )
-        verifyTrainingNavigation(NavigationAction.SelectCategory)
+        // RC8.25 — Lesson 17 completes only via production DIRECT_SHORTCUT into Medical.
+        if (trainingSession.expectedNavigationAction() == NavigationAction.SelectCategory) {
+            if (com.idworx.lisa.features.guidedmedicalcategoryjourney
+                    .GuidedMedicalCategoryJourneyAuthority
+                    .isMedicalOpenedViaDirectShortcut(uiGuidedNavigationState.value)
+            ) {
+                verifyTrainingNavigation(NavigationAction.SelectCategory)
+            }
+        } else {
+            verifyTrainingNavigation(NavigationAction.SelectCategory)
+        }
         val uiStrings = guidedUiStrings()
         uiGuidedConfirmedPhrase.value =
             GuidedVocabularyCatalog.categoryAt(
@@ -3706,7 +4229,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 uiGuidedConfirmedLeft.value = result.entry.left
                 uiGuidedConfirmedRight.value = result.entry.right
                 setCommunicationState(LisaCommunicationState.Speaking(phrase))
-                verifyTrainingNavigation(NavigationAction.SelectPhrase)
+                // RC8.17 / RC8.25 — SelectPhrase advances only on a fresh Speak of the first Medical
+                // phrase after Lesson 18 entry armed acceptance (rejects stale / wrong phrases).
+                if (trainingSession.expectedNavigationAction() == NavigationAction.SelectPhrase &&
+                    medicalPhraseLessonArmed &&
+                    isMedicalPhraseWorkspaceOpen() &&
+                    com.idworx.lisa.features.guidedmedicalcategoryjourney
+                        .GuidedMedicalCategoryJourneyAuthority
+                        .matchesFirstMedicalPhrase(
+                            result.entry,
+                            activeLanguage(),
+                            guidedUiStrings()
+                        )
+                ) {
+                    medicalPhraseLessonArmed = false
+                    verifyTrainingNavigation(NavigationAction.SelectPhrase)
+                }
                 speak(phrase)
                 mainHandler.removeCallbacks(guidedConfirmationClearRunnable)
                 mainHandler.postDelayed(guidedConfirmationClearRunnable, 2500L)
@@ -4110,8 +4648,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         detector.process(image)
             .addOnSuccessListener { faces ->
+                // RC8.14 — while the alarm is active, still process eyes so Stop Emergency
+                // (R1 L1) can match touch. No other sequences are executed in that mode.
                 if (emergencyActive) {
-                    updateDiagnostics(null, null)
+                    if (faces.isEmpty()) {
+                        updateDiagnostics(null, null)
+                        return@addOnSuccessListener
+                    }
+                    val face = faces[0]
+                    val eyes = userEyeProbabilities(face)
+                    if (eyes == null) {
+                        updateDiagnostics(null, null)
+                        return@addOnSuccessListener
+                    }
+                    processActiveEmergencyStopWinks(eyes.userLeft, eyes.userRight)
                     return@addOnSuccessListener
                 }
                 if (faces.isEmpty()) {
@@ -4241,9 +4791,63 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * RC8.14 — while the alarm is sounding, only the production cancel sequence (R1 L1) is
+     * accepted. Touch Stop Emergency and this blink path share [cancelOrStopEmergency].
+     */
+    private fun processActiveEmergencyStopWinks(leftProb: Float, rightProb: Float) {
+        val now = System.currentTimeMillis()
+        val result = blinkProcessor.processFrame(
+            BlinkEyeProbabilities(leftProb, rightProb),
+            now,
+            acceptedLeftCount = leftWinks,
+            acceptedRightCount = rightWinks
+        )
+        updateDiagnostics(leftProb, rightProb, result)
+        if (result.acceptLeft) {
+            flashAcceptedBlink(isLeft = true)
+            leftWinks += 1
+            if (sequenceStartMs == 0L) sequenceStartMs = now
+            lastWinkTimeMs = now
+        }
+        if (result.acceptRight) {
+            flashAcceptedBlink(isLeft = false)
+            rightWinks += 1
+            if (sequenceStartMs == 0L) sequenceStartMs = now
+            lastWinkTimeMs = now
+        }
+        val hasCountedWinks = leftWinks > 0 || rightWinks > 0
+        val activelyWinking = result.leftCandidate || result.rightCandidate
+        if (!hasCountedWinks || lastWinkTimeMs == 0L) return
+        val idleMs = now - lastWinkTimeMs
+        val totalWindowMs = now - sequenceStartMs
+        val finalize = !activelyWinking &&
+            shouldFinalizeSequence(
+                left = leftWinks,
+                right = rightWinks,
+                idleMs = idleMs,
+                sequenceAgeMs = totalWindowMs,
+                idleTimeoutMs = effectiveSequenceIdleTimeoutMs(),
+                maxWindowMs = effectiveSequenceMaxWindowMs()
+            )
+        if (!finalize) return
+        val order = currentBlinkOrder()
+        val left = leftWinks
+        val right = rightWinks
+        resetSequence()
+        if (com.idworx.lisa.features.brain1interactionstandard.model.UniversalInteractionGestures
+                .isCancel(left, right, order)
+        ) {
+            cancelOrStopEmergency()
+        }
+    }
+
     private fun processSequenceWinks(leftProb: Float, rightProb: Float) {
         if (countdownActive) return
-        if (emergencyActive) return
+        if (emergencyActive) {
+            processActiveEmergencyStopWinks(leftProb, rightProb)
+            return
+        }
 
         val now = System.currentTimeMillis()
         val result = blinkProcessor.processFrame(

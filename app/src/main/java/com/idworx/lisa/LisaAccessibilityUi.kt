@@ -201,8 +201,6 @@ fun LisaRootUI(
     onPhraseComposerKeyTouched: (row: Int, col: Int) -> Unit = { _, _ -> },
     onPhraseComposerEmergency: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit = {},
-    onDecreaseEmergencyAlarmVolume: () -> Unit = {},
-    onIncreaseEmergencyAlarmVolume: () -> Unit = {},
     hasSavedEyeCalibration: Boolean = false,
     settingsRecalibrationState: SettingsRecalibrationState = SettingsRecalibrationState(),
     onSettingsRecalibrationRetry: () -> Unit = {},
@@ -239,6 +237,7 @@ fun LisaRootUI(
     onTrainingPracticeNavigation: () -> Unit = {},
     onTrainingResetProgress: () -> Unit = {},
     onTrainingPreferencesChange: (TrainingPreferences) -> Unit = {},
+    onExploreFinishGuidedLearning: () -> Unit = {},
     intelligentStartupActive: Boolean = false,
     intelligentStartupState: com.idworx.lisa.features.intelligentstartup.model.StartupFlowState =
         com.idworx.lisa.features.intelligentstartup.model.StartupFlowState(isActive = false),
@@ -364,9 +363,6 @@ fun LisaRootUI(
     } else {
         null
     }
-    val guidedWorkspaceHighlight = activeNavigationLesson?.let {
-        GuidedWorkspaceTrainingSpec.highlightTargetFor(it.action)
-    }
     // The floating card's "Select a phrase" gesture hint must be the *actual* highlighted
     // phrase entry's own code — the exact same entry (first visible row) that
     // GuidedVocabularyOverlay renders and MainActivity's lesson-focus gate validates against —
@@ -385,6 +381,30 @@ fun LisaRootUI(
     } else {
         null
     }
+    val guidedLessonTeaching = activeNavigationLesson?.let { lesson ->
+        com.idworx.lisa.features.guidedlessonteaching.GuidedLessonTeachingSpec.presentationFor(
+            action = lesson.action,
+            lessonId = lesson.id,
+            uiStrings = uiStrings,
+            highlightedPhraseGesture = guidedHighlightedPhraseGesture,
+            phaseIndex = guidedTrainingState.navigationLessonPhaseIndex
+        )
+    }
+    val guidedWorkspaceHighlight = if (
+        guidedLessonTeaching != null &&
+            activeNavigationLesson != null &&
+            com.idworx.lisa.features.guidedlessonteaching.GuidedLessonTeachingSpec
+                .phasesFor(activeNavigationLesson.action).isNotEmpty()
+    ) {
+        // RC8.23 — multi-phase lessons own their highlight (including explicit null = no chrome).
+        guidedLessonTeaching.navigationControlHighlight
+    } else {
+        guidedLessonTeaching?.navigationControlHighlight
+            ?: activeNavigationLesson?.let {
+                GuidedWorkspaceTrainingSpec.highlightTargetFor(it.action)
+            }
+    }
+    val guidedDestinationCategoryIndex = guidedLessonTeaching?.destinationCategoryIndex
     Box(modifier = Modifier.fillMaxSize()) {
         if (!emergencyActive) {
         if (cameraPermissionGranted) {
@@ -549,6 +569,18 @@ fun LisaRootUI(
         }
         }
 
+        // RC8.16 / RC8.18 — workspace content region below UniversalEyeTrackingHeader. The guided
+        // lesson card overlays only this Box so it can never cover the eye-tracking header
+        // or blink counters above. BoxWithConstraints supplies the workspace height for the
+        // card's max-height fraction (no internal card scrolling).
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+        val lessonCardMaxHeight =
+            maxHeight * com.idworx.lisa.features.guidedworkspacelessoncard
+                .GuidedWorkspaceLessonCardAuthority.MaxHeightFraction
         if (showGuidedVocabularyOverlay) {
         GuidedVocabularyOverlay(
             uiStrings = uiStrings,
@@ -586,9 +618,8 @@ fun LisaRootUI(
                 GuidedWorkspaceMode.NORMAL
             },
             trainingHighlight = guidedWorkspaceHighlight,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+            destinationCategoryIndex = guidedDestinationCategoryIndex,
+            modifier = Modifier.fillMaxSize()
         )
         }
 
@@ -596,8 +627,7 @@ fun LisaRootUI(
         if (mainMenuActive) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(
                         horizontal = LisaWorkspaceVisualStyle.FullWidthChromeHorizontalPadding,
                         vertical = 6.dp
@@ -625,8 +655,7 @@ fun LisaRootUI(
         if (menuDestinationActive && menuDestinationBinding != null) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(
                         horizontal = LisaWorkspaceVisualStyle.FullWidthChromeHorizontalPadding,
                         vertical = 6.dp
@@ -738,8 +767,7 @@ fun LisaRootUI(
         if (phraseManagementActive) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 VocabularyManagementPanel(
@@ -779,10 +807,70 @@ fun LisaRootUI(
             onEntrySelected = onPhraseComposerEntry,
             onCommandSelected = onPhraseComposerCommand,
             onKeyTouched = onPhraseComposerKeyTouched,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxSize()
         )
+
+        // RC8.16 — compact lesson card for lessons 16–32, constrained to this workspace Box
+        // (never a root-level overlay that can cover UniversalEyeTrackingHeader).
+        if (guidedWorkspaceTrainingActive && activeNavigationLesson != null) {
+            val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(guidedTrainingState.progress)
+            val cardDock = GuidedWorkspaceTrainingSpec.cardDockForLesson(
+                activeNavigationLesson.action,
+                activeNavigationLesson.id
+            )
+            val cardAlignment = if (cardDock == GuidedWorkspaceLessonCardDock.BottomStart) {
+                Alignment.BottomStart
+            } else {
+                Alignment.BottomEnd
+            }
+            val exploreFinish =
+                activeNavigationLesson.action == NavigationAction.FinishGuidedLearning
+            GuidedWorkspaceLessonCard(
+                lessonNumber = lessonProgress?.first,
+                totalLessons = lessonProgress?.second,
+                title = guidedLessonTeaching?.title ?: GuidedWorkspaceTrainingSpec.lessonCardTitleForLesson(
+                    activeNavigationLesson.action,
+                    activeNavigationLesson.id,
+                    uiStrings
+                ),
+                gestureLabel = guidedLessonTeaching?.rawGestureLabel
+                    ?: GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(
+                        activeNavigationLesson.action,
+                        guidedHighlightedPhraseGesture
+                    ),
+                feedbackMessage = guidedTrainingState.navigationFeedbackMessage,
+                feedbackDetail = guidedTrainingState.navigationFeedbackDetail,
+                wrongGestureMessage = guidedTrainingState.navigationWrongGestureMessage,
+                instruction = guidedLessonTeaching?.description
+                    ?: GuidedWorkspaceTrainingSpec.lessonCardInstruction(
+                        activeNavigationLesson.action,
+                        activeNavigationLesson.id
+                    ),
+                teaching = guidedLessonTeaching,
+                finishLabel = if (exploreFinish) {
+                    com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.FINISH_BUTTON_LABEL
+                } else {
+                    null
+                },
+                onFinish = if (exploreFinish) onExploreFinishGuidedLearning else null,
+                compact = true,
+                modifier = Modifier
+                    .align(cardAlignment)
+                    .heightIn(max = lessonCardMaxHeight)
+                    .wrapContentHeight()
+                    .padding(
+                        start = com.idworx.lisa.features.guidedworkspacelessoncard
+                            .GuidedWorkspaceLessonCardAuthority.WorkspaceCardHorizontalPadding,
+                        end = com.idworx.lisa.features.guidedworkspacelessoncard
+                            .GuidedWorkspaceLessonCardAuthority.WorkspaceCardHorizontalPadding,
+                        top = com.idworx.lisa.features.guidedworkspacelessoncard
+                            .GuidedWorkspaceLessonCardAuthority.WorkspaceCardTopPadding,
+                        bottom = com.idworx.lisa.features.guidedworkspacelessoncard
+                            .GuidedWorkspaceLessonCardAuthority.WorkspaceCardBottomPadding
+                    )
+            )
+        }
+        } // end RC8.16/RC8.18 workspace content BoxWithConstraints
 
         if (MainMenuProductionUiAuthority.showWorkspaceBottomChrome(phraseComposerActive) &&
             !menuDestinationActive
@@ -838,36 +926,9 @@ fun LisaRootUI(
                     LisaPanel.None -> Unit
                 }
             }
-        }
-        }
-        }
-        }
-
-        // Floating lesson card renders last so it is always drawn above the workspace and the
-        // Listening/Watching-your-eyes banner at the top — never behind it. It docks above the
-        // bottom Menu/Reset row, on whichever side keeps the highlighted control uncovered.
-        if (guidedWorkspaceTrainingActive && activeNavigationLesson != null) {
-            val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(guidedTrainingState.progress)
-            val cardDock = GuidedWorkspaceTrainingSpec.cardDockFor(guidedWorkspaceHighlight)
-            val cardAlignment = if (cardDock == GuidedWorkspaceLessonCardDock.BottomStart) {
-                Alignment.BottomStart
-            } else {
-                Alignment.BottomEnd
             }
-            GuidedWorkspaceLessonCard(
-                lessonNumber = lessonProgress?.first,
-                totalLessons = lessonProgress?.second,
-                title = GuidedWorkspaceTrainingSpec.lessonCardTitle(activeNavigationLesson.action, uiStrings),
-                gestureLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(
-                    activeNavigationLesson.action,
-                    guidedHighlightedPhraseGesture
-                ),
-                feedbackMessage = guidedTrainingState.navigationFeedbackMessage,
-                wrongGestureMessage = guidedTrainingState.navigationWrongGestureMessage,
-                modifier = Modifier
-                    .align(cardAlignment)
-                    .padding(horizontal = 10.dp, vertical = 84.dp)
-            )
+        }
+        }
         }
         }
 
@@ -876,9 +937,6 @@ fun LisaRootUI(
             emergencyActive = emergencyActive,
             emergencyAwaitingConfirm = emergencyAwaitingConfirm,
             blinkFeedback = composerEyeFeedback,
-            emergencyAlarmVolume = settingsState.emergencyAlarmVolume,
-            onDecreaseAlarmVolume = onDecreaseEmergencyAlarmVolume,
-            onIncreaseAlarmVolume = onIncreaseEmergencyAlarmVolume,
             onCancelOrStopEmergency = onCancelOrStopEmergency,
             modifier = Modifier.fillMaxSize()
         )

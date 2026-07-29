@@ -64,7 +64,7 @@ class GuidedTrainingIntegrationTest {
                 progress = navigator.reduce(progress, TrainingEvent.SequenceSuccess)
             }
         }
-        repeat(8) {
+        repeat(com.idworx.lisa.features.onboardingguide.metadata.TrainingMetadata.NAVIGATION_LESSON_COUNT) {
             val lessonId = com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
                 .navigationLessonAt(progress.navigationLessonIndex)!!.id
             progress = navigator.reduce(progress, TrainingEvent.NavigationActionCompleted(lessonId))

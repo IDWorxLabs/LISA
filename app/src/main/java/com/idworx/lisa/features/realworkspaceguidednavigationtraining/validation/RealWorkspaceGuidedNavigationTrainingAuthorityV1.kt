@@ -51,15 +51,15 @@ object RealWorkspaceGuidedNavigationTrainingAuthorityV1 {
             ),
             check(
                 "RWGNT_007",
-                "Open Categories lesson uses the real workspace Categories control",
+                "Open Categories / Move to Medical lesson uses the real workspace category control",
                 RealWorkspaceGuidedNavigationTrainingAuditor.openCategoriesUsesRealControl(),
-                "Map navigation lesson 1 to NavigationAction.OpenCategories and highlight GuidedWorkspaceHighlightTarget.OpenCategories."
+                "Map navigation lesson 1 to NavigationAction.MoveToMedicalCategory; RC8.19 highlights Move Down (NextPage) plus Medical destination independently of production selection."
             ),
             check(
                 "RWGNT_008",
                 "Select category lesson uses the real category UI",
                 RealWorkspaceGuidedNavigationTrainingAuditor.selectCategoryUsesRealControl(),
-                "Map navigation lesson 2 to NavigationAction.SelectCategory and highlight GuidedWorkspaceHighlightTarget.CategoryRow."
+                "Map navigation lesson 2 to NavigationAction.SelectCategory; keep category row selection driven by categoryMenuSelection only (Medical journey)."
             ),
             check(
                 "RWGNT_009",

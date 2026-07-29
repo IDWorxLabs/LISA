@@ -6,7 +6,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +36,9 @@ fun emergencyAwaitingConfirm(brain1Decision: Brain1DecisionState): Boolean =
 /**
  * Global emergency layer — rendered last in [LisaRootUI] so it sits above Compose Mode,
  * Communication, Settings, and all other panels (RC7D.3).
+ *
+ * RC8.14 — no emergency volume adjustment on any emergency surface. Stop/Cancel uses the
+ * production cancel sequence label (R1 L1) with touch sharing the same action.
  */
 @Composable
 fun GlobalEmergencyOverlayLayer(
@@ -44,9 +46,6 @@ fun GlobalEmergencyOverlayLayer(
     emergencyActive: Boolean,
     emergencyAwaitingConfirm: Boolean,
     blinkFeedback: ComposerEyeFeedback,
-    emergencyAlarmVolume: Float = 1f,
-    onDecreaseAlarmVolume: () -> Unit = {},
-    onIncreaseAlarmVolume: () -> Unit = {},
     onCancelOrStopEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -59,9 +58,6 @@ fun GlobalEmergencyOverlayLayer(
         emergencyAwaitingConfirm -> Brain1EmergencyConfirmOverlay(
             uiStrings = uiStrings,
             blinkFeedback = blinkFeedback,
-            emergencyAlarmVolume = emergencyAlarmVolume,
-            onDecreaseAlarmVolume = onDecreaseAlarmVolume,
-            onIncreaseAlarmVolume = onIncreaseAlarmVolume,
             onCancelEmergency = onCancelOrStopEmergency,
             modifier = modifier
         )
@@ -76,6 +72,7 @@ fun EmergencyAlarmOverlay(
     modifier: Modifier = Modifier
 ) {
     val backgroundInteraction = remember { MutableInteractionSource() }
+    val stopSequence = uiStrings.guidedConfirmCancelSequenceLabel
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -122,6 +119,7 @@ fun EmergencyAlarmOverlay(
             Spacer(modifier = Modifier.padding(10.dp))
             EmergencyManualButton(
                 label = uiStrings.stopEmergency,
+                sequenceLabel = stopSequence,
                 onClick = onStopEmergency
             )
         }
@@ -133,9 +131,6 @@ fun EmergencyAlarmOverlay(
 fun Brain1EmergencyConfirmOverlay(
     uiStrings: LisaUiStrings,
     blinkFeedback: ComposerEyeFeedback,
-    emergencyAlarmVolume: Float = 1f,
-    onDecreaseAlarmVolume: () -> Unit = {},
-    onIncreaseAlarmVolume: () -> Unit = {},
     onCancelEmergency: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -174,64 +169,11 @@ fun Brain1EmergencyConfirmOverlay(
                 uiStrings = uiStrings,
                 blinkFeedback = blinkFeedback
             )
-            Spacer(modifier = Modifier.padding(8.dp))
-            EmergencyAlarmVolumeRow(
-                uiStrings = uiStrings,
-                volume = emergencyAlarmVolume,
-                onDecrease = onDecreaseAlarmVolume,
-                onIncrease = onIncreaseAlarmVolume
-            )
             Spacer(modifier = Modifier.padding(10.dp))
             EmergencyManualButton(
                 label = uiStrings.cancelEmergency,
+                sequenceLabel = uiStrings.guidedConfirmCancelSequenceLabel,
                 onClick = onCancelEmergency
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmergencyAlarmVolumeRow(
-    uiStrings: LisaUiStrings,
-    volume: Float,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Text(
-            text = "${uiStrings.emergencyAlarmVolumeTitle}: ${(volume * 100).toInt()}%",
-            color = LisaWhite,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Text(
-                text = "− ${formatWinkSequenceShort(GuidedModeNavigation.DECREASE_VALUE_LEFT, GuidedModeNavigation.DECREASE_VALUE_RIGHT)}",
-                color = LisaWhite,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onDecrease)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            )
-            Text(
-                text = "+ ${formatWinkSequenceShort(GuidedModeNavigation.INCREASE_VALUE_LEFT, GuidedModeNavigation.INCREASE_VALUE_RIGHT)}",
-                color = LisaWhite,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(onClick = onIncrease)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
             )
         }
     }
@@ -267,25 +209,35 @@ private fun EmergencyBlinkFeedbackRows(
 @Composable
 private fun EmergencyManualButton(
     label: String,
+    sequenceLabel: String,
     onClick: () -> Unit
 ) {
     androidx.compose.material3.Button(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = label },
+            .semantics { contentDescription = "$label, $sequenceLabel" },
         shape = RoundedCornerShape(12.dp),
         colors = androidx.compose.material3.ButtonDefaults.buttonColors(
             containerColor = LisaWhite,
             contentColor = LisaEmergencyRed
         )
     ) {
-        Text(
-            text = label,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = LisaEmergencyRed,
-            textAlign = TextAlign.Center
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaEmergencyRed,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = sequenceLabel,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = LisaEmergencyRed.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

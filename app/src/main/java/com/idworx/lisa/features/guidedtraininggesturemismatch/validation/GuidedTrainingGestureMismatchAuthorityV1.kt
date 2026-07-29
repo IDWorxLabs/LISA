@@ -21,7 +21,7 @@ object GuidedTrainingGestureMismatchAuthorityV1 {
                 "GTGM_001",
                 "Every Guided Training category lesson gesture equals the real workspace category gesture",
                 GuidedTrainingGestureMismatchAuditor.categoryLessonGestureEqualsRealWorkspaceGesture(),
-                "Keep GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(SelectCategory) returning GuidedCategoryShortcuts.sequenceLabelForCategory(conversationCategoryIndex), never a separately hardcoded/generic Select gesture."
+                "Keep GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(SelectCategory) returning GuidedCategoryShortcuts.sequenceLabelForCategory(medicalCategoryIndex), never a separately hardcoded/generic Select gesture."
             ),
             check(
                 "GTGM_002",
@@ -51,13 +51,13 @@ object GuidedTrainingGestureMismatchAuthorityV1 {
                 "GTGM_006",
                 "Wrong old/hardcoded gestures are rejected",
                 GuidedTrainingGestureMismatchAuditor.wrongOrHardcodedCategoryGesturesAreRejected(),
-                "Keep isNavigationLessonOffTargetAttempt's SelectCategory branch requiring GuidedCategoryShortcuts.categoryIndexForGesture(left, right) == conversationCategoryIndex, rejecting the old generic Select gesture and every other category's shortcut."
+                "Keep isNavigationLessonOffTargetAttempt's SelectCategory branch requiring GuidedCategoryShortcuts.categoryIndexForGesture(left, right) == medicalCategoryIndex, rejecting the old generic Select gesture and every other category's shortcut."
             ),
             check(
                 "GTGM_007",
                 "Correct real workspace gestures are accepted",
                 GuidedTrainingGestureMismatchAuditor.correctRealWorkspaceCategoryGestureIsAccepted(),
-                "Keep GuidedCategoryShortcuts.gestureForCategory(conversationCategoryIndex) passing GuidedTrainingFocusPolicy.isTargetAllowed for the Select Category lesson."
+                "Keep GuidedCategoryShortcuts.gestureForCategory(medicalCategoryIndex) passing GuidedTrainingFocusPolicy.isTargetAllowed for the Select Category lesson."
             ),
             check(
                 "GTGM_008",

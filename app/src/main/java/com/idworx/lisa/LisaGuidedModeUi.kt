@@ -123,6 +123,8 @@ fun GuidedVocabularyOverlay(
     workspaceMode: com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode =
         com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode.NORMAL,
     trainingHighlight: GuidedWorkspaceHighlightTarget? = null,
+    /** RC8.19 — independent destination glow in the category list (not production selection). */
+    destinationCategoryIndex: Int? = null,
     modifier: Modifier = Modifier
 ) {
     if (!visible) return
@@ -149,10 +151,10 @@ fun GuidedVocabularyOverlay(
         phrasePageIndex = phrasePageIndex,
         visibleCap = visibleEntryCap
     )
-    // Guided Training clarity: while a lesson is spotlighting one real control, every other
-    // control on screen is quietly de-emphasised so it is unambiguous what to practice next.
+    // Guided Training clarity: while a lesson is spotlighting a control and/or destination,
+    // every other control on screen is quietly de-emphasised.
     val trainingDimActive = workspaceMode == com.idworx.lisa.features.onboardingguide.navigation.GuidedWorkspaceMode.GUIDED_TRAINING &&
-        trainingHighlight != null
+        (trainingHighlight != null || destinationCategoryIndex != null)
 
     Box(
         modifier = modifier
@@ -446,16 +448,24 @@ fun GuidedVocabularyOverlay(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             categoryMenuTitles.forEachIndexed { index, title ->
-                                val rowTrainingHighlighted = trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
-                                    index == GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+                                // RC8.21 — production selection chrome only (categoryMenuSelection).
+                                // Destination glow is optional and independent; Lesson 16 sets none
+                                // so Medical is not highlighted until the learner reaches it.
                                 val isSelectedRow = index == categoryMenuSelection
+                                val isDestinationRow =
+                                    destinationCategoryIndex != null && index == destinationCategoryIndex
+                                val rowTrainingHighlighted = isDestinationRow ||
+                                    (trainingHighlight == GuidedWorkspaceHighlightTarget.CategoryRow &&
+                                        isSelectedRow)
                                 GuidedCategoryMenuRow(
                                     title = title,
                                     index = index,
                                     sequenceLabel = GuidedCategoryShortcuts.sequenceLabelForCategory(index),
                                     selected = isSelectedRow,
                                     trainingHighlighted = rowTrainingHighlighted,
-                                    trainingDimmed = trainingDimActive && !rowTrainingHighlighted,
+                                    trainingDimmed = trainingDimActive &&
+                                        !isSelectedRow &&
+                                        !rowTrainingHighlighted,
                                     onClick = { onCategoryRow(index) },
                                     modifier = if (isSelectedRow) {
                                         Modifier.onGloballyPositioned { coords ->
@@ -874,6 +884,7 @@ private fun GuidedModeNavigationPanel(
         GuidedPanelActionKind.Back -> highlightTarget == GuidedWorkspaceHighlightTarget.Back
         GuidedPanelActionKind.Categories -> highlightTarget == GuidedWorkspaceHighlightTarget.OpenCategories
         GuidedPanelActionKind.Emergency -> highlightTarget == GuidedWorkspaceHighlightTarget.Emergency
+        GuidedPanelActionKind.Select -> highlightTarget == GuidedWorkspaceHighlightTarget.Select
         else -> false
     }
     // De-emphasise every other panel button while a lesson has a specific target to practice.

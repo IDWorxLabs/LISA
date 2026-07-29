@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import com.idworx.lisa.features.guidedworkspacelessoncard.GuidedWorkspaceLessonCardAuthority
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -231,8 +234,13 @@ fun GuidedLessonProgressLabel(
 
 /**
  * Compact, non-blocking lesson card shown over the real Communication Workspace during Guided
- * Training Mode navigation lessons. Deliberately small — it must never hide the workspace below
- * it, unlike the old full-screen [NavigationLessonScreen].
+ * Training Mode navigation lessons (RC8.16–RC8.19 — shared layout for lessons 16–32).
+ *
+ * Content-wrapped height — never scrolls. Caller constrains max height to about 45 percent of
+ * the workspace via [GuidedWorkspaceLessonCardAuthority.MaxHeightFraction].
+ *
+ * When [teaching] uses structured methods (RC8.22) or a Next Action section (RC8.19+), the card
+ * teaches both WHAT and HOW with visually separated sequence boxes.
  */
 @Composable
 fun GuidedWorkspaceLessonCard(
@@ -247,17 +255,43 @@ fun GuidedWorkspaceLessonCard(
      */
     feedbackMessage: String? = null,
     /**
+     * RC8.23 — optional supporting line under [feedbackMessage] for multi-phase acknowledgements.
+     */
+    feedbackDetail: String? = null,
+    /**
      * When non-null (and [feedbackMessage] is null), the card shows this brief red "wrong
      * sequence" acknowledgement — the same try-again tone as the early phrase lessons' red
      * feedback — instead of the lesson title/gesture, then returns to the normal lesson content
      * so the learner can try the highlighted action again.
      */
     wrongGestureMessage: String? = null,
+    /** Concise instruction under the title (legacy / unmigrated lessons). */
+    instruction: String? = null,
+    /**
+     * RC8.19 — optional structured teaching presentation. When [GuidedLessonTeachingPresentation.usesStructuredNextAction]
+     * is true, overrides [instruction] / plain sequence layout.
+     */
+    teaching: com.idworx.lisa.features.guidedlessonteaching.GuidedLessonTeachingPresentation? = null,
+    /** Optional Finish control — same action as L1 R1 (RC8.13). */
+    finishLabel: String? = null,
+    onFinish: (() -> Unit)? = null,
+    /**
+     * RC8.14/RC8.16 — always prefer the shared compact style for real-workspace lessons.
+     * Retained for call-site compatibility; workspace training always passes true.
+     */
+    compact: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val structured = teaching?.usesStructuredNextAction == true
+    val displayTitle = teaching?.title?.takeIf { it.isNotBlank() } ?: title
+    val sequenceText = GuidedWorkspaceLessonCardAuthority.formatSequenceLabel(
+        teaching?.rawGestureLabel?.takeIf { it.isNotBlank() } ?: gestureLabel
+    )
     Card(
-        modifier = modifier.widthIn(max = 210.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+            .widthIn(max = GuidedWorkspaceLessonCardAuthority.MaxCardWidth)
+            .wrapContentHeight(),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 feedbackMessage != null -> LessonCardSuccessGreen.copy(alpha = 0.97f)
@@ -265,20 +299,33 @@ fun GuidedWorkspaceLessonCard(
                 else -> LisaWhite.copy(alpha = 0.98f)
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier
+                .wrapContentHeight()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (feedbackMessage != null) {
                 Text(
-                    text = "\u2713 $feedbackMessage",
+                    text = "✓ $feedbackMessage",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = LisaWhite,
                     textAlign = TextAlign.Center
                 )
+                if (!feedbackDetail.isNullOrBlank()) {
+                    Spacer(modifier.height(6.dp))
+                    Text(
+                        text = feedbackDetail,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaWhite.copy(alpha = 0.95f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp
+                    )
+                }
             } else if (wrongGestureMessage != null) {
                 Text(
                     text = wrongGestureMessage,
@@ -287,32 +334,149 @@ fun GuidedWorkspaceLessonCard(
                     color = LisaWhite,
                     textAlign = TextAlign.Center
                 )
-            } else {
+            } else if (structured && teaching != null) {
                 if (lessonNumber != null && totalLessons != null) {
                     Text(
                         text = "Lesson $lessonNumber of $totalLessons",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = LisaBlueDark.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(modifier.height(2.dp))
                 }
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = LisaBlueDark,
-                    textAlign = TextAlign.Center
-                )
-                if (gestureLabel.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
+                if (displayTitle.isNotBlank()) {
                     Text(
-                        text = "Gesture: $gestureLabel",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        text = displayTitle,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LisaBlueDark,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                if (!teaching.description.isNullOrBlank()) {
+                    Spacer(modifier.height(3.dp))
+                    Text(
+                        text = teaching.description,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaBlueDark.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 15.sp
+                    )
+                }
+                if (teaching.usesStructuredMethods) {
+                    teaching.methods.forEachIndexed { methodIndex, method ->
+                        Spacer(modifier.height(if (methodIndex == 0) 6.dp else 8.dp))
+                        Text(
+                            text = method.title,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LisaBlueDark,
+                            textAlign = TextAlign.Center
+                        )
+                        method.instructionalLines.forEach { line ->
+                            Spacer(modifier.height(2.dp))
+                            Text(
+                                text = line,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = LisaBlueDark.copy(alpha = 0.92f),
+                                textAlign = TextAlign.Center,
+                                lineHeight = 15.sp
+                            )
+                        }
+                        method.highlightedSequence?.takeIf { it.isNotBlank() }?.let { sequence ->
+                            Spacer(modifier.height(4.dp))
+                            GuidedLessonSequenceEmphasisBox(sequenceLabel = sequence)
+                        }
+                    }
+                } else {
+                    Spacer(modifier.height(6.dp))
+                    Text(
+                        text = teaching.nextActionHeading.orEmpty(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LisaBlueDark,
+                        textAlign = TextAlign.Center
+                    )
+                    teaching.nextActionSteps.forEach { step ->
+                        Spacer(modifier.height(3.dp))
+                        Text(
+                            text = step,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = LisaBlueDark,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+                    }
+                    val sequenceBoxLabel = teaching.sequenceEmphasis?.takeIf { it.isNotBlank() }
+                        ?: sequenceText.takeIf { it.isNotBlank() }
+                    if (!sequenceBoxLabel.isNullOrBlank()) {
+                        Spacer(modifier.height(5.dp))
+                        GuidedLessonSequenceEmphasisBox(sequenceLabel = sequenceBoxLabel)
+                    }
+                }
+                if (finishLabel != null && onFinish != null) {
+                    Spacer(modifier.height(6.dp))
+                    TrainingPrimaryButton(
+                        text = finishLabel,
+                        secondaryText = sequenceText.takeIf { it.isNotBlank() },
+                        onClick = onFinish,
+                        minHeight = 44.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else {
+                if (lessonNumber != null && totalLessons != null) {
+                    Text(
+                        text = "Lesson $lessonNumber of $totalLessons",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaBlueDark.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier.height(2.dp))
+                }
+                if (displayTitle.isNotBlank()) {
+                    Text(
+                        text = displayTitle,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LisaBlueDark,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                if (!instruction.isNullOrBlank()) {
+                    Spacer(modifier.height(4.dp))
+                    Text(
+                        text = instruction,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = LisaBlueDark.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+                if (sequenceText.isNotBlank()) {
+                    Spacer(modifier.height(6.dp))
+                    Text(
+                        text = sequenceText,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
                         color = LisaBlue,
                         textAlign = TextAlign.Center
+                    )
+                }
+                if (finishLabel != null && onFinish != null) {
+                    Spacer(modifier.height(8.dp))
+                    TrainingPrimaryButton(
+                        text = finishLabel,
+                        secondaryText = sequenceText.takeIf { it.isNotBlank() },
+                        onClick = onFinish,
+                        minHeight = 44.dp,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -322,6 +486,35 @@ fun GuidedWorkspaceLessonCard(
 
 /** Success green used only for the brief positive-feedback state of [GuidedWorkspaceLessonCard]. */
 private val LessonCardSuccessGreen = androidx.compose.ui.graphics.Color(0xFF3E8E51)
+
+/** RC8.20/RC8.22 — shared emphasised sequence box for structured lesson teaching. */
+@Composable
+private fun GuidedLessonSequenceEmphasisBox(sequenceLabel: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = LisaBlue.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .border(
+                width = 1.5.dp,
+                color = LisaBlue.copy(alpha = 0.65f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = sequenceLabel,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaBlue,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp
+        )
+    }
+}
 
 /** Responsive phrase title for Guided Learning — wraps long phrases across up to 3 lines. */
 @Composable

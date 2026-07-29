@@ -24,7 +24,7 @@ import com.idworx.lisa.isEmergencySequence
 object GuidedTrainingGestureMismatchAuditor {
 
     private val uiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
-    private val conversationCategoryIndex = GuidedWorkspaceTrainingSpec.conversationCategoryIndex
+    private val medicalCategoryIndex = GuidedWorkspaceTrainingSpec.medicalCategoryIndex
 
     /** Parses a "L<left> R<right>" label — the same format [formatWinkSequenceShort] produces. */
     private fun parseGesture(label: String): Pair<Int, Int>? {
@@ -37,6 +37,8 @@ object GuidedTrainingGestureMismatchAuditor {
     /** Mirrors MainActivity's `classifyNavigationGesture` best-effort classification. */
     private fun classify(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
+        GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
+        GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
@@ -48,7 +50,7 @@ object GuidedTrainingGestureMismatchAuditor {
     // --- 1. Every category lesson gesture equals the real workspace category gesture -----------
     fun categoryLessonGestureEqualsRealWorkspaceGesture(): Boolean {
         val lessonGesture = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.SelectCategory)
-        val realRowGesture = GuidedCategoryShortcuts.sequenceLabelForCategory(conversationCategoryIndex)
+        val realRowGesture = GuidedCategoryShortcuts.sequenceLabelForCategory(medicalCategoryIndex)
         // Guard against the exact regression reported: the lesson must not silently fall back to
         // the generic "Select" confirm gesture the real category row never displays.
         val genericSelectGesture = formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
@@ -58,7 +60,7 @@ object GuidedTrainingGestureMismatchAuditor {
     // --- 2. Every phrase lesson gesture equals the real workspace phrase gesture -----------------
     fun phraseLessonGestureEqualsRealWorkspacePhraseGesture(): Boolean {
         val page = GuidedVocabularyCatalog.categoryAt(
-            conversationCategoryIndex, PreferredLanguage.English, uiStrings, GuidedCatalogContext()
+            medicalCategoryIndex, PreferredLanguage.English, uiStrings, GuidedCatalogContext()
         ) ?: return false
         val highlightedEntry = GuidedNavigationController.visiblePhraseEntries(
             entries = page.entries,
@@ -69,9 +71,10 @@ object GuidedTrainingGestureMismatchAuditor {
             NavigationAction.SelectPhrase, highlightedEntry.sequenceLabel
         )
         val fallbackLabel = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.SelectPhrase, null)
-        // When a real highlighted entry is supplied the card must show its exact code; only
-        // absent a runtime entry does it fall back to the generic instructional hint.
-        return cardLabel == highlightedEntry.sequenceLabel && fallbackLabel != highlightedEntry.sequenceLabel
+        // RC8.16 — when no runtime highlight is supplied, fall back to the production Medical
+        // phrase sequence (same source of truth), never a generic instructional hint.
+        return cardLabel == highlightedEntry.sequenceLabel &&
+            fallbackLabel == highlightedEntry.sequenceLabel
     }
 
     // --- 3. Every navigation lesson gesture equals the real workspace navigation gesture ---------
@@ -109,13 +112,13 @@ object GuidedTrainingGestureMismatchAuditor {
             GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.SelectCategory)
         ) ?: return false
         val categoryGestureIsAccepted =
-            GuidedCategoryShortcuts.categoryIndexForGesture(categoryLeft, categoryRight) == conversationCategoryIndex
+            GuidedCategoryShortcuts.categoryIndexForGesture(categoryLeft, categoryRight) == medicalCategoryIndex
         return singleTargetsAgree && categoryGestureIsAccepted
     }
 
     // --- 5. Highlighted target gesture equals the lesson gesture -----------------------------------
     fun highlightedTargetGestureEqualsLessonGesture(): Boolean {
-        val highlightedCategoryGesture = GuidedCategoryShortcuts.sequenceLabelForCategory(conversationCategoryIndex)
+        val highlightedCategoryGesture = GuidedCategoryShortcuts.sequenceLabelForCategory(medicalCategoryIndex)
         val lessonGesture = GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.SelectCategory)
         val categoryMatches = highlightedCategoryGesture == lessonGesture
         val ui = readAccessibilityUi() ?: return false
@@ -141,12 +144,12 @@ object GuidedTrainingGestureMismatchAuditor {
         val genericSelectRejected = !GuidedTrainingFocusPolicy.isTargetAllowed(
             NavigationAction.SelectCategory, NavigationAction.SelectCategory, isAttemptedTargetHighlighted = false
         )
-        // A different category's own shortcut must also be rejected while Conversation is taught.
-        val otherCategoryIndex = (conversationCategoryIndex + 1) % GuidedVocabularyCategory.PAGE_COUNT
+        // A different category's own shortcut must also be rejected while Medical is taught.
+        val otherCategoryIndex = (medicalCategoryIndex + 1) % GuidedVocabularyCategory.PAGE_COUNT
         val otherCategoryGesture = GuidedCategoryShortcuts.gestureForCategory(otherCategoryIndex)
         val otherIsHighlighted =
             GuidedCategoryShortcuts.categoryIndexForGesture(otherCategoryGesture.first, otherCategoryGesture.second) ==
-                conversationCategoryIndex
+                medicalCategoryIndex
         val otherCategoryRejected = !GuidedTrainingFocusPolicy.isTargetAllowed(
             NavigationAction.SelectCategory, NavigationAction.SelectCategory, otherIsHighlighted
         )
@@ -155,8 +158,8 @@ object GuidedTrainingGestureMismatchAuditor {
 
     // --- 7. Correct real workspace gestures are accepted ----------------------------------------------
     fun correctRealWorkspaceCategoryGestureIsAccepted(): Boolean {
-        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(conversationCategoryIndex)
-        val isHighlighted = GuidedCategoryShortcuts.categoryIndexForGesture(left, right) == conversationCategoryIndex
+        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(medicalCategoryIndex)
+        val isHighlighted = GuidedCategoryShortcuts.categoryIndexForGesture(left, right) == medicalCategoryIndex
         return isHighlighted && GuidedTrainingFocusPolicy.isTargetAllowed(
             NavigationAction.SelectCategory, NavigationAction.SelectCategory, isHighlighted
         )
@@ -164,7 +167,7 @@ object GuidedTrainingGestureMismatchAuditor {
 
     // --- 8. Normal workspace after Guided Training uses the same gesture mapping the user was taught --
     fun normalWorkspaceUsesSameGestureMappingAfterTraining(): Boolean {
-        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(conversationCategoryIndex)
+        val (left, right) = GuidedCategoryShortcuts.gestureForCategory(medicalCategoryIndex)
         val menuState = GuidedNavigationState(screenMode = GuidedOverlayScreenMode.CategoryMenu)
         // processSequence never knows about Guided Training — this proves the exact gesture the
         // lesson teaches also opens the exact same category in plain, untrained normal use.
@@ -173,7 +176,7 @@ object GuidedTrainingGestureMismatchAuditor {
         )
         val opensTaughtCategory = result is GuidedSequenceResult.Navigate &&
             result.newState.screenMode == GuidedOverlayScreenMode.Vocabulary &&
-            result.newState.categoryIndex == conversationCategoryIndex
+            result.newState.categoryIndex == medicalCategoryIndex
         return opensTaughtCategory
     }
 
@@ -182,10 +185,11 @@ object GuidedTrainingGestureMismatchAuditor {
         val main = readMainActivity() ?: return false
         val gateWiredToRealShortcut = main.contains("private fun isNavigationLessonOffTargetAttempt") &&
             main.contains("val targetCategoryIndex = GuidedCategoryShortcuts.categoryIndexForGesture(left, right)") &&
-            main.contains("targetCategoryIndex == GuidedWorkspaceTrainingSpec.conversationCategoryIndex")
+            main.contains("targetCategoryIndex == GuidedWorkspaceTrainingSpec.medicalCategoryIndex")
         val dispatchVerifiesShortcut = main.contains("val isCategoryShortcutGesture = screenModeBeforeHandling == GuidedOverlayScreenMode.CategoryMenu &&") &&
             main.contains("GuidedCategoryShortcuts.categoryIndexForGesture(left, right) != null") &&
-            main.contains("if (isCategoryShortcutGesture) {") &&
+            (main.contains("if (isCategoryShortcutGesture) {") ||
+                main.contains("if (isCategoryShortcutGesture &&")) &&
             main.contains("verifyTrainingNavigation(NavigationAction.SelectCategory)")
         return gateWiredToRealShortcut && dispatchVerifiesShortcut
     }

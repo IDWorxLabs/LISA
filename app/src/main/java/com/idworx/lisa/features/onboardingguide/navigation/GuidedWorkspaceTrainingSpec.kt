@@ -7,6 +7,7 @@ import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.GuidedVocabularyCategory
 import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
+import com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.formatWinkSequenceShort
 import com.idworx.lisa.isEmergencySequence
@@ -30,7 +31,9 @@ enum class GuidedWorkspaceHighlightTarget {
     Back,
     NextPage,
     PreviousPage,
-    Emergency
+    Emergency,
+    /** RC8.24 — Open Selected Category panel control (L1 R1). */
+    Select
 }
 
 /**
@@ -51,32 +54,46 @@ enum class GuidedWorkspaceLessonCardDock {
  */
 object GuidedWorkspaceTrainingSpec {
 
-    /** Index of the real "Conversation" category — the category every lesson trains against. */
+    /**
+     * RC8.15 — Medical is the category lessons 16–18 train against (open → enter → speak).
+     * Kept as the single training-category index shared by highlight, gesture label, and gates.
+     */
+    val medicalCategoryIndex: Int = GuidedMedicalCategoryJourneyAuthority.medicalCategoryIndex
+
+    /** @deprecated Prefer [medicalCategoryIndex] — Conversation is no longer the trained category. */
     val conversationCategoryIndex: Int = GuidedVocabularyCategory.ordered.indexOf(GuidedVocabularyCategory.Conversation)
 
     fun highlightTargetFor(action: NavigationAction): GuidedWorkspaceHighlightTarget? = when (action) {
         NavigationAction.OpenCategories -> GuidedWorkspaceHighlightTarget.OpenCategories
-        NavigationAction.SelectCategory -> GuidedWorkspaceHighlightTarget.CategoryRow
+        // RC8.19 — Lesson 16 teaches Move Down Category (ScrollDown panel control maps to NextPage).
+        // Destination Medical is highlighted separately via destinationCategoryIndex — not CategoryRow
+        // selection (RC8.17 single production selection authority remains intact).
+        NavigationAction.MoveToMedicalCategory -> GuidedWorkspaceHighlightTarget.NextPage
+        NavigationAction.SelectCategory -> null
         NavigationAction.SelectPhrase -> GuidedWorkspaceHighlightTarget.PhraseRow
         NavigationAction.CloseMenu -> GuidedWorkspaceHighlightTarget.Back
         NavigationAction.NextPage -> GuidedWorkspaceHighlightTarget.NextPage
         NavigationAction.PreviousPage -> GuidedWorkspaceHighlightTarget.PreviousPage
         NavigationAction.TriggerEmergency -> GuidedWorkspaceHighlightTarget.Emergency
+        // Explore LISA highlights live on Main Menu rows / panels — not workspace chrome.
+        NavigationAction.OpenMenu,
+        NavigationAction.MenuSelectVoice,
+        NavigationAction.OpenVoice,
+        NavigationAction.BackFromDestination,
+        NavigationAction.MenuSelectSettings,
+        NavigationAction.OpenSettings,
+        NavigationAction.FinishGuidedLearning -> null
         else -> null
     }
 
     /** Compact lesson-card title — what the learner is practicing right now. */
     fun lessonCardTitle(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
         NavigationAction.OpenCategories -> uiStrings.t("Open Categories", "Open Kategorieë", "Vula Izigaba")
-        NavigationAction.SelectCategory -> uiStrings.t(
-            "Select Conversation category",
-            "Kies Gesprek-kategorie",
-            "Khetha isigaba Ingxoxo"
-        )
-        NavigationAction.SelectPhrase -> uiStrings.t(
-            "Select a phrase from Conversation",
-            "Kies 'n frase van Gesprek",
-            "Khetha umusho ku-Ingxoxo"
+        NavigationAction.MoveToMedicalCategory -> GuidedMedicalCategoryJourneyAuthority.MOVE_LESSON_TITLE
+        NavigationAction.SelectCategory -> GuidedMedicalCategoryJourneyAuthority.OPEN_DIRECT_TITLE
+        NavigationAction.SelectPhrase -> GuidedMedicalCategoryJourneyAuthority.sayPhraseLessonTitle(
+            uiStrings.language,
+            uiStrings
         )
         NavigationAction.CloseMenu -> uiStrings.t("Go Back", "Gaan Terug", "Buyela Emuva")
         NavigationAction.NextPage -> uiStrings.t("Next Page", "Volgende Bladsy", "Ikhasi Elilandelayo")
@@ -87,7 +104,67 @@ object GuidedWorkspaceTrainingSpec {
             "Begin Kommunikeer",
             "Qala Ukuxhumana"
         )
+        NavigationAction.OpenMenu,
+        NavigationAction.MenuSelectVoice,
+        NavigationAction.OpenVoice,
+        NavigationAction.BackFromDestination,
+        NavigationAction.MenuSelectSettings,
+        NavigationAction.OpenSettings,
+        NavigationAction.FinishGuidedLearning ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.LESSON_TITLE
         else -> uiStrings.t("Practice", "Oefen", "Zijwayeze")
+    }
+
+    /**
+     * Concise instruction under the title for lessons 16–32. Explore LISA steps (including
+     * Close Menu / Finish) pass [lessonId] so workspace Back ([NavigationAction.CloseMenu])
+     * stays distinct from Explore Close Menu.
+     */
+    fun lessonCardInstruction(action: NavigationAction, lessonId: String? = null): String? {
+        if (lessonId != null &&
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.isExploreLessonId(lessonId)
+        ) {
+            if (action == NavigationAction.CloseMenu &&
+                lessonId == com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_CLOSE_MENU
+            ) {
+                return com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(
+                    NavigationAction.CloseMenu
+                )
+            }
+            val text = com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(action)
+            return text.takeIf { it.isNotBlank() }
+        }
+        return when (action) {
+            // RC8.19 — Lesson 16 card uses GuidedLessonTeachingPresentation; description only here.
+            NavigationAction.MoveToMedicalCategory ->
+                GuidedMedicalCategoryJourneyAuthority.MOVE_DESCRIPTION
+            NavigationAction.SelectCategory ->
+                GuidedMedicalCategoryJourneyAuthority.OPEN_DIRECT_BODY
+            NavigationAction.SelectPhrase ->
+                GuidedMedicalCategoryJourneyAuthority.SAY_PHRASE_BODY
+            NavigationAction.CloseMenu -> "Go back to categories."
+            NavigationAction.NextPage -> "Move to the next page."
+            NavigationAction.PreviousPage -> "Move to the previous page."
+            NavigationAction.TriggerEmergency ->
+                "Practice Emergency, then stop it with the cancel sequence."
+            NavigationAction.ResetSequence ->
+                "Finish training and start communicating."
+            NavigationAction.OpenCategories -> "Open Categories."
+            else -> null
+        }
+    }
+
+    fun lessonCardTitleForLesson(
+        action: NavigationAction,
+        lessonId: String?,
+        uiStrings: LisaUiStrings
+    ): String {
+        if (lessonId != null &&
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.isExploreLessonId(lessonId)
+        ) {
+            return com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.LESSON_TITLE
+        }
+        return lessonCardTitle(action, uiStrings)
     }
 
     /**
@@ -100,11 +177,35 @@ object GuidedWorkspaceTrainingSpec {
         GuidedWorkspaceHighlightTarget.Back,
         GuidedWorkspaceHighlightTarget.NextPage,
         GuidedWorkspaceHighlightTarget.PreviousPage,
-        GuidedWorkspaceHighlightTarget.Emergency -> GuidedWorkspaceLessonCardDock.BottomStart
+        GuidedWorkspaceHighlightTarget.Emergency,
+        GuidedWorkspaceHighlightTarget.Select -> GuidedWorkspaceLessonCardDock.BottomStart
         GuidedWorkspaceHighlightTarget.OpenCategories,
         GuidedWorkspaceHighlightTarget.CategoryRow,
         GuidedWorkspaceHighlightTarget.PhraseRow,
         null -> GuidedWorkspaceLessonCardDock.BottomEnd
+    }
+
+    /**
+     * RC8.14 — Explore LISA card docks away from the production control being practiced
+     * (Menu bottom chrome, Voice/Settings rows).
+     */
+    fun cardDockForLesson(action: NavigationAction, lessonId: String?): GuidedWorkspaceLessonCardDock {
+        if (lessonId != null &&
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.isExploreLessonId(lessonId)
+        ) {
+            return when (action) {
+                NavigationAction.OpenMenu,
+                NavigationAction.CloseMenu,
+                NavigationAction.FinishGuidedLearning -> GuidedWorkspaceLessonCardDock.BottomEnd
+                NavigationAction.MenuSelectVoice,
+                NavigationAction.OpenVoice,
+                NavigationAction.MenuSelectSettings,
+                NavigationAction.OpenSettings,
+                NavigationAction.BackFromDestination -> GuidedWorkspaceLessonCardDock.BottomStart
+                else -> GuidedWorkspaceLessonCardDock.BottomEnd
+            }
+        }
+        return cardDockFor(highlightTargetFor(action))
     }
 
     /**
@@ -121,13 +222,16 @@ object GuidedWorkspaceTrainingSpec {
     fun lessonCardGestureLabel(action: NavigationAction, highlightedPhraseGesture: String? = null): String = when (action) {
         NavigationAction.OpenCategories ->
             formatWinkSequenceShort(GuidedModeNavigation.CATEGORIES_LEFT, GuidedModeNavigation.CATEGORIES_RIGHT)
+        NavigationAction.MoveToMedicalCategory ->
+            GuidedMedicalCategoryJourneyAuthority.moveDownSequenceLabel()
         NavigationAction.SelectCategory ->
             // The real category row shows its own direct-shortcut gesture
             // (GuidedCategoryShortcuts.sequenceLabelForCategory) — not the generic Select
             // confirm gesture — so the lesson must show and require exactly that.
-            GuidedCategoryShortcuts.sequenceLabelForCategory(conversationCategoryIndex)
+            GuidedCategoryShortcuts.sequenceLabelForCategory(medicalCategoryIndex)
         NavigationAction.SelectPhrase ->
-            highlightedPhraseGesture ?: "Blink the highlighted phrase's gesture"
+            highlightedPhraseGesture
+                ?: GuidedMedicalCategoryJourneyAuthority.firstMedicalPhraseEntry().sequenceLabel
         NavigationAction.CloseMenu ->
             formatWinkSequenceShort(GuidedModeNavigation.BACK_LEFT, GuidedModeNavigation.BACK_RIGHT)
         NavigationAction.NextPage ->
@@ -140,6 +244,19 @@ object GuidedWorkspaceTrainingSpec {
             // Touch-independent by design — the same gesture that finishes training also
             // performs the real workspace Reset action afterward (MainActivity.performReset()).
             formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, GuidedModeNavigation.FINISH_TRAINING_RIGHT)
+        NavigationAction.OpenMenu ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.openMenuSequenceLabel()
+        NavigationAction.MenuSelectVoice,
+        NavigationAction.MenuSelectSettings ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.moveDownSequenceLabel()
+        NavigationAction.OpenVoice ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.voiceSequenceLabel()
+        NavigationAction.OpenSettings ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.settingsSequenceLabel()
+        NavigationAction.FinishGuidedLearning ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.finishSequenceLabel()
+        NavigationAction.BackFromDestination ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.backSequenceLabel()
         else -> ""
     }
 

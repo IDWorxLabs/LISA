@@ -21,7 +21,7 @@ object GuidedNavigationAccessFloatingCardAuthorityV1 {
             ),
             check(
                 "GNAFC_002",
-                "Skip to Navigation Training starts at Lesson 16 of 23",
+                "Skip to Navigation Training starts at Lesson 16 of the Guided Learning path",
                 GuidedNavigationAccessFloatingCardAuditor.skipStartsAtLesson16(),
                 "Ensure GuidedTrainingNavigator routes SkipToNavigationTraining to TrainingPhase.NavigationLesson with navigationLessonIndex = 0."
             ),
@@ -109,7 +109,7 @@ object GuidedNavigationAccessFloatingCardAuthorityV1 {
             rootCause = failed.firstOrNull()?.let { "${it.checkId} — ${it.description}" },
             validationReasoning = if (outcome == ValidationOutcome.PASS) {
                 "The Welcome screen exposes a caregiver/testing 'Skip to Navigation Training' shortcut " +
-                    "that jumps to Lesson 16 of 23 in the real Communication Workspace's " +
+                    "that jumps to Lesson 16 in the real Communication Workspace's " +
                     "GuidedWorkspaceMode.GUIDED_TRAINING, bypassing all 15 phrase lessons. The floating " +
                     "lesson card now renders above the bottom Menu/Reset row, docked on whichever side " +
                     "keeps the highlighted real control visible, and never behind the Listening banner. " +

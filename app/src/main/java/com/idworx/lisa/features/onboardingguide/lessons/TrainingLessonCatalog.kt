@@ -49,19 +49,80 @@ object TrainingLessonCatalog {
 
     /**
      * Real Communication Workspace training — every lesson below is taught inside the actual
-     * workspace (Guided Training Mode), never a standalone fake screen. Order mirrors how a new
-     * user would explore the real UI: open categories, pick one, speak a phrase, then learn the
-     * remaining real controls (back, paging, emergency, reset).
+     * workspace (Guided Training Mode), never a standalone fake screen. RC8.25 — lessons 16–19
+     * form the Medical journey (scroll+open → direct open → speak phrase → back), then remaining
+     * real controls and Explore LISA.
      */
     val navigationLessons: List<NavigationLesson> = listOf(
-        NavigationLesson("nav_categories", NavigationAction.OpenCategories, 1),
-        NavigationLesson("nav_select_category", NavigationAction.SelectCategory, 2),
-        NavigationLesson("nav_select_phrase", NavigationAction.SelectPhrase, 3),
+        NavigationLesson(
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .ID_MOVE_TO_MEDICAL,
+            NavigationAction.MoveToMedicalCategory,
+            1
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .ID_OPEN_MEDICAL,
+            NavigationAction.SelectCategory,
+            2
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .ID_USE_MEDICAL_PHRASE,
+            NavigationAction.SelectPhrase,
+            3
+        ),
         NavigationLesson("nav_back", NavigationAction.CloseMenu, 4),
         NavigationLesson("nav_next_page", NavigationAction.NextPage, 5),
         NavigationLesson("nav_previous_page", NavigationAction.PreviousPage, 6),
         NavigationLesson("nav_emergency", NavigationAction.TriggerEmergency, 7),
-        NavigationLesson("nav_reset", NavigationAction.ResetSequence, 8)
+        NavigationLesson("nav_reset", NavigationAction.ResetSequence, 8),
+        // RC8.13 — Explore LISA (final confidence tour; production Menu / Voice / Settings only)
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_OPEN_MENU,
+            NavigationAction.OpenMenu,
+            9
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_SELECT_VOICE,
+            NavigationAction.MenuSelectVoice,
+            10
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_OPEN_VOICE,
+            NavigationAction.OpenVoice,
+            11
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_BACK_VOICE,
+            NavigationAction.BackFromDestination,
+            12
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_SELECT_SETTINGS,
+            NavigationAction.MenuSelectSettings,
+            13
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_OPEN_SETTINGS,
+            NavigationAction.OpenSettings,
+            14
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_BACK_SETTINGS,
+            NavigationAction.BackFromDestination,
+            15
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_CLOSE_MENU,
+            NavigationAction.CloseMenu,
+            16
+        ),
+        NavigationLesson(
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_FINISH,
+            NavigationAction.FinishGuidedLearning,
+            17
+        )
     )
 
     val totalLessons: Int get() =

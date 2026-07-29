@@ -28,15 +28,18 @@ object GuidedTrainingExitRefinementAuditor {
     private val navigator = GuidedTrainingNavigator()
     private val englishUiStrings = LisaUiStrings.forLanguage(PreferredLanguage.English)
 
-    // --- 1. Final navigation lesson teaches Finish Training, not a tap -------------------------
+    // --- 1. Final navigation lesson completes Guided Learning (RC8.13 Explore Finish) -----------
 
     fun finalLessonIsResetSequence(): Boolean =
-        TrainingLessonCatalog.navigationLessons.lastOrNull()?.action == NavigationAction.ResetSequence
+        // RC8.13 — Explore LISA Finish is the terminal navigation lesson; ResetSequence remains
+        // in the catalog (nav_reset) and still teaches Finish Training L0 R3 earlier.
+        TrainingLessonCatalog.navigationLessons.lastOrNull()?.action ==
+            NavigationAction.FinishGuidedLearning &&
+            TrainingLessonCatalog.navigationLessons.any { it.action == NavigationAction.ResetSequence }
 
     fun finalLessonNeverInstructsATap(): Boolean {
         val flow = readGuidedTrainingFlow() ?: return false
-        // The only historical "Tap Reset" instruction must be gone, and the lesson must teach the
-        // real Finish Training gesture dynamically rather than any other hardcoded copy.
+        // Historical "Tap Reset" must stay gone; Finish Training L0 R3 remains taught on nav_reset.
         return !flow.contains("Tap Reset", ignoreCase = true) &&
             flow.contains(
                 "formatWinkSequenceShort(GuidedModeNavigation.FINISH_TRAINING_LEFT, " +

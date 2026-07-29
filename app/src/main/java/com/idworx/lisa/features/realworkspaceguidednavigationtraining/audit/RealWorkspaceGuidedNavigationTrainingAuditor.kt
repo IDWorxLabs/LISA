@@ -42,6 +42,8 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
      */
     private fun classify(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
+        GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
+        GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
@@ -54,19 +56,34 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
     private fun accepted(expected: NavigationAction, left: Int, right: Int): Boolean {
         val classified = classify(left, right)
         if (classified == expected) return true
-        return (expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
+        if ((expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
             (expected == NavigationAction.SelectPhrase && classified == NavigationAction.SelectCategory)
+        ) {
+            return true
+        }
+        return when (expected) {
+            NavigationAction.MenuSelectVoice,
+            NavigationAction.MenuSelectSettings,
+            NavigationAction.MoveToMedicalCategory -> classified == NavigationAction.NextPage
+            NavigationAction.OpenVoice ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesVoiceDestination(left, right)
+            NavigationAction.OpenSettings ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesSettingsDestination(left, right)
+            NavigationAction.FinishGuidedLearning -> classified == NavigationAction.SelectCategory
+            NavigationAction.BackFromDestination -> classified == NavigationAction.CloseMenu
+            else -> false
+        }
     }
 
     // Representative gestures for each real workspace action, used to probe acceptance.
     private val openCategoriesGesture = GuidedModeNavigation.CATEGORIES_LEFT to GuidedModeNavigation.CATEGORIES_RIGHT
     private val selectCategoryGesture = GuidedModeNavigation.SELECT_LEFT to GuidedModeNavigation.SELECT_RIGHT
-    private val selectPhraseGesture = 2 to 1 // first Conversation phrase slot — not a global nav sequence
+    private val selectPhraseGesture = 2 to 1 // first Medical phrase slot — not a global nav sequence
     private val backGesture = GuidedModeNavigation.BACK_LEFT to GuidedModeNavigation.BACK_RIGHT
     private val nextPageGesture = GuidedModeNavigation.NEXT_LEFT to GuidedModeNavigation.NEXT_RIGHT
     private val previousPageGesture = GuidedModeNavigation.PREVIOUS_LEFT to GuidedModeNavigation.PREVIOUS_RIGHT
     private val emergencyGesture = 6 to 0
-
+    private val moveToMedicalGesture = nextPageGesture
     // --- 1. Navigation training no longer uses blank fake screens ---------------------------
     fun navigationTrainingDoesNotUseBlankScreen(): Boolean {
         val flowSource = readGuidedTrainingFlow() ?: return false
@@ -113,12 +130,21 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
 
     // --- 4. Current lesson target is highlighted ----------------------------------------------
     fun currentLessonTargetIsHighlighted(): Boolean {
+        // Workspace chrome lessons only — RC8.13 Explore LISA highlights Main Menu destinations,
+        // not GuidedWorkspaceHighlightTarget chrome. RC8.17 SelectCategory still uses production
+        // selection only (no CategoryRow training highlight).
         val gestureLessons = TrainingLessonCatalog.navigationLessons.filter {
-            it.action != NavigationAction.ResetSequence
+            it.id.startsWith("nav_") &&
+                it.action != NavigationAction.ResetSequence &&
+                it.action != NavigationAction.SelectCategory
         }
         val allHighlighted = gestureLessons.all { GuidedWorkspaceTrainingSpec.highlightTargetFor(it.action) != null }
         val overlaySource = readGuidedModeUi() ?: return false
+        val medicalJourneyUsesProductionSelection =
+            overlaySource.contains("index == categoryMenuSelection") &&
+                !overlaySource.contains("index == GuidedWorkspaceTrainingSpec.medicalCategoryIndex")
         return allHighlighted &&
+            medicalJourneyUsesProductionSelection &&
             overlaySource.contains("guidedTrainingHighlight") &&
             overlaySource.contains("trainingHighlighted") &&
             overlaySource.contains("TrainingHighlightGlow") &&
@@ -128,7 +154,7 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
     // --- 5. Only the current lesson gesture is accepted during guided training ---------------
     fun onlyTargetGestureAccepted(): Boolean {
         val expectedByLesson = mapOf(
-            NavigationAction.OpenCategories to openCategoriesGesture,
+            NavigationAction.MoveToMedicalCategory to moveToMedicalGesture,
             NavigationAction.SelectCategory to selectCategoryGesture,
             NavigationAction.SelectPhrase to selectPhraseGesture,
             NavigationAction.CloseMenu to backGesture,
@@ -148,17 +174,18 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
     // --- 6. Non-target gestures are ignored during guided training -----------------------------
     fun nonTargetGesturesIgnored(): Boolean {
         val allGestures = listOf(
-            openCategoriesGesture, selectCategoryGesture, selectPhraseGesture,
-            backGesture, nextPageGesture, previousPageGesture, emergencyGesture
+            moveToMedicalGesture, selectCategoryGesture, selectPhraseGesture,
+            backGesture, nextPageGesture, previousPageGesture, emergencyGesture,
+            openCategoriesGesture
         )
         val expectedByLesson = mapOf(
-            NavigationAction.OpenCategories to openCategoriesGesture,
+            NavigationAction.MoveToMedicalCategory to moveToMedicalGesture,
             NavigationAction.CloseMenu to backGesture,
-            NavigationAction.NextPage to nextPageGesture,
             NavigationAction.PreviousPage to previousPageGesture,
             NavigationAction.TriggerEmergency to emergencyGesture
         )
         // For every lesson with a distinct gesture, every *other* distinct gesture must be rejected.
+        // NextPage and MoveToMedical share L0 R2 — excluded from pairwise rejection.
         val allOthersRejected = expectedByLesson.all { (action, target) ->
             allGestures.filter { it != target }.all { other ->
                 !accepted(action, other.first, other.second)
@@ -167,13 +194,13 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         return allOthersRejected
     }
 
-    // --- 7. Open Categories lesson uses real workspace Categories control ----------------------
+    // --- 7. Move to Medical lesson uses real category-list Next (L0 R2) -------------------------
     fun openCategoriesUsesRealControl(): Boolean {
         val lesson = TrainingLessonCatalog.navigationLessons.getOrNull(0) ?: return false
-        val overlaySource = readGuidedModeUi() ?: return false
-        return lesson.action == NavigationAction.OpenCategories &&
-            GuidedWorkspaceTrainingSpec.highlightTargetFor(lesson.action) == GuidedWorkspaceHighlightTarget.OpenCategories &&
-            overlaySource.contains("GuidedWorkspaceHighlightTarget.OpenCategories")
+        return lesson.action == NavigationAction.MoveToMedicalCategory &&
+            GuidedWorkspaceTrainingSpec.highlightTargetFor(lesson.action) ==
+            GuidedWorkspaceHighlightTarget.NextPage &&
+            GuidedWorkspaceTrainingSpec.lessonCardGestureLabel(NavigationAction.MoveToMedicalCategory) == "L0 R2"
     }
 
     // --- 8. Select category lesson uses real category UI ---------------------------------------
@@ -181,9 +208,10 @@ object RealWorkspaceGuidedNavigationTrainingAuditor {
         val lesson = TrainingLessonCatalog.navigationLessons.getOrNull(1) ?: return false
         val overlaySource = readGuidedModeUi() ?: return false
         return lesson.action == NavigationAction.SelectCategory &&
-            GuidedWorkspaceTrainingSpec.highlightTargetFor(lesson.action) == GuidedWorkspaceHighlightTarget.CategoryRow &&
-            GuidedWorkspaceTrainingSpec.conversationCategoryIndex in 0 until 6 &&
-            overlaySource.contains("GuidedWorkspaceHighlightTarget.CategoryRow")
+            GuidedWorkspaceTrainingSpec.highlightTargetFor(lesson.action) == null &&
+            GuidedWorkspaceTrainingSpec.medicalCategoryIndex in 0 until 6 &&
+            overlaySource.contains("index == categoryMenuSelection") &&
+            !overlaySource.contains("index == GuidedWorkspaceTrainingSpec.medicalCategoryIndex")
     }
 
     // --- 9. Select phrase lesson uses real phrase row UI ----------------------------------------

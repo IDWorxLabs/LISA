@@ -422,6 +422,8 @@ enum class CategoryNavigationCause {
     ITEM_MOVEMENT,
     PAGE_MOVEMENT,
     DIRECT_SHORTCUT,
+    /** RC8.24 — category opened via production Select (L1 R1 / Open Selected Category). */
+    OPEN_SELECTED,
     MENU_RESTORE,
     TOUCH_SELECTION
 }
@@ -1250,7 +1252,8 @@ object GuidedNavigationController {
         return normalized.copy(
             screenMode = GuidedOverlayScreenMode.Vocabulary,
             categoryIndex = normalized.categoryMenuSelection,
-            phrasePageIndex = 0
+            phrasePageIndex = 0,
+            categoryNavigationCause = CategoryNavigationCause.OPEN_SELECTED
         )
     }
 

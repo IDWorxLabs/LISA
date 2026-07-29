@@ -3,6 +3,7 @@ package com.idworx.lisa.features.guidednavigationaccessfloatingcard.audit
 import com.idworx.lisa.GuidedModeNavigation
 import com.idworx.lisa.GuidedVocabularyOverlayVisibility
 import com.idworx.lisa.features.onboardingguide.lessons.TrainingLessonCatalog
+import com.idworx.lisa.features.onboardingguide.metadata.TrainingMetadata
 import com.idworx.lisa.features.onboardingguide.model.NavigationAction
 import com.idworx.lisa.features.onboardingguide.model.TrainingPhase
 import com.idworx.lisa.features.onboardingguide.model.TrainingProgress
@@ -35,7 +36,10 @@ object GuidedNavigationAccessFloatingCardAuditor {
         val atLesson16 = progress.currentPhase == TrainingPhase.NavigationLesson &&
             progress.navigationLessonIndex == 0
         val lessonProgress = TrainingLessonCatalog.guidedLessonProgress(progress)
-        return atLesson16 && lessonProgress == 16 to 23
+        return atLesson16 && lessonProgress == 16 to (
+            TrainingMetadata.GUIDED_LEARNING_ESSENTIAL_PHRASE_COUNT +
+                TrainingMetadata.NAVIGATION_LESSON_COUNT
+            )
     }
 
     // --- 3. It enters real workspace GUIDED_TRAINING mode ----------------------------------------
@@ -88,7 +92,9 @@ object GuidedNavigationAccessFloatingCardAuditor {
         )
         if (guardIndex < 0) return false
         val cardBlock = ui.substring(guardIndex, cardIndex)
-        val dockedAtBottomNotTop = cardBlock.contains("cardDockFor(guidedWorkspaceHighlight)") &&
+        val dockedAtBottomNotTop =
+            (cardBlock.contains("cardDockFor(guidedWorkspaceHighlight)") ||
+                cardBlock.contains("cardDockForLesson(")) &&
             (cardBlock.contains("Alignment.BottomStart") || cardBlock.contains("Alignment.BottomEnd")) &&
             !cardBlock.contains("Alignment.TopCenter")
         // Exactly one such guard must exist — the old top-of-screen card block must be gone.
@@ -104,10 +110,20 @@ object GuidedNavigationAccessFloatingCardAuditor {
         val nextFunctionStart = components.indexOf("@Composable", cardStart + 1)
         val cardEnd = if (nextFunctionStart > cardStart) nextFunctionStart else components.length
         val card = components.substring(cardStart, cardEnd)
+        // RC8.14 — compact Explore/Medical cards use 5.dp elevation; RC8.16 uses Sequence: prefix.
+        val elevationIntact =
+            card.contains("CardDefaults.cardElevation(defaultElevation = 6.dp)") ||
+                card.contains("CardDefaults.cardElevation(defaultElevation = if (compact) 5.dp else 6.dp)") ||
+                card.contains("CardDefaults.cardElevation(defaultElevation = 5.dp)")
+        val gestureLabelIntact =
+            card.contains("\"Gesture: \$gestureLabel\"") ||
+                card.contains("if (compact) gestureLabel else \"Gesture: \$gestureLabel\"") ||
+                card.contains("GuidedWorkspaceLessonCardAuthority.formatSequenceLabel") ||
+                card.contains("SEQUENCE_PREFIX")
         return card.contains("LisaWhite.copy(alpha = 0.98f)") &&
-            card.contains("CardDefaults.cardElevation(defaultElevation = 6.dp)") &&
+            elevationIntact &&
             card.contains("\"Lesson \$lessonNumber of \$totalLessons\"") &&
-            card.contains("\"Gesture: \$gestureLabel\"")
+            gestureLabelIntact
     }
 
     // --- 7. Real workspace layout is not structurally changed -------------------------------------
@@ -191,6 +207,8 @@ object GuidedNavigationAccessFloatingCardAuditor {
     /** Mirrors MainActivity's `classifyNavigationGesture` — see RealWorkspaceGuidedNavigationTrainingAuditor. */
     private fun classify(left: Int, right: Int): NavigationAction = when {
         isEmergencySequence(left, right) -> NavigationAction.TriggerEmergency
+        GuidedModeNavigation.isFinishTrainingSequence(left, right) -> NavigationAction.ResetSequence
+        GuidedModeNavigation.isOpenMainMenuSequence(left, right) -> NavigationAction.OpenMenu
         GuidedModeNavigation.isCategoriesSequence(left, right) -> NavigationAction.OpenCategories
         GuidedModeNavigation.isBackSequence(left, right) -> NavigationAction.CloseMenu
         GuidedModeNavigation.isNextSequence(left, right) -> NavigationAction.NextPage
@@ -203,8 +221,23 @@ object GuidedNavigationAccessFloatingCardAuditor {
     private fun accepted(expected: NavigationAction, left: Int, right: Int): Boolean {
         val classified = classify(left, right)
         if (classified == expected) return true
-        return (expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
+        if ((expected == NavigationAction.SelectCategory && classified == NavigationAction.SelectPhrase) ||
             (expected == NavigationAction.SelectPhrase && classified == NavigationAction.SelectCategory)
+        ) {
+            return true
+        }
+        return when (expected) {
+            NavigationAction.MenuSelectVoice,
+            NavigationAction.MenuSelectSettings,
+            NavigationAction.MoveToMedicalCategory -> classified == NavigationAction.NextPage
+            NavigationAction.OpenVoice ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesVoiceDestination(left, right)
+            NavigationAction.OpenSettings ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.matchesSettingsDestination(left, right)
+            NavigationAction.FinishGuidedLearning -> classified == NavigationAction.SelectCategory
+            NavigationAction.BackFromDestination -> classified == NavigationAction.CloseMenu
+            else -> false
+        }
     }
 
     private fun countOccurrences(source: String, needle: String): Int {

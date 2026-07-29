@@ -42,6 +42,12 @@ import com.idworx.lisa.features.onboardingguide.coach.CoachPacingAction
 import com.idworx.lisa.features.onboardingguide.coach.CommunicationCoachEngine
 import com.idworx.lisa.features.experiencepolish.patientcommunicationcoach.PatientCommunicationCoachEngine
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
+import com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseAdvanceResult
+import com.idworx.lisa.features.guidedlessonteaching.GuidedLessonPhaseEngine
+import com.idworx.lisa.features.guidedlessonteaching.GuidedLessonTeachingPhase
+import com.idworx.lisa.features.guidedlessonteaching.GuidedLessonTeachingSpec
+import com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+import com.idworx.lisa.features.guidedlessonexecutionauthority.GuidedLessonExecutionAuthority
 import kotlin.math.abs
 
 /**
@@ -76,6 +82,13 @@ class TrainingSessionController(
 
     /** Invoked when user confirms Recalibration via L1 R1. */
     var onRecalibrationConfirmed: (() -> Unit)? = null
+
+    /**
+     * RC8.23 — invoked after an intermediate multi-phase acknowledgement finishes, just before
+     * the next phase becomes active. [resetWorkspace] is true when the completed phase requested
+     * a production workspace reset (e.g. Lesson 16 Part 1 → Part 2).
+     */
+    var onNavigationPhaseAdvanced: ((resetWorkspace: Boolean) -> Unit)? = null
 
     private var pendingInteractiveLessonSuccess: PendingInteractiveLessonSuccess? = null
     private var partialTimeoutCount = 0
@@ -1310,11 +1323,96 @@ class TrainingSessionController(
     fun expectedNavigationAction(): NavigationAction? =
         navigator.expectedNavigationAction(state.progress)
 
+    fun navigationLessonId(): String? =
+        navigator.navigationActionId(state.progress)
+
+    /** RC8.23 — active practical phase within the current navigation lesson. */
+    fun navigationLessonPhaseIndex(): Int = state.navigationLessonPhaseIndex
+
+    fun activeTeachingPhase(): GuidedLessonTeachingPhase? {
+        val action = expectedNavigationAction() ?: return null
+        return GuidedLessonTeachingSpec.activePhase(action, state.navigationLessonPhaseIndex)
+    }
+
+    /**
+     * RC8.23 — complete the current practical phase for [action].
+     *
+     * Intermediate phases show feedback and advance [navigationLessonPhaseIndex] without
+     * completing the catalog lesson. The final phase (or single-step lessons) call
+     * [verifyNavigation] so Guided Learning may advance to the next lesson.
+     *
+     * @return true when the catalog lesson was completed (final phase / single-step).
+     */
+    fun completeNavigationLessonPhase(action: NavigationAction): Boolean {
+        if (state.progress.currentPhase != TrainingPhase.NavigationLesson) return false
+        if (state.completionPendingFeedback || state.navigationPhasePendingFeedback) return false
+        val expected = navigator.expectedNavigationAction(state.progress) ?: return false
+        if (expected != action) return false
+
+        val full = GuidedLessonTeachingSpec.fullPresentationFor(
+            action = action,
+            lessonId = navigator.navigationActionId(state.progress),
+            uiStrings = com.idworx.lisa.LisaUiStrings.forLanguage(PreferredLanguage.English)
+        )
+        when (val advance = GuidedLessonPhaseEngine.advanceResult(full, state.navigationLessonPhaseIndex)) {
+            GuidedLessonPhaseAdvanceResult.SingleStepLesson,
+            is GuidedLessonPhaseAdvanceResult.FinalPhaseCompleted -> {
+                verifyNavigation(action)
+                state = state.copy(navigationLessonPhaseIndex = 0)
+                onPersist(state)
+                return true
+            }
+            is GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted -> {
+                if (!advance.showCompletionFeedback) {
+                    // RC8.24 — silent stage advance (e.g. Medical selected → open instruction).
+                    state = state.copy(
+                        navigationLessonPhaseIndex = advance.nextPhaseIndex,
+                        navigationWrongGestureMessage = null
+                    )
+                    onPersist(state)
+                    onNavigationPhaseAdvanced?.invoke(advance.resetWorkspaceBeforeNextPhase)
+                    return false
+                }
+                beginIntermediatePhaseFeedback(advance)
+                return false
+            }
+        }
+    }
+
+    private fun beginIntermediatePhaseFeedback(
+        advance: GuidedLessonPhaseAdvanceResult.IntermediatePhaseCompleted
+    ) {
+        val phase = advance.completedPhase
+        val phrase = phase.completionFeedbackMessage
+        state = state.copy(
+            navigationFeedbackMessage = phrase,
+            navigationFeedbackDetail = phase.completionFeedbackDetail,
+            navigationPhasePendingFeedback = true,
+            navigationWrongGestureMessage = null
+        )
+        onPersist(state)
+        if (LisaSpeechPolicy.allowsNarration()) {
+            narration.speak(phrase)
+        }
+        mainThreadDelayed(NAVIGATION_FEEDBACK_VISIBLE_MS) {
+            if (!state.navigationPhasePendingFeedback) return@mainThreadDelayed
+            state = state.copy(
+                navigationFeedbackMessage = null,
+                navigationFeedbackDetail = null,
+                navigationPhasePendingFeedback = false,
+                navigationLessonPhaseIndex = advance.nextPhaseIndex
+            )
+            onPersist(state)
+            onNavigationPhaseAdvanced?.invoke(advance.resetWorkspaceBeforeNextPhase)
+        }
+    }
+
     fun verifyNavigation(action: NavigationAction) {
         if (state.progress.currentPhase != TrainingPhase.NavigationLesson) return
         // While the final lesson's completion feedback is being shown/spoken, the Completion
         // transition is deliberately on hold — ignore any further gestures until it fires.
         if (state.completionPendingFeedback) return
+        if (state.navigationPhasePendingFeedback) return
         val expected = navigator.expectedNavigationAction(state.progress) ?: return
         if (expected != action) return
         val lessonId = navigator.navigationActionId(state.progress) ?: return
@@ -1326,6 +1424,7 @@ class TrainingSessionController(
             beginFinalNavigationCompletionFeedback(completedLessonIndex, lessonId)
         } else {
             dispatch(TrainingEvent.NavigationActionCompleted(lessonId))
+            state = state.copy(navigationLessonPhaseIndex = 0)
             applyNavigationCompletionFeedback(completedLessonIndex)
             mainThreadDelayed {
                 if (state.progress.currentPhase == TrainingPhase.Completion) {
@@ -1342,16 +1441,61 @@ class TrainingSessionController(
      * Reusable for every navigation lesson; never tied to a specific lesson or screen.
      */
     private fun applyNavigationCompletionFeedback(completedLessonIndex: Int) {
-        val phrase = GuidedFeedbackPhrases.positive(completedLessonIndex)
-        state = state.copy(navigationFeedbackMessage = phrase)
+        val completedLesson = TrainingLessonCatalog.navigationLessonAt(completedLessonIndex)
+        val lessonId = completedLesson?.id
+        val defaultPhrase = com.idworx.lisa.features.explorelisa.ExploreLisaAuthority
+            .successPhraseForLessonId(lessonId.orEmpty())
+            ?: GuidedFeedbackPhrases.positive(completedLessonIndex)
+        val authority = GuidedMedicalCategoryJourneyAuthority
+        val finalPhase = completedLesson?.action?.let {
+            GuidedLessonTeachingSpec.phasesFor(it).lastOrNull()
+        }
+        val (message, detail) = when (lessonId) {
+            authority.ID_OPEN_MEDICAL ->
+                authority.MOVE_PHASE_FEEDBACK_TITLE to authority.OPEN_DIRECT_FEEDBACK_DETAIL
+            authority.ID_USE_MEDICAL_PHRASE ->
+                authority.MOVE_PHASE_FEEDBACK_TITLE to authority.SAY_PHRASE_FEEDBACK_DETAIL
+            GuidedLessonExecutionAuthority.ID_WORKSPACE_BACK ->
+                authority.MOVE_PHASE_FEEDBACK_TITLE to authority.BACK_TO_CATEGORIES_FEEDBACK_DETAIL
+            else ->
+                (finalPhase?.completionFeedbackMessage ?: defaultPhrase) to
+                    finalPhase?.completionFeedbackDetail
+        }
+        state = state.copy(
+            navigationFeedbackMessage = message,
+            navigationFeedbackDetail = detail
+        )
         onPersist(state)
         if (LisaSpeechPolicy.allowsNarration()) {
-            narration.speak(phrase)
+            narration.speak(message)
         }
         mainThreadDelayed(NAVIGATION_FEEDBACK_VISIBLE_MS) {
-            if (state.navigationFeedbackMessage == phrase) {
-                state = state.copy(navigationFeedbackMessage = null)
+            if (state.navigationFeedbackMessage == message) {
+                state = state.copy(
+                    navigationFeedbackMessage = null,
+                    navigationFeedbackDetail = null
+                )
                 onPersist(state)
+            }
+        }
+        maybeSpeakExploreNarrationAfter(completedLessonIndex)
+    }
+
+    /** RC8.13 — speak Explore intro / final copy once when those steps become active. */
+    private fun maybeSpeakExploreNarrationAfter(completedLessonIndex: Int) {
+        val next = TrainingLessonCatalog.navigationLessonAt(completedLessonIndex + 1) ?: return
+        if (!LisaSpeechPolicy.allowsNarration()) return
+        val speech = when (next.id) {
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_OPEN_MENU ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.introSpeech
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.ID_FINISH ->
+                com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.finalSpeech
+            else -> return
+        }
+        val expectedId = next.id
+        mainThreadDelayed(NAVIGATION_FEEDBACK_VISIBLE_MS + 200L) {
+            if (navigationLessonId() == expectedId) {
+                narration.speak(speech)
             }
         }
     }
@@ -1367,6 +1511,7 @@ class TrainingSessionController(
         val phrase = GuidedFeedbackPhrases.positive(completedLessonIndex)
         state = state.copy(
             navigationFeedbackMessage = phrase,
+            navigationFeedbackDetail = null,
             completionPendingFeedback = true
         )
         onPersist(state)

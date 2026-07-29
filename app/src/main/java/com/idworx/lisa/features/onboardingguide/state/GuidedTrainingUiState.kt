@@ -56,6 +56,11 @@ data class GuidedTrainingUiState(
      */
     val navigationFeedbackMessage: String? = null,
     /**
+     * RC8.23 — optional supporting line under [navigationFeedbackMessage] for multi-phase
+     * lesson acknowledgements (e.g. which method the learner just demonstrated).
+     */
+    val navigationFeedbackDetail: String? = null,
+    /**
      * Brief red "wrong sequence" acknowledgement shown on the floating workspace lesson card when
      * the user performs an unrelated gesture/action or targets a non-highlighted row while a real
      * workspace navigation lesson is focused on one specific target. Null when there is nothing to
@@ -72,6 +77,16 @@ data class GuidedTrainingUiState(
      * further gestures during that window. General for any lesson catalog length.
      */
     val completionPendingFeedback: Boolean = false,
+    /**
+     * RC8.23 — active practical phase index within the current navigation lesson
+     * (0-based). Always 0 for single-step lessons. Reset when the catalog lesson advances.
+     */
+    val navigationLessonPhaseIndex: Int = 0,
+    /**
+     * RC8.23 — true while an intermediate multi-phase acknowledgement is showing and the
+     * workspace/phase transition has not yet applied. Blocks further phase completions.
+     */
+    val navigationPhasePendingFeedback: Boolean = false,
     /**
      * RC7D.37 — two-step Welcome within [TrainingPhase.FirstLaunchChoice].
      * Starts on blink-sequence introduction after Eye Tracking Ready.
@@ -92,7 +107,7 @@ sealed class TrainingEvent {
     data object BeginLearning : TrainingEvent()
     data object SkipTutorial : TrainingEvent()
     data object ConfirmSkip : TrainingEvent()
-    /** Caregiver/testing shortcut — jumps straight into Lesson 16 of 23 (real workspace GUIDED_TRAINING), bypassing all 15 phrase lessons. */
+    /** Caregiver/testing shortcut — jumps straight into Lesson 16 (real workspace GUIDED_TRAINING), bypassing all 15 phrase lessons. */
     data object SkipToNavigationTraining : TrainingEvent()
     /** RC7D.37 — Welcome introduction → destination selection (L1 R1 / Continue). */
     data object WelcomeContinueToDestination : TrainingEvent()

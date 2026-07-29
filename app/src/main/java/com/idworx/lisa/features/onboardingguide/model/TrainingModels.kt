@@ -47,7 +47,22 @@ enum class NavigationAction {
     /** Real workspace "Next Page" gesture (L0 R2). */
     NextPage,
     /** Real workspace "Previous Page" gesture (L2 R0). */
-    PreviousPage
+    PreviousPage,
+    /** RC8.13 Explore LISA — open Voice from Main Menu (production Select L1 R1). */
+    OpenVoice,
+    /** RC8.13 Explore LISA — move Menu selection down until Voice is selected (L0 R2). */
+    MenuSelectVoice,
+    /** RC8.13 Explore LISA — move Menu selection down until Settings is selected (L0 R2). */
+    MenuSelectSettings,
+    /** RC8.13 Explore LISA — return from Voice/Settings to Menu (production Back L2 R2). */
+    BackFromDestination,
+    /** RC8.13 Explore LISA — finish Guided Learning (Confirm L1 R1). */
+    FinishGuidedLearning,
+    /**
+     * RC8.15 — Category Menu already open: move selection down with L0 R2 until Medical
+     * is selected (Conversation → Basic Needs → Medical). Completes only when Medical is selected.
+     */
+    MoveToMedicalCategory
 }
 
 data class NavigationLesson(

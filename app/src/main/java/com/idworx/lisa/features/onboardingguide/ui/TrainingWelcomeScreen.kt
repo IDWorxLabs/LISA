@@ -441,7 +441,7 @@ private fun WelcomeChoiceBlock(
 
 /**
  * Caregiver-only affordance — deliberately small and secondary so the primary user's
- * two-choice screen stays exact and simple. Jumps straight to Lesson 16 of 23 (navigation
+ * two-choice screen stays exact and simple. Jumps straight to Lesson 16 (navigation
  * training) inside the real Communication screen in GUIDED_TRAINING mode.
  */
 @Composable

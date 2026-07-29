@@ -22,8 +22,15 @@ import com.idworx.lisa.formatWinkSequenceShort
 object NavigationLessonContent {
     fun title(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
         NavigationAction.OpenCategories -> uiStrings.t("Categories", "Kategorieë", "Izigaba")
-        NavigationAction.SelectCategory -> uiStrings.t("Select Conversation", "Kies Gesprek", "Khetha Ingxoxo")
-        NavigationAction.SelectPhrase -> uiStrings.t("Select a Phrase", "Kies 'n Frase", "Khetha Umusho")
+        NavigationAction.MoveToMedicalCategory ->
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .MOVE_LESSON_TITLE
+        NavigationAction.SelectCategory ->
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .OPEN_MEDICAL_TITLE
+        NavigationAction.SelectPhrase ->
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .sayPhraseLessonTitle(uiStrings.language, uiStrings)
         NavigationAction.CloseMenu -> uiStrings.t("Go Back", "Gaan Terug", "Buyela Emuva")
         NavigationAction.RepeatLastPhrase -> uiStrings.t("Repeat", "Herhaal", "Phinda")
         NavigationAction.OpenMenu -> uiStrings.t("Menu", "Kieslys", "Imenyu")
@@ -35,6 +42,12 @@ object NavigationLessonContent {
         NavigationAction.OpenQuickControls -> uiStrings.t("Quick Phrases", "Vinnige Kontroles", "Izilawuli Esisheshayo")
         NavigationAction.OpenSettings -> uiStrings.t("Settings", "Instellings", "Izilungiselelo")
         NavigationAction.OpenCaregiver -> uiStrings.t("Caregiver", "Versorger", "Umnakekeli")
+        NavigationAction.OpenVoice -> uiStrings.t("Voice", "Stem", "Izwi")
+        NavigationAction.MenuSelectVoice -> uiStrings.t("Voice", "Stem", "Izwi")
+        NavigationAction.MenuSelectSettings -> uiStrings.t("Settings", "Instellings", "Izilungiselelo")
+        NavigationAction.BackFromDestination -> uiStrings.t("Go Back", "Gaan Terug", "Buyela Emuva")
+        NavigationAction.FinishGuidedLearning ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.LESSON_TITLE
     }
 
     fun instruction(action: NavigationAction, uiStrings: LisaUiStrings): String = when (action) {
@@ -44,16 +57,17 @@ object NavigationLessonContent {
             "Hier is jou kategorieë.",
             "Lezi yizigaba zakho zokuxhumana."
         )
+        NavigationAction.MoveToMedicalCategory ->
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .MOVE_INSTRUCTION
         NavigationAction.SelectCategory -> uiStrings.t(
-            "Let's open Conversation. Select the category with your select gesture.",
-            "Kom ons open Gesprek.",
-            "Masivule Ingxoxo."
+            "Open Medical with its category sequence.",
+            "Open Medies met sy kategorie-reeks.",
+            "Vula Ezokwelapha ngomlingo waso."
         )
-        NavigationAction.SelectPhrase -> uiStrings.t(
-            "Blink any phrase's own gesture to select and speak it.",
-            "Flikker enige frase se eie gebaar om dit te kies.",
-            "Cwayiza umlingo womusho ukukhetha uwukhulume."
-        )
+        NavigationAction.SelectPhrase ->
+            com.idworx.lisa.features.guidedmedicalcategoryjourney.GuidedMedicalCategoryJourneyAuthority
+                .sayPhraseLessonTitle(uiStrings.language, uiStrings)
         NavigationAction.CloseMenu -> uiStrings.t(
             "Use Back (L2 R2) to return to categories.",
             "Gebruik Terug (L2 R2).",
@@ -64,11 +78,8 @@ object NavigationLessonContent {
             "Herhaal met L1 R1.",
             "Phinda nge-L1 R1."
         )
-        NavigationAction.OpenMenu -> uiStrings.t(
-            "Open the menu with your navigation gesture.",
-            "Open die kieslys.",
-            "Vula imenyu."
-        )
+        NavigationAction.OpenMenu ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(NavigationAction.OpenMenu)
         NavigationAction.OpenCommunicationHistory -> uiStrings.t(
             "Open My Communication from the menu to view your history.",
             "Open My Kommunikasie.",
@@ -102,16 +113,29 @@ object NavigationLessonContent {
             "Open Vinnige Kontroles met L0 R4.",
             "Vula Izilawuli nge-L0 R4."
         )
-        NavigationAction.OpenSettings -> uiStrings.t(
-            "Open Settings from the menu.",
-            "Open Instellings.",
-            "Vula Izilungiselelo."
-        )
+        NavigationAction.OpenSettings ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(NavigationAction.OpenSettings)
         NavigationAction.OpenCaregiver -> uiStrings.t(
             "Caregiver linking is available from the menu when configured.",
             "Versorger-koppeling is beskikbaar.",
             "Ukuxhumanisa umnakekeli kuyatholakala."
         )
+        NavigationAction.OpenVoice ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(NavigationAction.OpenVoice)
+        NavigationAction.MenuSelectVoice ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(NavigationAction.MenuSelectVoice)
+        NavigationAction.MenuSelectSettings ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(
+                NavigationAction.MenuSelectSettings
+            )
+        NavigationAction.BackFromDestination ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(
+                NavigationAction.BackFromDestination
+            )
+        NavigationAction.FinishGuidedLearning ->
+            com.idworx.lisa.features.explorelisa.ExploreLisaAuthority.instructionFor(
+                NavigationAction.FinishGuidedLearning
+            )
     }
 
     private fun LisaUiStrings.t(en: String, af: String, zu: String): String = when (language) {

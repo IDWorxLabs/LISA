@@ -18,7 +18,7 @@ object GuidedTrainingExitRefinementAuthorityV1 {
 
     fun validate(): ValidationReport {
         val checks = listOf(
-            check("GTER_001", "Final navigation lesson teaches Finish Training (ResetSequence)", GuidedTrainingExitRefinementAuditor.finalLessonIsResetSequence()),
+            check("GTER_001", "Final navigation lesson is Explore Finish; ResetSequence remains earlier", GuidedTrainingExitRefinementAuditor.finalLessonIsResetSequence()),
             check("GTER_002", "Final lesson never instructs a screen tap; teaches the real gesture instead", GuidedTrainingExitRefinementAuditor.finalLessonNeverInstructsATap()),
             check("GTER_003", "Completion wording uses natural language, not \"main workspace\"", GuidedTrainingExitRefinementAuditor.lessonWordingUsesNaturalStartCommunicatingPhrase()),
             check("GTER_004", "Lesson card teaches the Finish Training gesture dynamically from shared constants", GuidedTrainingExitRefinementAuditor.lessonCardTeachesFinishTrainingGestureDynamically()),
