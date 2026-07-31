@@ -3,6 +3,7 @@ package com.idworx.lisa.features.intelligentstartup
 import com.idworx.lisa.LisaUserProfile
 import com.idworx.lisa.features.intelligentstartup.authority.CalibrationCompatibilityAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.EyeCalibrationAuthority
+import com.idworx.lisa.features.intelligentstartup.authority.StartupCalibrationRequirementAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.StartupFlowAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.StartupProfileAuthority
 import com.idworx.lisa.features.intelligentstartup.authority.StartupProfileResolution
@@ -35,6 +36,11 @@ class StartupSessionController(
     private val engine = QuickEyeCalibrationEngine()
     private var lookNaturallyStartedMs: Long = 0L
     private var compatibilityStartedMs: Long = 0L
+    private var preparingStartedMs: Long = 0L
+    private var preparationFinalized = false
+    private var preparingHandoffScheduled = false
+    /** Identity of the current Preparing session; stale timers from earlier sessions are ignored. */
+    private var preparingSession = 0
     private val compatibilityOpenness = mutableListOf<Float>()
     private val compatibilityDistance = mutableListOf<Float>()
     private val compatibilitySpacing = mutableListOf<Float>()
@@ -52,6 +58,10 @@ class StartupSessionController(
         compatibilitySpacing.clear()
         lookNaturallyStartedMs = 0L
         compatibilityStartedMs = 0L
+        preparingStartedMs = 0L
+        preparationFinalized = false
+        preparingHandoffScheduled = false
+        preparingSession++
         state = StartupFlowState()
         publish()
     }
@@ -254,12 +264,27 @@ class StartupSessionController(
         compatibilityDistance.clear()
         compatibilitySpacing.clear()
         compatibilityStartedMs = nowMs()
+        preparingStartedMs = nowMs()
+        preparationFinalized = false
+        preparingHandoffScheduled = false
+        preparingSession++
+        val session = preparingSession
         dispatch(StartupEvent.BeginCompatibilityEvaluation)
         scheduleReadyHandoff(COMPATIBILITY_SAMPLE_MS) {
-            if (state.phase == StartupPhase.EvaluatingCompatibility) {
-                finalizeCompatibility()
+            if (session == preparingSession && state.phase == StartupPhase.EvaluatingCompatibility) {
+                finalizeCompatibility(session)
             }
         }
+    }
+
+    /**
+     * Milliseconds the Preparing screen must still stay up so the camera-guidance card is
+     * readable. Preparation work itself is never delayed — only the hand-off is held back.
+     */
+    fun remainingPreparingGuidanceMs(): Long {
+        if (preparingStartedMs == 0L) return 0L
+        val elapsed = nowMs() - preparingStartedMs
+        return (PREPARING_MIN_DISPLAY_MS - elapsed).coerceAtLeast(0L)
     }
 
     private fun collectCompatibilitySample(
@@ -273,7 +298,10 @@ class StartupSessionController(
         if (eyeSpacingProxy > 0f) compatibilitySpacing += eyeSpacingProxy
     }
 
-    private fun finalizeCompatibility() {
+    private fun finalizeCompatibility(session: Int) {
+        if (session != preparingSession) return
+        if (preparationFinalized) return
+        preparationFinalized = true
         val live = if (compatibilityOpenness.isEmpty()) {
             null
         } else {
@@ -303,8 +331,26 @@ class StartupSessionController(
             persistCalibration(updated)
             dispatch(StartupEvent.CalibrationCaptured(updated))
         }
+        // Preparation is genuinely done: publish the last two checklist steps immediately, but
+        // hold the route to calibration until the guidance card has been readable long enough.
+        dispatch(StartupEvent.PreparationCompleted(level))
+        val remaining = remainingPreparingGuidanceMs()
+        if (remaining <= 0L) {
+            completePreparingHandoff(session, level)
+            return
+        }
+        if (preparingHandoffScheduled) return
+        preparingHandoffScheduled = true
+        scheduleReadyHandoff(remaining) { completePreparingHandoff(session, level) }
+    }
+
+    private fun completePreparingHandoff(session: Int, level: CalibrationCompatibilityLevel) {
+        // A restart or any other route out of Preparing invalidates this hand-off.
+        if (session != preparingSession) return
+        preparingHandoffScheduled = false
+        if (state.phase != StartupPhase.EvaluatingCompatibility) return
         dispatch(StartupEvent.CompatibilityEvaluated(level))
-        if (CalibrationCompatibilityAuthority.shouldSkipQuickCalibration(level)) {
+        if (StartupCalibrationRequirementAuthority.skipsQuickCalibration(level)) {
             activateEyeControlAndScheduleWelcome()
         } else {
             engine.reset()
@@ -359,5 +405,8 @@ class StartupSessionController(
         const val SUCCESS_DISPLAY_MS = 1200L
         const val READY_HANDOFF_MS = 400L
         const val COMPATIBILITY_SAMPLE_MS = 1200L
+
+        /** Minimum time the Preparing screen (camera guidance card) stays visible. */
+        const val PREPARING_MIN_DISPLAY_MS = 5000L
     }
 }

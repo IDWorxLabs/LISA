@@ -9,11 +9,13 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -40,9 +42,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.CommunicationLevel
@@ -50,6 +58,8 @@ import com.idworx.lisa.LisaUiStrings
 import com.idworx.lisa.PreferredLanguage
 import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiState
+import com.idworx.lisa.features.intelligentstartup.authority.PreparationChecklistStep
+import com.idworx.lisa.features.intelligentstartup.authority.StartupPreparationChecklistAuthority
 import com.idworx.lisa.features.intelligentstartup.model.QuickCalibrationStep
 import com.idworx.lisa.features.intelligentstartup.model.StartupFlowState
 import com.idworx.lisa.features.intelligentstartup.model.StartupPhase
@@ -103,6 +113,8 @@ fun IntelligentStartupFlow(
                         state.phase == StartupPhase.ProfileResolution,
                     phase = state.phase,
                     faceDetected = state.faceDetected,
+                    communicationPrepared = state.communicationPrepared,
+                    calibrationDecisionReady = state.calibrationDecisionReady,
                     uiStrings = uiStrings,
                     eyeTrackingStatus = eyeTrackingStatus,
                     onDecreaseSensitivity = onDecreaseSensitivity,
@@ -210,6 +222,8 @@ private fun FaceDetectionStartupScreen(
     evaluating: Boolean,
     phase: StartupPhase,
     faceDetected: Boolean,
+    communicationPrepared: Boolean,
+    calibrationDecisionReady: Boolean,
     uiStrings: LisaUiStrings,
     eyeTrackingStatus: EyeTrackingStatusUiState,
     onDecreaseSensitivity: () -> Unit,
@@ -235,7 +249,12 @@ private fun FaceDetectionStartupScreen(
             "Silungiselela ukulandelela amehlo…"
         )
     }
-    val completedSteps = preparationCompletedSteps(phase = phase, faceDetected = faceDetected)
+    val completedSteps = preparationCompletedSteps(
+        phase = phase,
+        faceDetected = faceDetected,
+        communicationPrepared = communicationPrepared,
+        calibrationDecisionReady = calibrationDecisionReady
+    )
     StartupScreenWithSharedBlinkCounter(
         uiStrings = uiStrings,
         eyeTrackingStatus = eyeTrackingStatus,
@@ -244,91 +263,227 @@ private fun FaceDetectionStartupScreen(
         onDecreaseResponseTime = onDecreaseResponseTime,
         onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = title,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = LisaBlueDark,
-                textAlign = TextAlign.Center
-            )
-            if (lookingForFace) {
-                Spacer(modifier = Modifier.height(18.dp))
-                FaceSearchIdleAnimation()
-            }
-            body?.let {
-                Spacer(modifier = Modifier.height(14.dp))
+            // Shorter portrait phones drop the illustration and tighten spacing so the guidance
+            // card, the title and all four checklist rows still fit without scrolling.
+            val tight = evaluating && maxHeight < CompactPreparingHeight
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                // Preparing shows the camera-guidance card above the checklist, so top-align
+                // to keep both visible without scrolling on portrait phones.
+                verticalArrangement = if (evaluating) Arrangement.Top else Arrangement.Center
+            ) {
+                if (evaluating) {
+                    CameraGuidanceCard(uiStrings = uiStrings, tight = tight)
+                    Spacer(modifier = Modifier.height(if (tight) 8.dp else 12.dp))
+                }
                 Text(
-                    text = it,
-                    fontSize = 16.sp,
-                    color = LisaBlueDark.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 23.sp
+                    text = title,
+                    fontSize = if (tight) 22.sp else 26.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = LisaBlueDark,
+                    textAlign = TextAlign.Center
                 )
-            }
-            if (completedSteps.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(20.dp))
-                PreparationProgressList(steps = completedSteps, uiStrings = uiStrings)
+                if (lookingForFace) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    FaceSearchIdleAnimation()
+                }
+                body?.let {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = it,
+                        fontSize = 16.sp,
+                        color = LisaBlueDark.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 23.sp
+                    )
+                }
+                if (completedSteps.isNotEmpty()) {
+                    Spacer(
+                        modifier = Modifier.height(
+                            when {
+                                tight -> 8.dp
+                                evaluating -> 12.dp
+                                else -> 20.dp
+                            }
+                        )
+                    )
+                    PreparationProgressList(
+                        steps = completedSteps,
+                        uiStrings = uiStrings,
+                        rowSpacing = when {
+                            tight -> 6.dp
+                            evaluating -> 8.dp
+                            else -> 10.dp
+                        }
+                    )
+                }
             }
         }
     }
 }
 
-/** Truthful prep checklist — only steps that have actually completed in the startup machine. */
-private enum class PreparationStep {
-    EyeTracking,
-    LoadingProfile,
-    PreparingCommunication,
-    CalibrationReady
+/** Below this content height the Preparing screen switches to its tighter portrait variant. */
+private val CompactPreparingHeight = 470.dp
+
+/**
+ * V1 UX — calm preparation guidance. Teaches: read the screen, look back at the camera,
+ * then blink/wink. Does not change eye-tracking, calibration, or startup timing.
+ */
+@Composable
+private fun CameraGuidanceCard(
+    uiStrings: LisaUiStrings,
+    modifier: Modifier = Modifier,
+    tight: Boolean = false
+) {
+    TrainingCard(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = if (tight) 14.dp else 18.dp,
+        contentSpacing = if (tight) 7.dp else 10.dp
+    ) {
+        if (!tight) {
+            CameraLookingOutlineIcon(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            )
+        }
+        Text(
+            text = uiStrings.t(
+                "For the most accurate eye tracking",
+                "Vir die akkuraatste oognasporing",
+                "Ukuze ukulandelela amehlo kube nempumelelo enkulu"
+            ),
+            fontSize = if (tight) 16.sp else 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = uiStrings.t(
+                "Look directly at the camera.",
+                "Kyk direk na die kamera.",
+                "Bheka iqonde ngqo kukhamera."
+            ),
+            fontSize = if (tight) 20.sp else 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaBlue,
+            textAlign = TextAlign.Center,
+            lineHeight = if (tight) 26.sp else 28.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = uiStrings.t(
+                "LISA detects blinks and winks most accurately when you look towards the front camera while performing eye gestures.",
+                "LISA bespeur knippe en knipoë die akkuraatste wanneer jy na die voorkamera kyk terwyl jy ooggebare maak.",
+                "I-LISA ithola ukucwayiza nokucwayiza kwamehlo kahle kakhulu uma ubheka ikhamera yangaphambili ngenkathi wenza izenzo zamehlo."
+            ),
+            fontSize = if (tight) 13.sp else 14.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            lineHeight = if (tight) 18.sp else 20.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = uiStrings.t(
+                "Read the instruction on the screen first, then look back at the camera before blinking or winking.",
+                "Lees eers die instruksie op die skerm, kyk dan weer na die kamera voordat jy knip of knipoog.",
+                "Funda umyalelo esikrinini kuqala, bese ubheka ikhamera futhi ngaphambi kokucwayiza noma ukwenza i-wink."
+            ),
+            fontSize = if (tight) 12.sp else 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = LisaBlueDark.copy(alpha = 0.75f),
+            textAlign = TextAlign.Center,
+            lineHeight = if (tight) 17.sp else 18.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
+
+/** Simple outline: centred face looking toward a front-camera frame. Not decorative artwork. */
+@Composable
+private fun CameraLookingOutlineIcon(modifier: Modifier = Modifier) {
+    val stroke = LisaBlueDark.copy(alpha = 0.55f)
+    Canvas(modifier = modifier) {
+        val strokeWidth = 2.5.dp.toPx()
+        val style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        val cx = size.width / 2f
+        val faceCenterY = size.height * 0.58f
+        val faceRadius = size.height * 0.28f
+        // Front-camera frame (top centre)
+        val camW = size.width * 0.18f
+        val camH = size.height * 0.22f
+        val camLeft = cx - camW / 2f
+        val camTop = size.height * 0.04f
+        drawRoundRect(
+            color = stroke,
+            topLeft = Offset(camLeft, camTop),
+            size = Size(camW, camH),
+            cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+            style = style
+        )
+        drawCircle(
+            color = stroke,
+            radius = camH * 0.22f,
+            center = Offset(cx, camTop + camH / 2f),
+            style = style
+        )
+        // Face centred below the camera
+        drawCircle(
+            color = stroke,
+            radius = faceRadius,
+            center = Offset(cx, faceCenterY),
+            style = style
+        )
+        val eyeY = faceCenterY - faceRadius * 0.18f
+        val eyeOffsetX = faceRadius * 0.38f
+        val eyeR = faceRadius * 0.12f
+        drawCircle(color = stroke, radius = eyeR, center = Offset(cx - eyeOffsetX, eyeY), style = style)
+        drawCircle(color = stroke, radius = eyeR, center = Offset(cx + eyeOffsetX, eyeY), style = style)
+        // Soft upward glance toward the camera (short arcs via lines)
+        drawLine(
+            color = stroke,
+            start = Offset(cx, faceCenterY - faceRadius - 2.dp.toPx()),
+            end = Offset(cx, camTop + camH + 4.dp.toPx()),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/** Truthful prep checklist — only steps that have actually completed in the startup machine. */
+private typealias PreparationStep = PreparationChecklistStep
 
 private fun preparationCompletedSteps(
     phase: StartupPhase,
-    faceDetected: Boolean
-): List<PreparationStep> {
-    val steps = mutableListOf<PreparationStep>()
-    if (faceDetected) {
-        steps += PreparationStep.EyeTracking
-    }
-    val profileLoaded = phase == StartupPhase.EvaluatingCompatibility ||
-        phase == StartupPhase.QuickCalibration ||
-        phase == StartupPhase.CalibrationFailure ||
-        phase == StartupPhase.EyeTrackingReady ||
-        phase == StartupPhase.Complete ||
-        phase == StartupPhase.CreatePrimaryUser ||
-        phase == StartupPhase.ProfileSelection
-    if (profileLoaded) {
-        steps += PreparationStep.LoadingProfile
-    }
-    val communicationPrepared = phase == StartupPhase.QuickCalibration ||
-        phase == StartupPhase.CalibrationFailure ||
-        phase == StartupPhase.EyeTrackingReady ||
-        phase == StartupPhase.Complete
-    if (communicationPrepared) {
-        steps += PreparationStep.PreparingCommunication
-    }
-    if (phase == StartupPhase.EyeTrackingReady || phase == StartupPhase.Complete) {
-        steps += PreparationStep.CalibrationReady
-    }
-    return steps
-}
+    faceDetected: Boolean,
+    communicationPrepared: Boolean,
+    calibrationDecisionReady: Boolean
+): List<PreparationStep> = StartupPreparationChecklistAuthority.completedSteps(
+    phase = phase,
+    faceDetected = faceDetected,
+    communicationPrepared = communicationPrepared,
+    calibrationDecisionReady = calibrationDecisionReady
+)
 
 @Composable
 private fun PreparationProgressList(
     steps: List<PreparationStep>,
-    uiStrings: LisaUiStrings
+    uiStrings: LisaUiStrings,
+    rowSpacing: Dp = 10.dp
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(rowSpacing)
     ) {
         steps.forEach { step ->
             key(step) {
@@ -749,8 +904,8 @@ private fun EyeTrackingReadyScreen(
     onDecreaseResponseTime: () -> Unit,
     onIncreaseResponseTime: () -> Unit
 ) {
-    // RC8.0 — no dedicated "Eye Tracking Ready" pause screen. Brief handoff only shows
-    // truthful completed prep steps while READY_HANDOFF_MS elapses (≤500ms).
+    // Silent ≤READY_HANDOFF_MS bridge into Welcome. The readiness checklist belongs to the
+    // Preparing screen alone — repeating it here produced a duplicate four-tick screen.
     StartupScreenWithSharedBlinkCounter(
         uiStrings = uiStrings,
         eyeTrackingStatus = eyeTrackingStatus,
@@ -759,24 +914,7 @@ private fun EyeTrackingReadyScreen(
         onDecreaseResponseTime = onDecreaseResponseTime,
         onIncreaseResponseTime = onIncreaseResponseTime
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            PreparationProgressList(
-                steps = listOf(
-                    PreparationStep.EyeTracking,
-                    PreparationStep.LoadingProfile,
-                    PreparationStep.PreparingCommunication,
-                    PreparationStep.CalibrationReady
-                ),
-                uiStrings = uiStrings
-            )
-        }
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 

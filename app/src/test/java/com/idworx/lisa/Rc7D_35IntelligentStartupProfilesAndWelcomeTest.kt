@@ -114,8 +114,12 @@ class Rc7D_35IntelligentStartupProfilesAndWelcomeTest {
         assertEquals("b", state.selectedProfileId)
     }
 
+    /**
+     * RC1.0.4 — compatibility scoring is unchanged and still reports High, but the Version 1
+     * routing rule sends every launch through quick calibration anyway.
+     */
     @Test
-    fun compatibilityHighSkipsCalibration() {
+    fun compatibilityHighIsStillScoredButNoLongerSkipsCalibration() {
         val stored = sampleCalibration()
         val live = LiveCompatibilitySample(
             eyeOpennessBaseline = 0.84f,
@@ -133,9 +137,9 @@ class Rc7D_35IntelligentStartupProfilesAndWelcomeTest {
             state,
             StartupEvent.CompatibilityEvaluated(CalibrationCompatibilityLevel.High)
         )
-        assertEquals(StartupPhase.EyeTrackingReady, state.phase)
-        assertTrue(state.skippedCalibration)
-        assertTrue(state.eyeControlActive)
+        assertEquals(StartupPhase.QuickCalibration, state.phase)
+        assertFalse(state.skippedCalibration)
+        assertFalse(state.eyeControlActive)
     }
 
     @Test
@@ -234,8 +238,12 @@ class Rc7D_35IntelligentStartupProfilesAndWelcomeTest {
         assertEquals(0.14f, restored.eyeCalibration!!.eyeSpacingProxy, 0.001f)
     }
 
+    /**
+     * RC1.0.4 — a single high-compatibility profile still loads automatically, but Version 1
+     * hands off into quick calibration instead of straight to eye-tracking-ready.
+     */
     @Test
-    fun startupControllerSingleHighCompatibilityHandsOff() {
+    fun startupControllerSingleHighCompatibilityHandsOffIntoQuickCalibration() {
         val stored = sampleCalibration()
         val profiles = mutableListOf(profile("only", "Only", stored))
         var activated: String? = null
@@ -272,12 +280,11 @@ class Rc7D_35IntelligentStartupProfilesAndWelcomeTest {
             }
             clock += 500
         }
-        assertTrue(eyeReady || controller.eyeControlEnabled || complete)
-        assertTrue(
-            controller.state.phase == StartupPhase.EyeTrackingReady ||
-                controller.state.phase == StartupPhase.Complete ||
-                controller.state.phase == StartupPhase.QuickCalibration
-        )
+        assertFalse(eyeReady)
+        assertFalse(complete)
+        assertFalse(controller.eyeControlEnabled)
+        assertEquals(StartupPhase.QuickCalibration, controller.state.phase)
+        assertEquals(QuickCalibrationStep.LookNaturally, controller.state.calibrationStep)
     }
 
     @Test

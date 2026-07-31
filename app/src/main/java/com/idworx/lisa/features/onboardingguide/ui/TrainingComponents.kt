@@ -575,10 +575,12 @@ private fun GuidedLessonSequenceEmphasisBox(sequenceLabel: String) {
 @Composable
 fun GuidedLessonPhraseTitle(
     phrase: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Compact landscape keeps the phrase large and legible, just short enough to fit. */
+    compact: Boolean = false
 ) {
     val normalized = phrase.uppercase()
-    val fontSize = guidedLessonPhraseFontSize(phrase)
+    val fontSize = guidedLessonPhraseFontSize(phrase, compact)
     val lineHeight = (fontSize.value * 1.3f).sp
     Text(
         text = normalized,
@@ -592,10 +594,13 @@ fun GuidedLessonPhraseTitle(
     )
 }
 
-fun guidedLessonPhraseFontSize(phrase: String): androidx.compose.ui.unit.TextUnit {
+fun guidedLessonPhraseFontSize(
+    phrase: String,
+    compact: Boolean = false
+): androidx.compose.ui.unit.TextUnit {
     val normalized = phrase.uppercase()
     val wordCount = normalized.split(" ").count { it.isNotBlank() }
-    return when {
+    val portraitSize = when {
         wordCount >= 4 -> when {
             normalized.length <= 20 -> 28.sp
             else -> 24.sp
@@ -605,6 +610,9 @@ fun guidedLessonPhraseFontSize(phrase: String): androidx.compose.ui.unit.TextUni
         normalized.length <= 24 -> 28.sp
         else -> 24.sp
     }
+    if (!compact) return portraitSize
+    // Never below 20sp — compact landscape must stay readable, not shrink to fit.
+    return (portraitSize.value * 0.8f).coerceAtLeast(20f).sp
 }
 
 @Composable
@@ -644,18 +652,23 @@ fun LessonEyeStatusPanel(
     eyeTracking: TrainingEyeTrackingState,
     modifier: Modifier = Modifier,
     /** When false, only camera/eyes lines render — blink counts use shared [BlinkCounterRow]. */
-    showBlinkCounters: Boolean = true
+    showBlinkCounters: Boolean = true,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 18.dp,
+    verticalPadding: androidx.compose.ui.unit.Dp = 12.dp,
+    rowSpacing: androidx.compose.ui.unit.Dp = 8.dp,
+    labelFontSize: androidx.compose.ui.unit.TextUnit = 16.sp
 ) {
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(LisaWhite.copy(alpha = 0.92f))
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+        verticalArrangement = Arrangement.spacedBy(rowSpacing)
     ) {
         SetupStatusLine(
             label = "Camera",
-            value = if (eyeTracking.cameraActive) "Active" else "Waiting"
+            value = if (eyeTracking.cameraActive) "Active" else "Waiting",
+            fontSize = labelFontSize
         )
         SetupStatusLine(
             label = "Eyes",
@@ -663,7 +676,8 @@ fun LessonEyeStatusPanel(
                 !eyeTracking.cameraActive -> "Waiting"
                 !eyeTracking.faceDetected || !eyeTracking.eyesDetected -> "Not detected"
                 else -> "Detected"
-            }
+            },
+            fontSize = labelFontSize
         )
         if (showBlinkCounters) {
             AnimatedBlinkCounterRow(
@@ -931,36 +945,45 @@ fun SetupDetectionStatusRow(
     faceDetected: Boolean,
     eyesDetected: Boolean,
     uiStrings: com.idworx.lisa.LisaUiStrings,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    rowSpacing: androidx.compose.ui.unit.Dp = 10.dp,
+    labelFontSize: androidx.compose.ui.unit.TextUnit = 16.sp
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
         SetupStatusLine(
             label = uiStrings.t("Camera", "Kamera", "Ikhamera"),
             value = if (cameraActive) uiStrings.t("Active", "Aktief", "Iyasebenza")
-            else uiStrings.t("Waiting", "Wag", "Ilinde")
+            else uiStrings.t("Waiting", "Wag", "Ilinde"),
+            fontSize = labelFontSize
         )
         SetupStatusLine(
             label = uiStrings.t("Face", "Gesig", "Ubuso"),
             value = if (faceDetected) uiStrings.t("Detected", "Bespeur", "Kutholakele")
-            else uiStrings.t("Not detected", "Nie bespeur nie", "Akutholakalanga")
+            else uiStrings.t("Not detected", "Nie bespeur nie", "Akutholakalanga"),
+            fontSize = labelFontSize
         )
         SetupStatusLine(
             label = uiStrings.t("Eyes", "Oë", "Amehlo"),
             value = if (eyesDetected) uiStrings.t("Detected", "Bespeur", "Kutholakele")
-            else uiStrings.t("Not detected", "Nie bespeur nie", "Akutholakalanga")
+            else uiStrings.t("Not detected", "Nie bespeur nie", "Akutholakalanga"),
+            fontSize = labelFontSize
         )
     }
 }
 
 @Composable
-private fun SetupStatusLine(label: String, value: String) {
+private fun SetupStatusLine(
+    label: String,
+    value: String,
+    fontSize: androidx.compose.ui.unit.TextUnit = 16.sp
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 16.sp, color = LisaBlueDark.copy(alpha = 0.75f))
-        Text(text = value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
+        Text(text = label, fontSize = fontSize, color = LisaBlueDark.copy(alpha = 0.75f))
+        Text(text = value, fontSize = fontSize, fontWeight = FontWeight.SemiBold, color = LisaBlueDark)
     }
 }
 
@@ -1041,6 +1064,8 @@ fun TrainingSecondaryButton(
 @Composable
 fun TrainingCard(
     modifier: Modifier = Modifier,
+    contentPadding: androidx.compose.ui.unit.Dp = 24.dp,
+    contentSpacing: androidx.compose.ui.unit.Dp = 16.dp,
     content: @Composable () -> Unit
 ) {
     Card(
@@ -1052,8 +1077,8 @@ fun TrainingCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(contentSpacing)
         ) {
             content()
         }
@@ -1082,7 +1107,9 @@ fun TrainingCelebrationOverlay(visible: Boolean) {
 fun SimplifiedGestureDisplay(
     left: Int,
     right: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Compact landscape keeps both lines, tightened rather than truncated. */
+    compactLayout: Boolean = false
 ) {
     val natural = GuidedPhraseLessonPresentationAuthority.naturalLanguageInstruction(left, right)
     val compact = GuidedPhraseLessonPresentationAuthority.compactSequence(left, right)
@@ -1092,16 +1119,16 @@ fun SimplifiedGestureDisplay(
     ) {
         Text(
             text = natural,
-            fontSize = 24.sp,
+            fontSize = if (compactLayout) 19.sp else 24.sp,
             fontWeight = FontWeight.SemiBold,
             color = LisaBlue,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 10.dp))
         Text(
             text = compact,
-            fontSize = 22.sp,
+            fontSize = if (compactLayout) 18.sp else 22.sp,
             fontWeight = FontWeight.Bold,
             color = LisaBlueDark,
             textAlign = TextAlign.Center,

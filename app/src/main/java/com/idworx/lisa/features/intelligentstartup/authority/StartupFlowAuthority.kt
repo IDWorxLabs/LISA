@@ -162,6 +162,15 @@ object StartupFlowAuthority {
             else state
         }
 
+        is StartupEvent.PreparationCompleted -> {
+            if (state.phase != StartupPhase.EvaluatingCompatibility) state
+            else state.copy(
+                compatibilityLevel = event.level,
+                communicationPrepared = true,
+                calibrationDecisionReady = true
+            )
+        }
+
         is StartupEvent.CompatibilityEvaluated -> {
             if (state.phase != StartupPhase.EvaluatingCompatibility) state
             else routeCompatibility(state, event.level)
@@ -256,15 +265,9 @@ object StartupFlowAuthority {
     private fun routeCompatibility(
         state: StartupFlowState,
         level: CalibrationCompatibilityLevel
-    ): StartupFlowState = when (level) {
-        CalibrationCompatibilityLevel.High -> state.copy(
-            phase = StartupPhase.EyeTrackingReady,
-            compatibilityLevel = level,
-            skippedCalibration = true,
-            eyeControlActive = true
-        )
-        CalibrationCompatibilityLevel.Medium,
-        CalibrationCompatibilityLevel.Low -> state.copy(
+    ): StartupFlowState = if (StartupCalibrationRequirementAuthority.requiresQuickCalibration(level)) {
+        // Preparing always hands off to quick calibration; progress starts from zero.
+        state.copy(
             phase = StartupPhase.QuickCalibration,
             compatibilityLevel = level,
             calibrationStep = QuickCalibrationStep.LookNaturally,
@@ -273,6 +276,13 @@ object StartupFlowAuthority {
             rightWinksCollected = 0,
             skippedCalibration = false,
             eyeControlActive = false
+        )
+    } else {
+        state.copy(
+            phase = StartupPhase.EyeTrackingReady,
+            compatibilityLevel = level,
+            skippedCalibration = true,
+            eyeControlActive = true
         )
     }
 

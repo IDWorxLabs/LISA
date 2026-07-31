@@ -60,8 +60,12 @@ class Rc7D_34IntelligentStartupCalibrationTest {
         assertEquals(StartupPhase.FaceDetection, state.phase)
     }
 
+    /**
+     * RC1.0.4 — Version 1 always runs quick calibration. High confidence is still evaluated and
+     * recorded, but it no longer routes past the calibration sequence.
+     */
     @Test
-    fun detectedFaceThenHighConfidenceSkipsCalibrationToEyeReady() {
+    fun detectedFaceThenHighConfidenceStillRunsQuickCalibration() {
         var state = StartupFlowAuthority.reduce(
             StartupFlowState(),
             StartupEvent.FacePresenceChanged(true)
@@ -71,9 +75,10 @@ class Rc7D_34IntelligentStartupCalibrationTest {
             state,
             StartupEvent.ConfidenceEvaluated(CalibrationConfidenceLevel.High)
         )
-        assertEquals(StartupPhase.EyeTrackingReady, state.phase)
-        assertTrue(state.skippedCalibration)
-        assertTrue(state.eyeControlActive)
+        assertEquals(StartupPhase.QuickCalibration, state.phase)
+        assertEquals(QuickCalibrationStep.LookNaturally, state.calibrationStep)
+        assertFalse(state.skippedCalibration)
+        assertFalse(state.eyeControlActive)
     }
 
     @Test
@@ -223,11 +228,12 @@ class Rc7D_34IntelligentStartupCalibrationTest {
     fun noSkipCalibrationButtonInAuthorityCatalog() {
         val skipCalibrationEventExists = false
         assertFalse(skipCalibrationEventExists)
-        val highSkip = StartupFlowAuthority.reduce(
+        // RC1.0.4 — there is no skip button and, in Version 1, no automatic skip either.
+        val highConfidence = StartupFlowAuthority.reduce(
             StartupFlowState(phase = StartupPhase.EvaluatingCompatibility),
             StartupEvent.ConfidenceEvaluated(CalibrationConfidenceLevel.High)
         )
-        assertTrue(highSkip.skippedCalibration)
-        assertEquals(StartupPhase.EyeTrackingReady, highSkip.phase)
+        assertFalse(highConfidence.skippedCalibration)
+        assertEquals(StartupPhase.QuickCalibration, highConfidence.phase)
     }
 }

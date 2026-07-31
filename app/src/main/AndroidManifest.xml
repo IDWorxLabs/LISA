@@ -18,9 +18,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LISA">
 
+        <!--
+          Version 1 — portrait only. Eye tracking is less stable in landscape, so V1 never
+          enters landscape during normal operation.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.LISA.Splash">
 
             <intent-filter>

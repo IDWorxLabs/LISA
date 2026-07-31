@@ -104,8 +104,16 @@ data class StartupFlowState(
     val calibration: ProfileEyeCalibration? = null,
     val compatibilityLevel: CalibrationCompatibilityLevel? = null,
     val skippedCalibration: Boolean = false,
+    /** Communication workspace preparation finished during the Preparing phase. */
+    val communicationPrepared: Boolean = false,
+    /** Calibration route resolved during the Preparing phase; entry is ready. */
+    val calibrationDecisionReady: Boolean = false,
     val isActive: Boolean = true
 ) {
+    /** All Preparing-phase work is done; only the guidance display gate may still hold. */
+    val preparationComplete: Boolean
+        get() = faceDetected && communicationPrepared && calibrationDecisionReady
+
     val blocksMainUi: Boolean
         get() = isActive && phase != StartupPhase.Complete
 
@@ -129,6 +137,11 @@ sealed class StartupEvent {
     data object MoveProfileSelectionDown : StartupEvent()
     data object SelectHighlightedProfile : StartupEvent()
     data object BeginCompatibilityEvaluation : StartupEvent()
+    /**
+     * Preparing-phase work finished (communication ready, calibration route resolved) without
+     * routing away from the Preparing screen. Routing stays with [CompatibilityEvaluated].
+     */
+    data class PreparationCompleted(val level: CalibrationCompatibilityLevel) : StartupEvent()
     data class CompatibilityEvaluated(val level: CalibrationCompatibilityLevel) : StartupEvent()
     /** Retained for RC7D.34 callers; maps onto compatibility routing. */
     data class ConfidenceEvaluated(val level: CalibrationConfidenceLevel) : StartupEvent()
