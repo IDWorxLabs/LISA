@@ -8,7 +8,8 @@ class CompanionMemoryStore(context: Context) :
     CompanionMemoryRepository,
     CompanionMemoryExportImport {
 
-    private val prefs = context.getSharedPreferences(LisaProfileStore.PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs =
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
 
     override fun load(): CompanionMemoryState {
         val raw = prefs.getString(KEY_STATE, null) ?: return CompanionMemoryState()

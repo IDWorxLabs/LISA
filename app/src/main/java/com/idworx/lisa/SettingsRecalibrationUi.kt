@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -58,7 +56,6 @@ fun SettingsRecalibrationPanel(
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
@@ -100,91 +97,98 @@ fun SettingsRecalibrationPanel(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(20.dp))
-            when (state.outcome) {
-                SettingsRecalibrationOutcome.Failed -> {
-                    Text(
-                        text = uiStrings.t(
-                            "We couldn't calibrate your eyes.",
-                            "Ons kon nie jou oë kalibreer nie.",
-                            "Asikwazanga ukulungisa amehlo akho."
-                        ),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LisaBlueDark,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = uiStrings.t(
-                            "Move closer to the camera or improve the lighting, then retry.",
-                            "Beweeg nader aan die kamera of verbeter die beligting, probeer dan weer.",
-                            "Sondele ekhamereni noma thuthukisa ukukhanya, bese uzama futhi."
-                        ),
-                        fontSize = 16.sp,
-                        color = LisaBlueDark.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Text(
-                        text = "${uiStrings.calibrationRetryLabel} · ${
-                            SettingsRecalibrationRetrySequenceAuthority.sequenceLabel()
-                        }",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LisaBlueDark,
-                        modifier = Modifier
-                            .clickable {
-                                SettingsRecalibrationRetrySequenceAuthority.invokeRetry(onRetry)
-                            }
-                            .padding(12.dp)
-                    )
-                }
-                SettingsRecalibrationOutcome.Succeeded -> {
-                    Text(
-                        text = uiStrings.t(
-                            "Calibration Complete",
-                            "Kalibrering Voltooi",
-                            "Ukulungiswa Kuqediwe"
-                        ),
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LisaBlueDark,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = uiStrings.t(
-                            "Returning to Settings…",
-                            "Keer terug na Instellings…",
-                            "Kubuyela ku-Izilungiselelo…"
-                        ),
-                        fontSize = 16.sp,
-                        color = LisaBlueDark.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center
-                    )
-                }
-                else -> {
-                    val (title, body) = stepCopy(state, uiStrings)
-                    Text(
-                        title,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = LisaBlueDark,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        body,
-                        fontSize = 16.sp,
-                        color = LisaBlueDark.copy(alpha = 0.85f),
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
+            // Remaining safe area below status — centre the active instruction group.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                when (state.outcome) {
+                    SettingsRecalibrationOutcome.Failed -> {
+                        Text(
+                            text = uiStrings.t(
+                                "We couldn't calibrate your eyes.",
+                                "Ons kon nie jou oë kalibreer nie.",
+                                "Asikwazanga ukulungisa amehlo akho."
+                            ),
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LisaBlueDark,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = uiStrings.t(
+                                "Move closer to the camera or improve the lighting, then retry.",
+                                "Beweeg nader aan die kamera of verbeter die beligting, probeer dan weer.",
+                                "Sondele ekhamereni noma thuthukisa ukukhanya, bese uzama futhi."
+                            ),
+                            fontSize = 16.sp,
+                            color = LisaBlueDark.copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 22.sp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "${uiStrings.calibrationRetryLabel} · ${
+                                SettingsRecalibrationRetrySequenceAuthority.sequenceLabel()
+                            }",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LisaBlueDark,
+                            modifier = Modifier
+                                .clickable {
+                                    SettingsRecalibrationRetrySequenceAuthority.invokeRetry(onRetry)
+                                }
+                                .padding(12.dp)
+                        )
+                    }
+                    SettingsRecalibrationOutcome.Succeeded -> {
+                        Text(
+                            text = uiStrings.t(
+                                "Calibration Complete",
+                                "Kalibrering Voltooi",
+                                "Ukulungiswa Kuqediwe"
+                            ),
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LisaBlueDark,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = uiStrings.t(
+                                "Returning to Settings…",
+                                "Keer terug na Instellings…",
+                                "Kubuyela ku-Izilungiselelo…"
+                            ),
+                            fontSize = 16.sp,
+                            color = LisaBlueDark.copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    else -> {
+                        val (title, body) = stepCopy(state, uiStrings)
+                        Text(
+                            title,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LisaBlueDark,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            body,
+                            fontSize = 16.sp,
+                            color = LisaBlueDark.copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center,
+                            lineHeight = 22.sp
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = uiStrings.calibrationCancelHint,
                 fontSize = 13.sp,
@@ -209,13 +213,13 @@ private fun stepCopy(
             )
     QuickCalibrationStep.BlinkThreeTimes ->
         uiStrings.t("Blink normally three times.", "Knip normaalweg drie keer.", "Cwayiza kathathu ngokujwayelekile.") to
-            "${state.blinksCollected} / 3"
+            uiStrings.t("${state.blinksCollected} of 3", "${state.blinksCollected} van 3", "${state.blinksCollected} kwangu-3")
     QuickCalibrationStep.LeftWinkTwice ->
         uiStrings.t("Wink your left eye twice.", "Knip jou linkerenoog twee keer.", "Cwayiza iso lakho langakwesokunxele kabili.") to
-            "${state.leftWinksCollected} / 2"
+            uiStrings.t("${state.leftWinksCollected} of 2", "${state.leftWinksCollected} van 2", "${state.leftWinksCollected} kwangu-2")
     QuickCalibrationStep.RightWinkTwice ->
         uiStrings.t("Wink your right eye twice.", "Knip jou regteroog twee keer.", "Cwayiza iso lakho langakwesokudla kabili.") to
-            "${state.rightWinksCollected} / 2"
+            uiStrings.t("${state.rightWinksCollected} of 2", "${state.rightWinksCollected} van 2", "${state.rightWinksCollected} kwangu-2")
     QuickCalibrationStep.CalibrationComplete ->
         uiStrings.t("Calibration Complete", "Kalibrering Voltooi", "Ukulungiswa Kuqediwe") to
             uiStrings.t("Eye tracking is ready.", "Oognasporing is gereed.", "Ukulandelela amehlo sekulungile.")

@@ -297,7 +297,7 @@ object CustomPhraseRepository {
     /** Prefer applicationContext so Activity contexts are never retained. */
     private fun prefs(context: Context?): android.content.SharedPreferences? {
         val resolved = context?.applicationContext ?: context ?: return null
-        return resolved.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return com.idworx.lisa.features.securestorage.LisaPreferences.get(resolved)
     }
 
     fun catalogLocationForMapping(

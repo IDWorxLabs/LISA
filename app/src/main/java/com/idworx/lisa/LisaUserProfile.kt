@@ -303,7 +303,8 @@ data class LisaProfileState(
 }
 
 class LisaProfileStore(private val context: android.content.Context) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+    private val prefs =
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
 
     fun loadProfiles(): List<LisaUserProfile> {
         val raw = prefs.getString(KEY_PROFILES_JSON, null) ?: return emptyList()

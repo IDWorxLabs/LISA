@@ -31,6 +31,7 @@ fun PrivacyPolicyPanel(uiStrings: LisaUiStrings, onBack: () -> Unit) {
             PolicySection(title = uiStrings.privacyOnDeviceTitle, body = uiStrings.privacyOnDeviceBody)
             PolicySection(title = uiStrings.privacyNoSellingTitle, body = uiStrings.privacyNoSellingBody)
             PolicySection(title = uiStrings.privacyYourInfoTitle, body = uiStrings.privacyYourInfoBody)
+            PolicySection(title = uiStrings.privacyEmergencyTitle, body = uiStrings.privacyEmergencyBody)
             PolicySection(title = uiStrings.privacyControlTitle, body = uiStrings.privacyControlBody)
             PolicySection(title = uiStrings.privacyQuestionsTitle, body = uiStrings.privacyQuestionsBody)
         }

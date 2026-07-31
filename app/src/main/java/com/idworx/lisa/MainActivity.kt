@@ -190,6 +190,20 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private val uiMenuDestinationViewportHeightPx = mutableStateOf(0)
     private val uiMenuDestinationMaxScrollPx = mutableStateOf(0)
     private val uiMenuFeedbackDraft = mutableStateOf(MenuFeedbackDraft())
+    private val uiFeedbackStatusMessage = mutableStateOf<String?>(null)
+    /**
+     * Set when mailto handoff starts successfully. The neutral return message is shown only after
+     * LISA stays resumed (chooser/email app no longer covering LISA). Cleared on show or cancel.
+     */
+    private var feedbackEmailHandoffAwaitingReturn: Boolean = false
+    private val showFeedbackEmailReturnMessageRunnable = Runnable {
+        if (!feedbackEmailHandoffAwaitingReturn || isFinishing) return@Runnable
+        feedbackEmailHandoffAwaitingReturn = false
+        presentFeedbackStatusMessage(guidedUiStrings().feedbackEmailOpenedConfirmation)
+    }
+    private val dismissFeedbackStatusMessageRunnable = Runnable {
+        uiFeedbackStatusMessage.value = null
+    }
     private val uiSettingsRecalibrationState = mutableStateOf(SettingsRecalibrationState())
     private lateinit var settingsRecalibrationController: SettingsRecalibrationController
     private val uiSettingsState = mutableStateOf(LisaSettingsUiState())
@@ -277,6 +291,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+
+        // Trigger secure-storage migration before any store reads durable prefs.
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(this)
 
 // TTS
         tts = TextToSpeech(this, this)
@@ -416,6 +433,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         uiTestingChecklist.value = releaseStore.loadChecklist()
         uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
+        // Session-only Feedback form: never restore fields from a previous process.
+        // Discard any draft key left by older builds that persisted across launches.
+        releaseStore.discardPersistedFeedbackDraftFromPreviousBuilds()
+        uiMenuFeedbackDraft.value = MenuFeedbackDraft()
         refreshCameraPermissionState()
 
         setContent {
@@ -606,7 +627,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onMainMenuEmergency = { triggerGuidedEmergencyTouch() },
                         menuDestinationBinding = destinationBinding,
                         feedbackDraft = uiMenuFeedbackDraft.value,
-                        onFeedbackDraftChange = { uiMenuFeedbackDraft.value = it },
+                        onFeedbackDraftChange = { draft ->
+                            uiMenuFeedbackDraft.value = draft
+                        },
                         customPhrases = customPhrases,
                         phraseManagementState = phraseManagementState,
                         onSelectCustomPhrase = { identity -> openPhraseManagementDetails(identity) },
@@ -705,9 +728,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onCompleteOnboarding = { completeOnboarding() },
                         onRequestCameraPermission = { requestCameraPermissionFromUser() },
                         onOpenAppSettings = { openAppSettings() },
-                        onSaveFeedback = { worked, confusing, winks, speech ->
-                            saveFeedbackEntry(worked, confusing, winks, speech)
+                        onSaveFeedback = { _, _, _, _ ->
+                            openFeedbackCaregiverAssist()
                         },
+                        onClearFeedbackDraft = { clearFeedbackDraft() },
+                        feedbackStatusMessage = uiFeedbackStatusMessage.value,
+                        onDismissFeedbackStatus = { dismissFeedbackStatusMessage() },
                         onToggleChecklistItem = { key, checked ->
                             toggleChecklistItem(key, checked)
                         },
@@ -969,6 +995,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onPause() {
         super.onPause()
         pausedAtMs = System.currentTimeMillis()
+        // Chooser → email app transitions pause LISA briefly; cancel any pending return message
+        // so it cannot appear over the system chooser.
+        mainHandler.removeCallbacks(showFeedbackEmailReturnMessageRunnable)
     }
 
     override fun onResume() {
@@ -977,6 +1006,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         activeProfile()?.let { applyTtsForProfile(it) }
         refreshVoiceSettingsState()
         maybeSpeakWarmReturnAfterBackground()
+        if (feedbackEmailHandoffAwaitingReturn) {
+            mainHandler.removeCallbacks(showFeedbackEmailReturnMessageRunnable)
+            mainHandler.postDelayed(
+                showFeedbackEmailReturnMessageRunnable,
+                com.idworx.lisa.features.feedbackemail.LisaFeedbackSessionAuthority.RETURN_MESSAGE_DELAY_MS
+            )
+        }
     }
 
     override fun onDestroy() {
@@ -1715,6 +1751,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             uiStrings.privacyOnDeviceTitle,
             uiStrings.privacyNoSellingTitle,
             uiStrings.privacyYourInfoTitle,
+            uiStrings.privacyEmergencyTitle,
             uiStrings.privacyControlTitle,
             uiStrings.privacyQuestionsTitle
         ).mapIndexed { index, label ->
@@ -1747,8 +1784,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             ),
             MenuDestinationAction(
                 MenuDestinationActionId.FeedbackSave,
-                uiStrings.saveFeedback,
+                uiStrings.feedbackSendByEmail,
                 MenuDestinationActionType.Save,
+                isEnabled = uiMenuFeedbackDraft.value.hasContent
+            ),
+            MenuDestinationAction(
+                MenuDestinationActionId.FeedbackClearDraft,
+                uiStrings.feedbackClearDraft,
+                MenuDestinationActionType.Button,
                 isEnabled = uiMenuFeedbackDraft.value.hasContent
             )
         )
@@ -1848,7 +1891,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             actionId == MenuDestinationActionId.VoiceInstallData -> installTtsVoiceData()
             actionId == MenuDestinationActionId.VoiceSystemSettings -> openTtsSettings()
             actionId.value.startsWith("feedback.") &&
-                actionId != MenuDestinationActionId.FeedbackSave -> {
+                actionId != MenuDestinationActionId.FeedbackSave &&
+                actionId != MenuDestinationActionId.FeedbackClearDraft -> {
                 uiMenuDestinationState.value =
                     MenuDestinationNavigationController.beginTextEditing(
                         uiMenuDestinationState.value,
@@ -1859,14 +1903,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             actionId == MenuDestinationActionId.FeedbackSave &&
                 uiMenuFeedbackDraft.value.hasContent -> {
-                val draft = uiMenuFeedbackDraft.value
-                saveFeedbackEntry(
-                    draft.workedWell,
-                    draft.confusing,
-                    draft.winkDetection,
-                    draft.speechTiming
-                )
-                uiMenuFeedbackDraft.value = MenuFeedbackDraft()
+                openFeedbackCaregiverAssist()
+            }
+            actionId == MenuDestinationActionId.FeedbackClearDraft -> {
+                clearFeedbackDraft()
             }
             actionId == MenuDestinationActionId.setting("calibration") ->
                 openSettingsRecalibration()
@@ -1958,8 +1998,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (stage.draftText.isBlank()) return
             updateActiveProfile { it.copy(name = stage.draftText.trim()) }
         } else {
-            uiMenuFeedbackDraft.value =
-                uiMenuFeedbackDraft.value.withValue(stage.actionId, stage.draftText)
+            val updated = uiMenuFeedbackDraft.value.withValue(stage.actionId, stage.draftText)
+            uiMenuFeedbackDraft.value = updated
+            // Session-only — do not write feedback fields to durable preferences.
         }
         uiMenuDestinationState.value =
             MenuDestinationNavigationController.confirmTextEditing(
@@ -1976,6 +2017,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun handleMenuDestinationCommand(command: MenuDestinationPanelCommand) {
         val state = uiMenuDestinationState.value
+        val caregiverStage =
+            state.interactionStage as? MenuDestinationInteractionStage.FeedbackCaregiverAssist
+        if (caregiverStage != null) {
+            when (command) {
+                MenuDestinationPanelCommand.Select ->
+                    activateFeedbackCaregiverAssistPrimary(caregiverStage.step)
+                MenuDestinationPanelCommand.Back,
+                MenuDestinationPanelCommand.Cancel -> backFromMenuDestination()
+                MenuDestinationPanelCommand.Emergency -> triggerGuidedEmergencyTouch()
+                else -> Unit
+            }
+            return
+        }
         val textStage =
             state.interactionStage as? MenuDestinationInteractionStage.TextEditing
         if (textStage != null) {
@@ -2070,7 +2124,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val state = uiMenuDestinationState.value
         when (val stage = state.interactionStage) {
             is MenuDestinationInteractionStage.TextEditing,
-            is MenuDestinationInteractionStage.Confirmation -> {
+            is MenuDestinationInteractionStage.Confirmation,
+            is MenuDestinationInteractionStage.FeedbackCaregiverAssist -> {
                 uiMenuDestinationState.value =
                     MenuDestinationNavigationController.cancelCurrentStage(state)
             }
@@ -2090,8 +2145,66 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun openFeedbackCaregiverAssist() {
+        if (!uiMenuFeedbackDraft.value.hasContent) return
+        uiMenuDestinationState.value =
+            MenuDestinationNavigationController.beginFeedbackCaregiverAssist(
+                uiMenuDestinationState.value
+            )
+    }
+
+    private fun activateFeedbackCaregiverAssistPrimary(
+        step: com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep
+    ) {
+        when (step) {
+            com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.SpeakRequest -> {
+                // Production TTS path — do not open email in the same action.
+                speak(
+                    com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistAuthority
+                        .SPOKEN_HELP_REQUEST
+                )
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.advanceFeedbackCaregiverAssistToOpenEmail(
+                        uiMenuDestinationState.value
+                    )
+            }
+            com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.OpenEmailApp -> {
+                val draft = uiMenuFeedbackDraft.value
+                // Return to Feedback browsing so resume after email lands on the form.
+                uiMenuDestinationState.value =
+                    MenuDestinationNavigationController.cancelCurrentStage(
+                        uiMenuDestinationState.value
+                    )
+                launchFeedbackEmail(
+                    draft.workedWell,
+                    draft.confusing,
+                    draft.winkDetection,
+                    draft.speechTiming
+                )
+            }
+        }
+    }
+
     private fun handleMenuDestinationSequence(left: Int, right: Int) {
         val state = uiMenuDestinationState.value
+        val caregiverStage = state.interactionStage as?
+            MenuDestinationInteractionStage.FeedbackCaregiverAssist
+        if (caregiverStage != null) {
+            val authority =
+                com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistAuthority
+            when {
+                authority.isPrimarySequence(left, right) ->
+                    activateFeedbackCaregiverAssistPrimary(caregiverStage.step)
+                authority.isBackSequence(left, right) ->
+                    backFromMenuDestination()
+                left to right ==
+                    (EMERGENCY_LEFT_WINKS to EMERGENCY_RIGHT_WINKS) ->
+                    triggerGuidedEmergencyTouch()
+            }
+            resetSequence()
+            setCommunicationState(LisaCommunicationState.Listening)
+            return
+        }
         val textStage = state.interactionStage as?
             MenuDestinationInteractionStage.TextEditing
         if (textStage != null) {
@@ -3405,22 +3518,74 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }, 1_600L)
     }
 
+    private fun presentFeedbackStatusMessage(message: String) {
+        mainHandler.removeCallbacks(dismissFeedbackStatusMessageRunnable)
+        uiFeedbackStatusMessage.value = message
+        mainHandler.postDelayed(
+            dismissFeedbackStatusMessageRunnable,
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackSessionAuthority.STATUS_AUTO_DISMISS_MS
+        )
+    }
+
+    private fun dismissFeedbackStatusMessage() {
+        mainHandler.removeCallbacks(dismissFeedbackStatusMessageRunnable)
+        uiFeedbackStatusMessage.value = null
+    }
+
+    private fun clearFeedbackDraft() {
+        uiMenuFeedbackDraft.value = MenuFeedbackDraft()
+        dismissFeedbackStatusMessage()
+    }
+
+    /**
+     * Opens the user's email app with a pre-filled feedback message.
+     * Does not claim the message was sent. Keeps session form text; shows neutral status only after return.
+     */
+    private fun launchFeedbackEmail(
+        whatWorkedWell: String,
+        whatWasConfusing: String,
+        winkDetectionFeedback: String,
+        speechTimingFeedback: String
+    ) {
+        val draft = MenuFeedbackDraft(
+            workedWell = whatWorkedWell.trim(),
+            confusing = whatWasConfusing.trim(),
+            winkDetection = winkDetectionFeedback.trim(),
+            speechTiming = speechTimingFeedback.trim()
+        )
+        // Keep session fields; do not persist across process death / fresh launch.
+        uiMenuFeedbackDraft.value = draft
+
+        val prepared =
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.prepare(this, draft)
+        // Do not pre-check PackageManager.resolveActivity — on Android 11+ package visibility
+        // it often returns null even when startActivity can open a mailto handler.
+        when (
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.launch(this, prepared)
+        ) {
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.LaunchResult.Opened -> {
+                // Do not toast/status over the Android chooser — wait until LISA stays resumed.
+                feedbackEmailHandoffAwaitingReturn = true
+            }
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.LaunchResult.NoCompatibleEmailApp -> {
+                feedbackEmailHandoffAwaitingReturn = false
+                presentFeedbackStatusMessage(guidedUiStrings().feedbackNoEmailApp)
+            }
+        }
+    }
+
     private fun saveFeedbackEntry(
         whatWorkedWell: String,
         whatWasConfusing: String,
         winkDetectionFeedback: String,
         speechTimingFeedback: String
     ) {
-        releaseStore.saveFeedback(
-            LisaFeedbackEntry(
-                whatWorkedWell = whatWorkedWell.trim(),
-                whatWasConfusing = whatWasConfusing.trim(),
-                winkDetectionFeedback = winkDetectionFeedback.trim(),
-                speechTimingFeedback = speechTimingFeedback.trim()
-            )
+        launchFeedbackEmail(
+            whatWorkedWell,
+            whatWasConfusing,
+            winkDetectionFeedback,
+            speechTimingFeedback
         )
-        uiFeedbackSavedCount.value = releaseStore.loadFeedback().size
-        Toast.makeText(this, guidedUiStrings().feedbackSavedConfirmation, Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleChecklistItem(key: String, checked: Boolean) {
@@ -5117,6 +5282,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     // --------- Camera + ML processing ----------
+    @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun processFrame(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
         if (mediaImage == null) {
@@ -5811,31 +5977,29 @@ private fun CameraPreview(
 }
 
 // ---------------- Preferences ----------------
-private const val PREFS_NAME = "lisa_prefs"
-private const val KEY_CUSTOM_MAPS = "custom_maps"
 private const val KEY_SENSITIVITY_LEVEL = "sensitivity_level"
 private const val KEY_DEVELOPER_MODE = "developer_mode"
 
 private fun loadSensitivityLevel(context: Context): Int {
-    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
         .getInt(KEY_SENSITIVITY_LEVEL, DEFAULT_SENSITIVITY_LEVEL)
         .coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
 }
 
 private fun saveSensitivityLevel(context: Context, level: Int) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
         .edit()
         .putInt(KEY_SENSITIVITY_LEVEL, level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL))
         .apply()
 }
 
 private fun loadDeveloperMode(context: Context): Boolean {
-    return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
         .getBoolean(KEY_DEVELOPER_MODE, false)
 }
 
 private fun saveDeveloperMode(context: Context, enabled: Boolean) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
         .edit()
         .putBoolean(KEY_DEVELOPER_MODE, enabled)
         .apply()

@@ -15,9 +15,9 @@ object GuidedNavigationAccessFloatingCardAuthorityV1 {
         val checks = listOf(
             check(
                 "GNAFC_001",
-                "Welcome/setup exposes Skip to Navigation Training",
+                "Production Welcome does not expose Skip to Navigation Training",
                 GuidedNavigationAccessFloatingCardAuditor.welcomeExposesSkipToNavigationTraining(),
-                "Add a caregiver/testing 'Skip to Navigation Training' link to TrainingFirstLaunchChoiceScreen and wire it to TrainingEvent.SkipToNavigationTraining."
+                "Remove the caregiver/testing 'Skip to Navigation Training' link from TrainingFirstLaunchChoiceScreen / WelcomeDestinationSelectionScreen. Keep TrainingEvent.SkipToNavigationTraining for test-only navigator setup."
             ),
             check(
                 "GNAFC_002",
@@ -108,9 +108,10 @@ object GuidedNavigationAccessFloatingCardAuthorityV1 {
             checkResults = checks,
             rootCause = failed.firstOrNull()?.let { "${it.checkId} — ${it.description}" },
             validationReasoning = if (outcome == ValidationOutcome.PASS) {
-                "The Welcome screen exposes a caregiver/testing 'Skip to Navigation Training' shortcut " +
-                    "that jumps to Lesson 16 in the real Communication Workspace's " +
-                    "GuidedWorkspaceMode.GUIDED_TRAINING, bypassing all 15 phrase lessons. The floating " +
+                "SkipToNavigationTraining remains available as a test-only navigator event that " +
+                    "jumps to Lesson 16 in the real Communication Workspace's " +
+                    "GuidedWorkspaceMode.GUIDED_TRAINING, bypassing all 15 phrase lessons. The " +
+                    "production Welcome destination screen does not expose that shortcut. The floating " +
                     "lesson card now renders above the bottom Menu/Reset row, docked on whichever side " +
                     "keeps the highlighted real control visible, and never behind the Listening banner. " +
                     "The real workspace layout, gesture filtering, and the full Guided Learning flow are " +

@@ -29,7 +29,6 @@ object WelcomeDestinationLayoutStyle {
     val ActionGroupSpacing: Dp = 4.dp
     val ButtonToInstructionSpacing: Dp = 4.dp
 
-    val CaregiverSpacing: Dp = 2.dp
     val BottomPadding: Dp = 2.dp
 
     val PrimaryButtonHeight: Dp = 64.dp
@@ -70,26 +69,17 @@ object WelcomeDestinationLayoutStyle {
         textAlign = TextAlign.Center
     )
 
-    val CaregiverTextStyle = TextStyle(
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Normal,
-        lineHeight = 14.sp,
-        textAlign = TextAlign.Center
-    )
-
     // Conservative height budget (dp) for the ordinary 720dp target viewport.
     // Actions fill remaining card height via SpaceEvenly; budget confirms no outer scroll.
     const val BudgetStatusBlockDp: Int = 190
     const val BudgetTitleBlockDp: Int = 64
     const val BudgetActionGroupDp: Int = 96
-    const val BudgetCaregiverDp: Int = 36
     const val BudgetChromePaddingDp: Int = 28
 
     fun estimatedContentHeightDp(): Int =
         BudgetStatusBlockDp +
             BudgetTitleBlockDp +
             (BudgetActionGroupDp * 3) +
-            BudgetCaregiverDp +
             BudgetChromePaddingDp
 
     fun fitsTargetViewportWithoutOuterScroll(
@@ -135,11 +125,19 @@ object WelcomeDestinationLayoutAuthority {
             block.contains("combinedInstruction")
     }
 
-    fun caregiverRemainsInDestinationScreen(source: String): Boolean {
+    fun caregiverAbsentFromDestinationScreen(source: String): Boolean {
         val block = destinationBlock(source) ?: return false
-        return block.contains("CaregiverAdvancedSkipLink") &&
-            block.contains("caregiverAdvancedSkipNavigation")
+        return !block.contains("CaregiverAdvancedSkipLink") &&
+            !block.contains("caregiverAdvancedSkipNavigation") &&
+            !block.contains("onSkipToNavigationTraining")
     }
+
+    @Deprecated(
+        "Production destination screen must not expose the caregiver shortcut",
+        ReplaceWith("caregiverAbsentFromDestinationScreen(source)")
+    )
+    fun caregiverRemainsInDestinationScreen(source: String): Boolean =
+        caregiverAbsentFromDestinationScreen(source)
 
     fun continueMergesSequenceIntoButton(source: String): Boolean {
         val start = source.indexOf("fun WelcomeIntroductionContinueAction")

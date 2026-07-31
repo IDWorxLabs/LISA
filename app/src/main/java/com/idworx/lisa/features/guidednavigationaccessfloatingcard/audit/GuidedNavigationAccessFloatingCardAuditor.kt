@@ -21,13 +21,17 @@ object GuidedNavigationAccessFloatingCardAuditor {
 
     private val navigator = GuidedTrainingNavigator()
 
-    // --- 1. Welcome/setup exposes Skip to Navigation Training -----------------------------------
+    // --- 1. Production Welcome must not expose Skip to Navigation Training --------------------
     fun welcomeExposesSkipToNavigationTraining(): Boolean {
         val welcome = readWelcomeScreen() ?: return false
         val flow = readGuidedTrainingFlow() ?: return false
-        return welcome.contains("onSkipToNavigationTraining") &&
-            welcome.contains("caregiverAdvancedSkipNavigation") &&
-            flow.contains("onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }")
+        val productionUiExposesShortcut =
+            welcome.contains("CaregiverAdvancedSkipLink") ||
+                welcome.contains("caregiverAdvancedSkipNavigation") ||
+                welcome.contains("onSkipToNavigationTraining") ||
+                flow.contains("onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) }")
+        // Pass when production destination UI does NOT expose the development shortcut.
+        return !productionUiExposesShortcut
     }
 
     // --- 2. Skip to Navigation Training starts at Lesson 16 -------------------------------------

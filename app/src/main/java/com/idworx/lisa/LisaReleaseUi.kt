@@ -279,12 +279,15 @@ fun FeedbackPanel(
     savedCount: Int,
     draft: MenuFeedbackDraft = MenuFeedbackDraft(),
     onDraftChange: (MenuFeedbackDraft) -> Unit = {},
-    onSaveFeedback: (
+    statusMessage: String? = null,
+    onDismissStatus: () -> Unit = {},
+    onSendFeedbackEmail: (
         whatWorkedWell: String,
         whatWasConfusing: String,
         winkDetectionFeedback: String,
         speechTimingFeedback: String
     ) -> Unit,
+    onClearFeedbackDraft: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val q1 = uiStrings.t("What worked well?", "Wat het goed gewerk?", "Yini eyasebenza kahle?")
@@ -292,16 +295,28 @@ fun FeedbackPanel(
     val q3 = uiStrings.t("Did LISA detect your winks correctly?", "Het LISA jou knippe korrek opgespoor?", "Ingabe i-LISA ithole ama-wink akho ngokulungile?")
     val q4 = uiStrings.t("Did speech happen at the right time?", "Het spraak op die regte tyd plaasgevind?", "Ingabe inkulumo yenzekile ngesikhathi esifanele?")
 
+    val scrollState = rememberDestinationScrollState()
+    // Fresh entry shows the introduction from the top. Do not jump scroll when a return status appears.
+    LaunchedEffect(Unit) {
+        scrollState.scrollTo(0)
+    }
+
     LisaPanelShell(title = uiStrings.feedback, onBack = onBack, backLabel = uiStrings.back) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberDestinationScrollState()),
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             PanelPurposeLine(uiStrings.feedbackPurpose)
             Text(
                 text = uiStrings.feedbackIntro,
+                fontSize = 11.sp,
+                color = LisaGray,
+                lineHeight = 15.sp
+            )
+            Text(
+                text = uiStrings.feedbackPrivacyNotice,
                 fontSize = 11.sp,
                 color = LisaGray,
                 lineHeight = 15.sp
@@ -328,14 +343,64 @@ fun FeedbackPanel(
             )
             MenuDestinationSelectableSurface(
                 actionId = MenuDestinationActionId.FeedbackSave,
-                enabled = draft.hasContent
+                enabled = draft.hasContent,
+                onClick = {
+                    if (draft.hasContent) {
+                        onSendFeedbackEmail(
+                            draft.workedWell,
+                            draft.confusing,
+                            draft.winkDetection,
+                            draft.speechTiming
+                        )
+                    }
+                }
             ) {
                 Text(
-                    uiStrings.saveFeedback,
+                    uiStrings.feedbackSendByEmail,
                     color = if (draft.hasContent) LisaBlueDark else LisaGray,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.Center)
                 )
+            }
+            MenuDestinationSelectableSurface(
+                actionId = MenuDestinationActionId.FeedbackClearDraft,
+                enabled = draft.hasContent,
+                onClick = {
+                    if (draft.hasContent) onClearFeedbackDraft()
+                }
+            ) {
+                Text(
+                    uiStrings.feedbackClearDraft,
+                    color = if (draft.hasContent) LisaBlueDark else LisaGray,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            // Status after controls so it never overlays the Android chooser (shown only after return)
+            // and does not cover the primary send action while composing.
+            if (!statusMessage.isNullOrBlank()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(LisaBlueLight)
+                        .clickable(onClick = onDismissStatus)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = statusMessage,
+                        fontSize = 13.sp,
+                        color = LisaBlueDark,
+                        lineHeight = 18.sp
+                    )
+                    Text(
+                        text = uiStrings.feedbackStatusDismiss,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = LisaBlueDark
+                    )
+                }
             }
         }
     }

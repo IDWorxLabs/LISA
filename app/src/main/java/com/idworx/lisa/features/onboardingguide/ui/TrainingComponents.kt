@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import com.idworx.lisa.features.guidedworkspacelessoncard.GuidedWorkspaceLessonCardAuthority
+import com.idworx.lisa.features.guidedphraselessonpresentation.GuidedPhraseLessonPresentationAuthority
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -1083,14 +1084,30 @@ fun SimplifiedGestureDisplay(
     right: Int,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = formatWinkGestureFriendly(left, right),
-        fontSize = 24.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = LisaBlue,
-        textAlign = TextAlign.Center,
-        modifier = modifier.fillMaxWidth()
-    )
+    val natural = GuidedPhraseLessonPresentationAuthority.naturalLanguageInstruction(left, right)
+    val compact = GuidedPhraseLessonPresentationAuthority.compactSequence(left, right)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = natural,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LisaBlue,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = compact,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable

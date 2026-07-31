@@ -92,7 +92,13 @@ fun MenuDestinationWorkspace(
         } else {
             null
         }
-        val target = (explicitTarget ?: revealTarget)?.coerceIn(0, scrollState.maxValue)
+        // Prefer explicit scroll requests (including 0 = top) over proportional reveal so a
+        // retained prior offset cannot leave introductions clipped after open().
+        val target = when {
+            explicitTarget != null -> explicitTarget.coerceIn(0, scrollState.maxValue.coerceAtLeast(0))
+            revealTarget != null -> revealTarget.coerceIn(0, scrollState.maxValue)
+            else -> null
+        }
         if (target != null && target != scrollState.value) {
             scrollState.animateScrollTo(target)
         }
@@ -122,10 +128,12 @@ fun MenuDestinationWorkspace(
         val spacing = SharedKeyboardTheme.SectionSpacing
         val textStage =
             state.interactionStage as? MenuDestinationInteractionStage.TextEditing
+        val caregiverStage =
+            state.interactionStage as? MenuDestinationInteractionStage.FeedbackCaregiverAssist
         val widths = DestinationWorkspaceWidthAuthority.calculateDestinationWorkspaceWidths(
             availableWidthDp = maxWidth,
             horizontalSpacingDp = spacing,
-            keyboardActive = textStage != null
+            keyboardActive = textStage != null || caregiverStage != null
         )
         CompositionLocalProvider(
             LocalMenuDestinationScrollState provides scrollState,
@@ -145,6 +153,37 @@ fun MenuDestinationWorkspace(
                     onCommand = binding.onCommand,
                     modifier = Modifier.fillMaxSize()
                 )
+            } else if (caregiverStage != null) {
+                // Caregiver assist: content + nav (Select / Back / Emergency). Touch buttons
+                // and wink sequences share handleMenuDestinationCommand paths.
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(widths.contentWidthDp)
+                            .fillMaxHeight()
+                    ) {
+                        com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistScreen(
+                            uiStrings = uiStrings,
+                            step = caregiverStage.step,
+                            onPrimaryAction = {
+                                binding.onCommand(MenuDestinationPanelCommand.Select)
+                            },
+                            onGoBack = {
+                                binding.onCommand(MenuDestinationPanelCommand.Back)
+                            }
+                        )
+                    }
+                    MenuDestinationNavigationPanel(
+                        uiStrings = uiStrings,
+                        binding = binding,
+                        panelWidth = widths.navigationWidthDp,
+                        canPreviousPage = false,
+                        canNextPage = false
+                    )
+                }
             } else {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -185,6 +224,8 @@ private fun MenuDestinationNavigationPanel(
 ) {
     val textStage =
         binding.state.interactionStage as? MenuDestinationInteractionStage.TextEditing
+    val caregiverStage =
+        binding.state.interactionStage as? MenuDestinationInteractionStage.FeedbackCaregiverAssist
     val keyboardEditing =
         textStage?.fieldEditingStage == FeedbackFieldEditingStage.Keyboard
     val reviewing =
@@ -198,6 +239,8 @@ private fun MenuDestinationNavigationPanel(
             MenuDestinationPanelCommand.Cancel,
             MenuDestinationPanelCommand.Emergency
         )
+    } else if (caregiverStage != null) {
+        com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistAuthority.stageCommands
     } else {
         MenuDestinationNavigationController.visibleCommands(
             capabilities = binding.capabilities,
@@ -225,7 +268,8 @@ private fun MenuDestinationNavigationPanel(
             val (symbol, title, hint, sequence) = commandPresentation(
                 command,
                 uiStrings,
-                keyboardContext = keyboardEditing
+                keyboardContext = keyboardEditing,
+                caregiverStep = caregiverStage?.step
             )
             if (command == MenuDestinationPanelCommand.Emergency) {
                 GuidedEmergencyNavButton(
@@ -264,7 +308,8 @@ private data class CommandPresentation(
 private fun commandPresentation(
     command: MenuDestinationPanelCommand,
     uiStrings: LisaUiStrings,
-    keyboardContext: Boolean = false
+    keyboardContext: Boolean = false,
+    caregiverStep: com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep? = null
 ): CommandPresentation = when (command) {
     MenuDestinationPanelCommand.MoveUp -> CommandPresentation(
         "↑↑", uiStrings.mainMenuMoveUp, uiStrings.guidedScrollUpHint,
@@ -296,12 +341,25 @@ private fun commandPresentation(
         "→", uiStrings.phraseComposerPanelMoveRight, "",
         formatWinkSequenceShort(1, 2)
     )
-    MenuDestinationPanelCommand.Select -> CommandPresentation(
-        "✅",
-        if (keyboardContext) uiStrings.phraseComposerPanelSelectKey else uiStrings.mainMenuOpenSelected,
-        uiStrings.guidedSelectEnterHint,
-        formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
-    )
+    MenuDestinationPanelCommand.Select -> {
+        val selectTitle = when (caregiverStep) {
+            com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.SpeakRequest ->
+                uiStrings.feedbackCaregiverSayRequest
+            com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.OpenEmailApp ->
+                uiStrings.feedbackCaregiverOpenEmail
+            null -> if (keyboardContext) {
+                uiStrings.phraseComposerPanelSelectKey
+            } else {
+                uiStrings.mainMenuOpenSelected
+            }
+        }
+        CommandPresentation(
+            "✅",
+            selectTitle,
+            uiStrings.guidedSelectEnterHint,
+            formatWinkSequenceShort(GuidedModeNavigation.SELECT_LEFT, GuidedModeNavigation.SELECT_RIGHT)
+        )
+    }
     MenuDestinationPanelCommand.Save -> CommandPresentation(
         "✓", "Save Field", "", formatWinkSequenceShort(1, 1)
     )

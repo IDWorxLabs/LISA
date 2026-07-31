@@ -5,6 +5,9 @@ package com.idworx.lisa
  *
  * Version 1 emergency behaviour is local only:
  * L6 R0 → alarm → spoken emergency message → emergency overlay.
+ * V1 does not call, text, share location, contact caregivers, or contact emergency services.
+ *
+ * CaregiverProfile / LinkedCaregiverDevice below are NOT ACTIVE IN LISA V1.
  */
 
 /** L6 R0 — unique pattern with no prefix overlap with other built-in phrases. */

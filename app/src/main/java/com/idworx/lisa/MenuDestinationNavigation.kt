@@ -62,6 +62,7 @@ value class MenuDestinationActionId(val value: String) {
         val FeedbackWinks = MenuDestinationActionId("feedback.winks")
         val FeedbackSpeech = MenuDestinationActionId("feedback.speech")
         val FeedbackSave = MenuDestinationActionId("feedback.save")
+        val FeedbackClearDraft = MenuDestinationActionId("feedback.clear_draft")
 
         fun language(storedValue: String) =
             MenuDestinationActionId("profile.language.$storedValue")
@@ -159,6 +160,10 @@ sealed interface MenuDestinationInteractionStage {
         MenuDestinationInteractionStage
     data class Nested(val panel: LisaPanel, val parentPanel: LisaPanel) :
         MenuDestinationInteractionStage
+    /** Feedback → caregiver-assisted email handoff (speak request, then open mailto). */
+    data class FeedbackCaregiverAssist(
+        val step: com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep
+    ) : MenuDestinationInteractionStage
 }
 
 sealed interface FeedbackFieldEditingStage {
@@ -330,6 +335,9 @@ object MenuDestinationNavigationController {
             isActive = true,
             selectedActionId = focusable.firstOrNull()?.id,
             selectedIndex = 0,
+            // Explicit top anchor so a retained ScrollState from a prior visit cannot leave
+            // the Feedback (or other form) introduction clipped on entry.
+            scrollRequestPx = 0,
             revealSelection = focusable.isNotEmpty()
         )
     }
@@ -553,10 +561,36 @@ object MenuDestinationNavigationController {
     fun confirmTextEditing(state: MenuDestinationNavigationState): MenuDestinationNavigationState =
         state.copy(interactionStage = MenuDestinationInteractionStage.Browsing)
 
+    fun beginFeedbackCaregiverAssist(
+        state: MenuDestinationNavigationState
+    ): MenuDestinationNavigationState = state.copy(
+        interactionStage = MenuDestinationInteractionStage.FeedbackCaregiverAssist(
+            step = com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.SpeakRequest
+        ),
+        revealSelection = false,
+        scrollRequestPx = null
+    )
+
+    fun advanceFeedbackCaregiverAssistToOpenEmail(
+        state: MenuDestinationNavigationState
+    ): MenuDestinationNavigationState {
+        val stage = state.interactionStage as?
+            MenuDestinationInteractionStage.FeedbackCaregiverAssist ?: return state
+        if (stage.step !is com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.SpeakRequest) {
+            return state
+        }
+        return state.copy(
+            interactionStage = MenuDestinationInteractionStage.FeedbackCaregiverAssist(
+                step = com.idworx.lisa.features.feedbackemail.FeedbackCaregiverAssistStep.OpenEmailApp
+            )
+        )
+    }
+
     fun cancelCurrentStage(state: MenuDestinationNavigationState): MenuDestinationNavigationState =
         when (state.interactionStage) {
             is MenuDestinationInteractionStage.TextEditing,
-            is MenuDestinationInteractionStage.Confirmation ->
+            is MenuDestinationInteractionStage.Confirmation,
+            is MenuDestinationInteractionStage.FeedbackCaregiverAssist ->
                 state.copy(
                     interactionStage = MenuDestinationInteractionStage.Browsing,
                     pendingConfirmation = null

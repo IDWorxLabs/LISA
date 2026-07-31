@@ -11,7 +11,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class TrainingProgressStore(context: Context) {
-    private val prefs = context.getSharedPreferences(LisaProfileStore.PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs =
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
 
     fun load(): TrainingProgress {
         val completedRaw = prefs.getString(KEY_COMPLETED_LESSONS, null)

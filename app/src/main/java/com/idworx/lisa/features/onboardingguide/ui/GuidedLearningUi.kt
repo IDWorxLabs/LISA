@@ -1,6 +1,6 @@
 package com.idworx.lisa.features.onboardingguide.ui
 
-/** Plain-language gesture labels for Guided Learning — no L/R technical notation on screen. */
+/** Plain-language gesture labels for Guided Learning (compact L/R shown separately). */
 fun formatWinkGestureFriendly(left: Int, right: Int): String {
     fun times(n: Int): String = when (n) {
         1 -> "Once"
@@ -16,7 +16,7 @@ fun formatWinkGestureFriendly(left: Int, right: Int): String {
                 add("Left ${times(left)}")
                 add("Right ${times(right)}")
             }
-            "Blink ${parts.joinToString(", then ")}"
+            "Blink ${parts.joinToString(" and ")}"
         }
         else -> "Blink when you're ready"
     }

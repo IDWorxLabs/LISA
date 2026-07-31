@@ -47,7 +47,8 @@ enum class TestingChecklistItem(val key: String, val label: String) {
 }
 
 class LisaReleaseStore(context: Context) {
-    private val prefs = context.getSharedPreferences(LisaProfileStore.PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs =
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
 
     fun isOnboardingCompleted(): Boolean =
         prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
@@ -118,11 +119,24 @@ class LisaReleaseStore(context: Context) {
         }
     }
 
+    /**
+     * Removes any feedback-form draft left by older builds that persisted fields across launches.
+     * Feedback form content is session-only; do not call this to clear in-memory session text.
+     */
+    fun discardPersistedFeedbackDraftFromPreviousBuilds() {
+        if (prefs.contains(KEY_FEEDBACK_DRAFT_JSON)) {
+            prefs.edit().remove(KEY_FEEDBACK_DRAFT_JSON).apply()
+        }
+    }
+
     companion object {
         private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         private const val KEY_WORKSPACE_ENTRY_INTRO = "workspace_entry_intro_completed"
         private const val KEY_CAMERA_REQUESTED_ONCE = "camera_requested_once"
         private const val KEY_TESTING_CHECKLIST = "testing_checklist"
         private const val KEY_FEEDBACK_JSON = "feedback_json"
+        private const val KEY_FEEDBACK_DRAFT_JSON =
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackSessionAuthority.LEGACY_FEEDBACK_DRAFT_PREFS_KEY
     }
 }
+

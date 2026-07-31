@@ -644,7 +644,6 @@ private fun QuickEyeCalibrationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
@@ -677,14 +676,34 @@ private fun QuickEyeCalibrationScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(20.dp))
-        if (state.calibrationStep == QuickCalibrationStep.CalibrationComplete) {
-            SuccessPulse()
-            Spacer(modifier = Modifier.height(18.dp))
+        // Remaining safe area below status — centre the active instruction group.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            if (state.calibrationStep == QuickCalibrationStep.CalibrationComplete) {
+                SuccessPulse()
+                Spacer(modifier = Modifier.height(18.dp))
+            }
+            Text(
+                title,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                body,
+                fontSize = 17.sp,
+                color = LisaBlueDark.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+                lineHeight = 24.sp
+            )
         }
-        Text(title, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = LisaBlueDark, textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(body, fontSize = 17.sp, color = LisaBlueDark.copy(alpha = 0.85f), textAlign = TextAlign.Center, lineHeight = 24.sp)
     }
 }
 

@@ -9,8 +9,10 @@ import java.util.UUID
 /**
  * Version 2 foundation — caregiver linking models and local storage.
  *
- * Not loaded or executed by Version 1 runtime. Retained for a future caregiver
- * notification and linking feature without affecting current emergency behaviour.
+ * NOT ACTIVE IN LISA V1. Not loaded or executed by the Version 1 runtime.
+ * Retained for a future caregiver notification and linking feature without
+ * affecting current emergency behaviour. Activation would require separate
+ * product consent and privacy disclosures.
  */
 enum class CaregiverRelationship(val label: String) {
     Caregiver("Caregiver"),
@@ -87,7 +89,8 @@ data class LisaCaregiver(
 }
 
 class LisaCaregiverStore(context: Context) {
-    private val prefs = context.getSharedPreferences(LisaProfileStore.PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs =
+        com.idworx.lisa.features.securestorage.LisaPreferences.get(context)
 
     fun loadAll(): List<LisaCaregiver> {
         val raw = prefs.getString(KEY_CAREGIVERS_JSON, null) ?: return emptyList()

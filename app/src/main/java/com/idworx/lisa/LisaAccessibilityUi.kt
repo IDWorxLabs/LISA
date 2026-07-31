@@ -145,6 +145,9 @@ fun LisaRootUI(
     onRequestCameraPermission: () -> Unit = {},
     onOpenAppSettings: () -> Unit = {},
     onSaveFeedback: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onClearFeedbackDraft: () -> Unit = {},
+    feedbackStatusMessage: String? = null,
+    onDismissFeedbackStatus: () -> Unit = {},
     onToggleChecklistItem: (String, Boolean) -> Unit = { _, _ -> },
     voiceSettingsState: LisaVoiceSettingsState = LisaVoiceSettingsState(),
     onSelectTtsVoice: (String) -> Unit = {},
@@ -752,7 +755,10 @@ fun LisaRootUI(
                             savedCount = feedbackSavedCount,
                             draft = feedbackDraft,
                             onDraftChange = onFeedbackDraftChange,
-                            onSaveFeedback = onSaveFeedback,
+                            statusMessage = feedbackStatusMessage,
+                            onDismissStatus = onDismissFeedbackStatus,
+                            onSendFeedbackEmail = onSaveFeedback,
+                            onClearFeedbackDraft = onClearFeedbackDraft,
                             onBack = onBackToMenu
                         )
                         LisaPanel.TestingChecklist -> TestingChecklistPanel(

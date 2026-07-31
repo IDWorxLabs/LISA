@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.idworx.lisa.features.silentwelcome.LisaSpeechPolicy
 import com.idworx.lisa.LisaUiStrings
+import com.idworx.lisa.features.guidedphraselessonpresentation.GuidedPhraseLessonPresentationAuthority
 import com.idworx.lisa.features.experiencepolish.patientcommunicationcoach.model.CoachUiState
 import com.idworx.lisa.features.eyetrackingstatus.UniversalEyeTrackingHeader
 import com.idworx.lisa.features.eyetrackingstatus.EyeTrackingStatusUiMapper
@@ -288,6 +289,16 @@ fun CommunicationLessonScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
+                Text(
+                    text = GuidedPhraseLessonPresentationAuthority.intentLabel(uiStrings),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = LisaBlue,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                )
                 GuidedLessonPhraseTitle(
                     phrase = phrase,
                     modifier = Modifier.padding(bottom = 28.dp)

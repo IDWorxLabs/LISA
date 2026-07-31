@@ -36,7 +36,7 @@ object GuidedRemoveRedundantHelperTextAuditor {
         return !lessons.contains("text = instruction") &&
             ui.contains("fun formatWinkInstruction") &&
             flow.contains("formatWinkInstruction") &&
-            formatWinkInstruction(1, 3).contains("blink left once, then right three times")
+            formatWinkInstruction(1, 3).contains("blink left once and right three times")
     }
 
     fun gestureInstructionRemainsVisible(): Boolean {
@@ -46,7 +46,9 @@ object GuidedRemoveRedundantHelperTextAuditor {
 
     fun phraseTitleRemainsVisible(): Boolean {
         val block = communicationBlock() ?: return false
-        return block.contains("GuidedLessonPhraseTitle(") && block.contains("phrase = phrase")
+        return block.contains("GuidedLessonPhraseTitle(") &&
+            block.contains("phrase = phrase") &&
+            block.contains("GuidedPhraseLessonPresentationAuthority.intentLabel")
     }
 
     fun lessonLayoutRemainsVerticallyBalanced(): Boolean {

@@ -1069,9 +1069,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Ukulungiswa, ukukhuluma, ukubonisa nokusekela — konke ngokucwayiza."
     )
     val feedbackPurpose: String get() = t(
-        "Share what worked and what was confusing.",
-        "Deel wat gewerk het en wat verwarrend was.",
-        "Yabelana ngokuthi yini eyasebenza nokuthi yini eyedidezelayo."
+        "Share what worked and what was confusing by email when you choose to send it.",
+        "Deel wat gewerk het en wat verwarrend was per e-pos wanneer jy kies om dit te stuur.",
+        "Yabelana ngokuthi yini eyasebenza nokuthi yini eyedidezelayo nge-imeyili uma ukhetha ukuthumela."
     )
     val deviceChecklistPurpose: String get() = t(
         "Confirm setup is working before daily use.",
@@ -1185,9 +1185,15 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val privacyYourInfoTitle: String get() = t("Your information", "Jou inligting", "Ulwazi lwakho")
     val privacyYourInfoBody: String get() = t(
-        "Communication profiles, vocabulary, and feedback stay on this device unless you choose to export or share them yourself.",
-        "Kommunikasieprofiele, woordeskat en terugvoer bly op hierdie toestel tensy jy kies om dit self te stuur of te deel.",
-        "Amaphrofayela okuxhumana, ulimi, nempendulo ahlala kule divayisi ngaphandle kokuthi ukhethe ukuwathumela noma ukuwabelana ngawo."
+        "Communication profiles, vocabulary, and settings stay on this device in encrypted storage. Feedback you type is kept only while LISA stays open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Feedback leaves LISA only if you choose Review and send by email and then send the message in your email app.",
+        "Kommunikasieprofiele, woordeskat en instellings bly op hierdie toestel in geënkripteerde berging. Terugvoer wat jy tik word slegs gehou terwyl LISA oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Terugvoer verlaat LISA slegs as jy Hersien en stuur per e-pos kies en dan die boodskap in jou e-posprogram stuur.",
+        "Amaphrofayela okuxhumana, ulimi, nezilungiselelo ahlala kule divayisi kukugcina okubethelwe. Impendulo oyithayipha igcinwa kuphela ngenkathi i-LISA ivulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Impendulo iphuma ku-LISA kuphela uma ukhetha Buyekeza futhi uthumele nge-imeyili bese uthumela umlayezo ohlelweni lwakho lwe-imeyili."
+    )
+    val privacyEmergencyTitle: String get() = t("Emergency mode", "Noodmodus", "Imodi yesimo esiphuthumayo")
+    val privacyEmergencyBody: String get() = t(
+        "Emergency mode plays a local alarm sound, repeats a spoken help phrase, and shows an on-screen alert. In LISA V1 it does not call, text, share your location, contact a caregiver, or contact emergency services.",
+        "Noodmodus speel 'n plaaslike alarmklank, herhaal 'n gesproke hulpfrase, en wys 'n skermwaarskuwing. In LISA V1 bel, SMS, deel dit nie jou ligging nie, kontak nie 'n versorger nie, en kontak nie nooddienste nie.",
+        "Imodi yesimo esiphuthumayo idlala umsindo we-alamu wendawo, iphinda umusho wosizo okhulunyiwe, futhi ibonisa isexwayiso esiskrinini. Ku-LISA V1 ayishayi ucingo, ayithumeli SMS, ayabelani ngendawo yakho, ayaxhumani nomnakekeli, futhi ayaxhumani nezinsizakalo eziphuthumayo."
     )
     val privacyControlTitle: String get() = t("You stay in control", "Jy bly in beheer", "Uhlala ulawula")
     val privacyControlBody: String get() = t(
@@ -1225,11 +1231,76 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Phawula yinto ngayinye uma isebenza njengoba kulindelwe."
     )
     val feedbackIntro: String get() = t(
-        "Saved on this device only.",
-        "Gestoor slegs op hierdie toestel.",
-        "Kugcinwe kule divayisi kuphela."
+        "Feedback stays while LISA is open.",
+        "Terugvoer bly terwyl LISA oop is.",
+        "Impendulo ihlala ngenkathi i-LISA ivuliwe."
     )
-    val saveFeedback: String get() = saveLabel
+    val feedbackPrivacyNotice: String get() = t(
+        "Your feedback stays in LISA while the app remains open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Review and send by email prepares a message for lisa-feedback@asgarddynamics.io. Information leaves LISA only if you choose to send the email. Your email provider handles delivery. The message includes app version, Android version, device model, and the feedback you entered. You can edit or remove anything before sending. LISA cannot confirm whether the message was sent.",
+        "Jou terugvoer bly in LISA terwyl die app oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Hersien en stuur per e-pos berei 'n boodskap voor vir lisa-feedback@asgarddynamics.io. Inligting verlaat LISA slegs as jy kies om die e-pos te stuur. Jou e-posverskaffer hanteer aflewering. Die boodskap sluit app-weergawe, Android-weergawe, toestelmodel en jou terugvoer in. Jy kan enigiets wysig of verwyder voor jy stuur. LISA kan nie bevestig of die boodskap gestuur is nie.",
+        "Impendulo yakho ihlala ku-LISA ngenkathi uhlelo luvulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Buyekeza futhi uthumele nge-imeyili ulungisa umlayezo we-lisa-feedback@asgarddynamics.io. Ulwazi luphuma ku-LISA kuphela uma ukhetha ukuthumela i-imeyili. Umhlinzeki wakho we-imeyili uphatha ukulethwa. Umlayezo uhlanganisa inguqulo yohlelo, i-Android, imodeli yedivayisi, nempendulo oyifakile. Ungahlela noma ususe noma yini ngaphambi kokuthumela. I-LISA ayikwazi ukuqinisekisa ukuthi umlayezo uthunyelwe."
+    )
+    val feedbackCaregiverSpeakHeading: String get() = t(
+        "Help me send this feedback",
+        "Help my stuur hierdie terugvoer",
+        "Ngisize ngithumele le mpendulo"
+    )
+    val feedbackCaregiverSpeakInstruction: String get() = t(
+        "Use L1 R1 to say:\n“Please send this email for me.”",
+        "Gebruik L1 R1 om te sê:\n“Please send this email for me.”",
+        "Sebenzisa u-L1 R1 ukuthi:\n“Please send this email for me.”"
+    )
+    val feedbackCaregiverSayRequest: String get() = t(
+        "Say request",
+        "Sê versoek",
+        "Sho isicelo"
+    )
+    val feedbackCaregiverReadyHeading: String get() = t(
+        "Ready for caregiver assistance",
+        "Gereed vir versorgerhulp",
+        "Ukulungele usizo lomnakeli"
+    )
+    val feedbackCaregiverReadyMessage: String get() = t(
+        "An email account must already be set up in Gmail, Outlook, or another email app on this device.\n\nA caregiver may be needed to:\n\n• choose the email app\n• select the email account\n• review the email if needed\n• press Send\n\nInformation leaves LISA only if the caregiver or user chooses to send the email.\n\nLISA cannot confirm whether the email was sent.",
+        "ŉ E-posrekening moet reeds in Gmail, Outlook of ŉ ander e-posprogram op hierdie toestel opgestel wees.\n\nŉ Versorger kan nodig wees om:\n\n• die e-posprogram te kies\n• die e-posrekening te kies\n• die e-pos te hersien indien nodig\n• Stuur te druk\n\nInligting verlaat LISA slegs as die versorger of gebruiker kies om die e-pos te stuur.\n\nLISA kan nie bevestig of die e-pos gestuur is nie.",
+        "I-akhawunti ye-imeyili kumele isethwe kakade ku-Gmail, Outlook, noma olunye uhlelo lwe-imeyili kule divayisi.\n\nKungadingeka umnakekeli ukuze:\n\n• akhethe uhlelo lwe-imeyili\n• akhethe i-akhawunti ye-imeyili\n• abuyekeze i-imeyili uma kudingeka\n• acindezele Thumela\n\nUlwazi luphuma ku-LISA kuphela uma umnakekeli noma umsebenzisi ekhetha ukuthumela i-imeyili.\n\nI-LISA ayikwazi ukuqinisekisa ukuthi i-imeyili ithunyelwe."
+    )
+    val feedbackCaregiverOpenEmail: String get() = t(
+        "Open email app",
+        "Maak e-posprogram oop",
+        "Vula uhlelo lwe-imeyili"
+    )
+    val feedbackCaregiverGoBack: String get() = t(
+        "Go back",
+        "Gaan terug",
+        "Buyela emuva"
+    )
+    val feedbackSendByEmail: String get() = t(
+        "Review and send by email",
+        "Hersien en stuur per e-pos",
+        "Buyekeza futhi uthumele nge-imeyili"
+    )
+    val feedbackClearDraft: String get() = t(
+        "Clear feedback",
+        "Vee terugvoer uit",
+        "Sula impendulo"
+    )
+    val feedbackStatusDismiss: String get() = t(
+        "Dismiss",
+        "Maak toe",
+        "Vala"
+    )
+    val feedbackEmailOpenedConfirmation: String get() = t(
+        "Your email app was opened. LISA cannot confirm whether the message was sent.",
+        "Jou e-posprogram is oopgemaak. LISA kan nie bevestig of die boodskap gestuur is nie.",
+        "Uhlelo lwakho lwe-imeyili luvuliwe. I-LISA ayikwazi ukuqinisekisa ukuthi umlayezo uthunyelwe."
+    )
+    val feedbackNoEmailApp: String get() = t(
+        "No email app is available. Your feedback stays in LISA while the app remains open. You can copy lisa-feedback@asgarddynamics.io and send feedback manually.",
+        "Geen e-posprogram is beskikbaar nie. Jou terugvoer bly in LISA terwyl die app oop bly. Jy kan lisa-feedback@asgarddynamics.io kopieer en terugvoer self stuur.",
+        "Alukho uhlelo lwe-imeyili olutholakalayo. Impendulo yakho ihlala ku-LISA ngenkathi uhlelo luvulekile. Ungakopisha i-lisa-feedback@asgarddynamics.io bese uthumela impendulo mathupha."
+    )
+    val saveFeedback: String get() = feedbackSendByEmail
     val profilesEmptyHint: String get() = t(
         "Create a profile to save communication settings for this device.",
         "Skep 'n profiel om kommunikasie-instellings vir hierdie toestel te stoor.",
@@ -1484,11 +1555,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "LISA kon nie spraakinstellings oopmaak nie. Maak Instellings op jou toestel oop en soek Teks-na-spraak.",
         "I-LISA ayikwazanga ukuvula izilungiselelo zenkulumo. Vula Izilungiselelo kudivayisi yakho bese ufuna i-Text-to-speech."
     )
-    val feedbackSavedConfirmation: String get() = t(
-        "Thank you — your feedback was saved on this device.",
-        "Dankie — jou terugvoer is op hierdie toestel gestoor.",
-        "Siyabonga — impendulo yakho ilondoloziwe kule divayisi."
-    )
+    val feedbackSavedConfirmation: String get() = feedbackEmailOpenedConfirmation
 
     // Voice platform
     val voiceHomeSubtitle: String get() = t(

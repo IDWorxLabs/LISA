@@ -226,7 +226,6 @@ fun GuidedTrainingFlow(
             onStartGuidedLearning = { onEvent(TrainingEvent.BeginLearning) },
             onSkipToWorkspace = { onEvent(TrainingEvent.ConfirmSkip) },
             onBackToIntroduction = { onEvent(TrainingEvent.WelcomeBackToIntroduction) },
-            onSkipToNavigationTraining = { onEvent(TrainingEvent.SkipToNavigationTraining) },
             eyeTrackingStatus = eyeTrackingStatus,
             selectedChoiceLabel = state.brain1Decision.choiceLabel,
             invalidSequenceWarning = state.invalidSequenceWarning,

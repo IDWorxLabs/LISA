@@ -52,7 +52,11 @@ class Rc7D_40CompactWelcomeActionsTest {
     private fun choiceBlockSource(): String {
         val source = welcomeSource()
         val start = source.indexOf("fun WelcomeChoiceBlock")
-        val end = source.indexOf("fun CaregiverAdvancedSkipLink", start)
+        val end = source.indexOf("fun TrainingSkipConfirmScreen", start)
+            .takeIf { it > start }
+            ?: source.indexOf("@Composable\nfun TrainingSkipConfirmScreen", start)
+                .takeIf { it > start }
+            ?: source.length
         return source.substring(start, end)
     }
 
@@ -225,12 +229,11 @@ class Rc7D_40CompactWelcomeActionsTest {
     }
 
     @Test
-    fun caregiverTextRemainsVisibleInInitialViewport() {
-        assertTrue(WelcomeDestinationLayoutAuthority.caregiverRemainsInDestinationScreen(welcomeSource()))
-        assertEquals(
-            "For caregivers: Skip to Navigation Training",
-            uiStrings.caregiverAdvancedSkipNavigation
-        )
+    fun caregiverShortcutAbsentFromProductionDestination() {
+        assertTrue(WelcomeDestinationLayoutAuthority.caregiverAbsentFromDestinationScreen(welcomeSource()))
+        assertFalse(destinationBlock().contains("CaregiverAdvancedSkipLink"))
+        assertFalse(destinationBlock().contains("caregiverAdvancedSkipNavigation"))
+        assertFalse(destinationBlock().contains("onSkipToNavigationTraining"))
         assertFalse(destinationBlock().contains(".verticalScroll("))
         assertFalse(destinationBlock().contains("rememberScrollState()"))
     }
@@ -332,15 +335,20 @@ class Rc7D_40CompactWelcomeActionsTest {
     }
 
     @Test
-    fun caregiverNavigationTrainingRouteRemainsUnchanged() {
-        assertTrue(destinationBlock().contains("onSkipToNavigationTraining"))
-        assertTrue(destinationBlock().contains("CaregiverAdvancedSkipLink"))
-        val flow = readFile("features/onboardingguide/ui/GuidedTrainingFlow.kt")
-        assertTrue(
-            flow.contains("onSkipToNavigationTraining") ||
-                flow.contains("SkipToNavigation") ||
-                flow.contains("skipToNavigation")
+    fun caregiverNavigationTrainingRouteRemainsTestOnly() {
+        assertFalse(destinationBlock().contains("onSkipToNavigationTraining"))
+        assertFalse(destinationBlock().contains("CaregiverAdvancedSkipLink"))
+        val navigator = readFile("features/onboardingguide/navigation/GuidedTrainingNavigator.kt")
+        assertTrue(navigator.contains("TrainingEvent.SkipToNavigationTraining"))
+        val progress = GuidedTrainingNavigator().reduce(
+            com.idworx.lisa.features.onboardingguide.model.TrainingProgress(),
+            TrainingEvent.SkipToNavigationTraining
         )
+        assertEquals(
+            com.idworx.lisa.features.onboardingguide.model.TrainingPhase.NavigationLesson,
+            progress.currentPhase
+        )
+        assertEquals(0, progress.navigationLessonIndex)
     }
 
     @Test

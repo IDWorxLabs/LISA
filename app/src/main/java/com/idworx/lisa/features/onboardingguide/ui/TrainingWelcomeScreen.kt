@@ -56,7 +56,6 @@ fun TrainingFirstLaunchChoiceScreen(
     onStartGuidedLearning: () -> Unit,
     onSkipToWorkspace: () -> Unit,
     onBackToIntroduction: () -> Unit = {},
-    onSkipToNavigationTraining: () -> Unit = {},
     eyeTrackingStatus: EyeTrackingStatusUiState = EyeTrackingStatusUiState(),
     selectedChoiceLabel: String? = null,
     invalidSequenceWarning: com.idworx.lisa.features.invalidsequencefeedback.UniversalInvalidSequenceAuthority.Warning? = null,
@@ -84,7 +83,6 @@ fun TrainingFirstLaunchChoiceScreen(
             onStartGuidedLearning = onStartGuidedLearning,
             onSkipToWorkspace = onSkipToWorkspace,
             onBackToIntroduction = onBackToIntroduction,
-            onSkipToNavigationTraining = onSkipToNavigationTraining,
             onDecreaseSensitivity = onDecreaseSensitivity,
             onIncreaseSensitivity = onIncreaseSensitivity,
             onDecreaseResponseTime = onDecreaseResponseTime,
@@ -226,7 +224,6 @@ private fun WelcomeDestinationSelectionScreen(
     onStartGuidedLearning: () -> Unit,
     onSkipToWorkspace: () -> Unit,
     onBackToIntroduction: () -> Unit,
-    onSkipToNavigationTraining: () -> Unit,
     onDecreaseSensitivity: () -> Unit,
     onIncreaseSensitivity: () -> Unit,
     onDecreaseResponseTime: () -> Unit,
@@ -323,11 +320,6 @@ private fun WelcomeDestinationSelectionScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(style.CaregiverSpacing))
-            CaregiverAdvancedSkipLink(
-                text = uiStrings.caregiverAdvancedSkipNavigation,
-                onClick = onSkipToNavigationTraining
-            )
             Spacer(modifier = Modifier.height(style.BottomPadding))
         }
     }
@@ -449,27 +441,6 @@ private fun WelcomeChoiceBlock(
                 .fillMaxWidth()
                 .padding(top = style.ButtonToInstructionSpacing)
                 .semantics { contentDescription = hint }
-        )
-    }
-}
-
-/**
- * Caregiver-only affordance — deliberately small and secondary so the primary user's
- * two-choice screen stays exact and simple. Jumps straight to Lesson 16 (navigation
- * training) inside the real Communication screen in GUIDED_TRAINING mode.
- */
-@Composable
-private fun CaregiverAdvancedSkipLink(text: String, onClick: () -> Unit) {
-    val style = WelcomeDestinationLayoutStyle
-    androidx.compose.material3.TextButton(
-        onClick = onClick,
-        modifier = Modifier.semantics { contentDescription = text }
-    ) {
-        Text(
-            text = text,
-            style = style.CaregiverTextStyle,
-            color = LisaGray,
-            textAlign = TextAlign.Center
         )
     }
 }
