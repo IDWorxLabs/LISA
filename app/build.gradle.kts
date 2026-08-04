@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,15 +7,37 @@ plugins {
 
 android {
     namespace = "com.idworx.lisa"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.idworx.lisa"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 35
+        versionCode = 2
         versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release upload signing for Google Play. Passwords stay outside Git
+    // (see keystore.properties.example and %USERPROFILE%/LISA-Signing/keystore.properties).
+    val keystoreProperties = Properties()
+    val keystorePropertiesFile =
+        file("${System.getProperty("user.home")}/LISA-Signing/keystore.properties")
+    if (keystorePropertiesFile.isFile) {
+        keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    }
+
+    signingConfigs {
+        create("release") {
+            val storePath = keystoreProperties.getProperty("storeFile")
+                ?: "${System.getProperty("user.home")}/LISA-Signing/lisa-upload-key.jks"
+            storeFile = file(storePath)
+            storePassword = keystoreProperties.getProperty("storePassword") ?: ""
+            keyAlias = keystoreProperties.getProperty("keyAlias") ?: "lisa-upload"
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+                ?: keystoreProperties.getProperty("storePassword")
+                ?: ""
+        }
     }
 
     buildTypes {
@@ -23,6 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -81,7 +106,7 @@ dependencies {
     implementation("org.json:json:20240303")
 
 // RC8.40 — Media3 ExoPlayer for seamless emergency alarm looping (minimum audio module only)
-    // 1.4.1 is the newest Media3 line compatible with this module's compileSdk 34.
+    // 1.4.1 is the Media3 ExoPlayer line used by this module (compileSdk 35).
     implementation("androidx.media3:media3-exoplayer:1.4.1")
 
 // Tests (keep these if Android Studio added them)
@@ -94,6 +119,32 @@ dependencies {
 }
 
 afterEvaluate {
+    tasks.named("signReleaseBundle").configure {
+        doFirst {
+            val cfg = android.signingConfigs.getByName("release")
+            val store = cfg.storeFile
+            check(store != null && store.isFile) {
+                "Release signing keystore missing at: ${store?.absolutePath}. " +
+                    "Create %USERPROFILE%/LISA-Signing/keystore.properties from keystore.properties.example."
+            }
+            check(!cfg.storePassword.isNullOrBlank()) {
+                "Release storePassword is empty. Set storePassword in " +
+                    "%USERPROFILE%/LISA-Signing/keystore.properties"
+            }
+            check(!cfg.keyAlias.isNullOrBlank()) {
+                "Release keyAlias is empty."
+            }
+            check(!cfg.keyPassword.isNullOrBlank()) {
+                "Release keyPassword is empty. Set keyPassword in " +
+                    "%USERPROFILE%/LISA-Signing/keystore.properties " +
+                    "(may match storePassword if no separate -keypass was used)."
+            }
+            logger.lifecycle(
+                "Signing release AAB with store=${store!!.absolutePath} alias=${cfg.keyAlias}"
+            )
+        }
+    }
+
     tasks.register<Test>("validateGuidedNavigationAuthorityV1") {
         group = "verification"
         description = "Run GUIDED_NAVIGATION_AUTHORITY_V1 validation and emit pass token on success"

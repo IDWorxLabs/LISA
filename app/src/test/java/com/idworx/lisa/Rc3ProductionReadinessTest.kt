@@ -19,13 +19,18 @@ class Rc3ProductionReadinessTest {
     }
 
     @Test
-    fun aboutPageHasVersionBuildCopyrightAndSupportPlaceholders() {
-        val versionLine = english.versionAndBuildLabel("1.1", 1)
-        assertTrue(versionLine.contains("Version 1.1"))
-        assertTrue(versionLine.contains("Build 1"))
+    fun aboutPageHasVersionCopyrightAndSupportContacts() {
+        val versionLine = english.aboutVersionLabel("1.1")
+        assertEquals("Version 1.1", versionLine)
+        assertFalse(versionLine.contains("Build", ignoreCase = true))
+        assertEquals("Created by Asgard Dynamics", english.aboutCreatorBody)
         assertTrue(english.copyrightNotice.contains("Asgard Dynamics"))
-        assertFalse(english.aboutSupportWebsite.contains("Coming soon", ignoreCase = true))
-        assertFalse(english.aboutSupportEmail.contains("Coming soon", ignoreCase = true))
+        assertTrue(english.aboutSupportWebsite.contains("https://asgarddynamics.io"))
+        assertTrue(english.aboutSupportEmail.contains("lisa-support@asgarddynamics.io"))
+        assertTrue(english.aboutSupportFeedback.contains("lisa-feedback@asgarddynamics.io"))
+        assertFalse(english.aboutSupportWebsite.contains("published at launch", ignoreCase = true))
+        assertFalse(english.aboutSupportEmail.contains("published at launch", ignoreCase = true))
+        assertFalse(english.aboutCreatorBody.contains("Lungelo", ignoreCase = true))
     }
 
     @Test

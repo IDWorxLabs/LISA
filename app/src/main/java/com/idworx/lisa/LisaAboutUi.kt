@@ -42,13 +42,17 @@ fun AboutLisaPanel(
             AboutSection(title = uiStrings.aboutSafetyTitle, bullets = uiStrings.aboutSafetyBullets)
             AboutSection(
                 title = uiStrings.aboutVersionTitle,
-                body = uiStrings.versionAndBuildLabel(appVersionInfo.versionName, appVersionInfo.versionCode)
+                body = uiStrings.aboutVersionLabel(appVersionInfo.versionName)
             )
             AboutSection(title = uiStrings.aboutCreatorTitle, body = uiStrings.aboutCreatorBody)
             AboutSection(title = uiStrings.aboutCopyrightTitle, body = uiStrings.copyrightNotice)
             AboutSection(
                 title = uiStrings.aboutSupportTitle,
-                bullets = listOf(uiStrings.aboutSupportWebsite, uiStrings.aboutSupportEmail)
+                bullets = listOf(
+                    uiStrings.aboutSupportWebsite,
+                    uiStrings.aboutSupportEmail,
+                    uiStrings.aboutSupportFeedback
+                )
             )
         }
     }

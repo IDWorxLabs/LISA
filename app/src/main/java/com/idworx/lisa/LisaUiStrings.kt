@@ -1131,9 +1131,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     val aboutVersionTitle: String get() = t("Version", "Weergawe", "Inguqulo")
     val aboutCreatorTitle: String get() = t("Creator", "Skepper", "Umdali")
     val aboutCreatorBody: String get() = t(
-        "Lungelo Richard Zungu · Asgard Dynamics",
-        "Lungelo Richard Zungu · Asgard Dynamics",
-        "Lungelo Richard Zungu · Asgard Dynamics"
+        "Created by Asgard Dynamics",
+        "Geskep deur Asgard Dynamics",
+        "Kudalwe yi-Asgard Dynamics"
     )
     val aboutCopyrightTitle: String get() = t("Copyright", "Kopiereg", "Ilungelo lokushicilela")
     val copyrightNotice: String get() = t(
@@ -1143,14 +1143,24 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val aboutSupportTitle: String get() = t("Support", "Ondersteuning", "Ukusekela")
     val aboutSupportWebsite: String get() = t(
-        "Website: details will be published at launch",
-        "Webwerf: besonderhede sal by bekendstelling gepubliseer word",
-        "Iwebhusayithi: imininingwane izokhishwa lapho kukhishwa"
+        "Website: https://asgarddynamics.io",
+        "Webwerf: https://asgarddynamics.io",
+        "Iwebhusayithi: https://asgarddynamics.io"
     )
     val aboutSupportEmail: String get() = t(
-        "Email: contact details will be published at launch",
-        "E-pos: kontakbesonderhede sal by bekendstelling gepubliseer word",
-        "I-imeyili: imininingwane yokuxhumana izokhishwa lapho kukhishwa"
+        "Support: lisa-support@asgarddynamics.io",
+        "Ondersteuning: lisa-support@asgarddynamics.io",
+        "Ukusekela: lisa-support@asgarddynamics.io"
+    )
+    val aboutSupportFeedback: String get() = t(
+        "Feedback: lisa-feedback@asgarddynamics.io",
+        "Terugvoer: lisa-feedback@asgarddynamics.io",
+        "Impendulo: lisa-feedback@asgarddynamics.io"
+    )
+    fun aboutVersionLabel(versionName: String): String = t(
+        "Version $versionName",
+        "Weergawe $versionName",
+        "Inguqulo $versionName"
     )
     fun versionAndBuildLabel(versionName: String, versionCode: Long): String = t(
         "Version $versionName · Build $versionCode",

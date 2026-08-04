@@ -25,6 +25,27 @@ class LisaSecureStorageCryptoAndMigrationTest {
     }
 
     @Test
+    fun androidKeystoreEncryptDoesNotPassCallerIv() {
+        // Android Keystore rejects ENCRYPT_MODE with a caller-provided GCMParameterSpec when
+        // setRandomizedEncryptionRequired(true). Production must init with key only and use cipher.iv.
+        val source = ZeroTouchFileProbe.readProjectFile(
+            "app/src/main/java/com/idworx/lisa/features/securestorage/AndroidKeystoreAesGcmCipher.kt"
+        ) ?: error("missing AndroidKeystoreAesGcmCipher")
+        val encryptFn = source
+            .substringAfter("override fun encrypt(preferenceKey: String, plaintext: ByteArray): ByteArray {")
+            .substringBefore("override fun decrypt(preferenceKey: String, envelope: ByteArray): ByteArray {")
+        assertTrue(encryptFn.contains("cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())"))
+        assertFalse(encryptFn.contains("GCMParameterSpec"))
+        assertTrue(encryptFn.contains("cipher.iv"))
+        assertTrue(encryptFn.contains("buildEnvelope(iv, ciphertext)"))
+        val decryptFn = source
+            .substringAfter("override fun decrypt(preferenceKey: String, envelope: ByteArray): ByteArray {")
+            .substringBefore("fun ensureKeyAvailable()")
+        assertTrue(decryptFn.contains("GCMParameterSpec(LisaSecureCryptoFormat.GCM_TAG_BITS, iv)"))
+        assertTrue(decryptFn.contains("Cipher.DECRYPT_MODE"))
+    }
+
+    @Test
     fun ciphertextDiffersForSamePlaintext() {
         val plain = "same-text".toByteArray()
         val a = cipher.encrypt("key", plain)

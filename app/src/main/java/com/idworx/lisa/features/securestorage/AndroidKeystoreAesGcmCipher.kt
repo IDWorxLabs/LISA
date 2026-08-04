@@ -11,24 +11,30 @@ import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Production cipher: non-exportable AES-256 key in AndroidKeyStore, AES/GCM/NoPadding,
- * fresh 12-byte IV per encryption, preference key as AAD.
+ * Keystore-generated IV per encryption (caller-provided IV is not permitted when
+ * [KeyGenParameterSpec.Builder.setRandomizedEncryptionRequired] is true), preference key as AAD.
+ *
+ * Envelope layout is unchanged: version | ivLen | iv | ciphertext||tag.
+ * Decrypt always uses the IV stored in the envelope ([GCMParameterSpec]).
  */
 class AndroidKeystoreAesGcmCipher(
     private val keyAlias: String = LisaSecureCryptoFormat.KEY_ALIAS
 ) : LisaValueCipher {
 
-    private val secureRandom = SecureRandom()
-
     override fun encrypt(preferenceKey: String, plaintext: ByteArray): ByteArray {
-        val iv = ByteArray(LisaSecureCryptoFormat.IV_BYTES).also { secureRandom.nextBytes(it) }
         val cipher = Cipher.getInstance(LisaSecureCryptoFormat.TRANSFORMATION)
-        cipher.init(
-            Cipher.ENCRYPT_MODE,
-            getOrCreateKey(),
-            GCMParameterSpec(LisaSecureCryptoFormat.GCM_TAG_BITS, iv)
-        )
+        // Android Keystore rejects caller-provided IVs for ENCRYPT_MODE when randomized
+        // encryption is required. Let the Keystore generate the IV, then persist cipher.iv.
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         cipher.updateAAD(preferenceKey.toByteArray(Charsets.UTF_8))
         val ciphertext = cipher.doFinal(plaintext)
+        val iv = cipher.iv
+            ?: throw LisaSecureStorageException("Keystore did not return a GCM IV after encrypt")
+        if (iv.size != LisaSecureCryptoFormat.IV_BYTES) {
+            throw LisaSecureStorageException(
+                "Unexpected Keystore IV length: ${iv.size} (expected ${LisaSecureCryptoFormat.IV_BYTES})"
+            )
+        }
         return buildEnvelope(iv, ciphertext)
     }
 
@@ -108,6 +114,7 @@ class AndroidKeystoreAesGcmCipher(
 
 /**
  * Software AES-GCM cipher for JVM unit tests. Uses an in-memory key — never for production.
+ * Caller-provided IVs are allowed here (not Android Keystore).
  */
 class SoftwareAesGcmCipher(
     private val keyBytes: ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
