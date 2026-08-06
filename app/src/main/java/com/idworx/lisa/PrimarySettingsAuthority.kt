@@ -27,6 +27,7 @@ object PrimarySettingsAuthority {
 
     enum class ItemId {
         Calibration,
+        GlassesUsed,
         SpeechVolume,
         SpeechSpeed,
         TextSize,
@@ -46,6 +47,7 @@ object PrimarySettingsAuthority {
 
     val items: List<Item> = listOf(
         Item(ItemId.Calibration, Section.Detection, "calibration", MenuDestinationActionType.Navigation),
+        Item(ItemId.GlassesUsed, Section.Detection, "glasses_used", MenuDestinationActionType.Navigation),
         Item(ItemId.SpeechVolume, Section.Speech, "speech_volume", MenuDestinationActionType.Navigation),
         Item(ItemId.SpeechSpeed, Section.Speech, "speech_speed", MenuDestinationActionType.Navigation),
         Item(ItemId.TextSize, Section.Display, "text_size", MenuDestinationActionType.Choice),
@@ -69,6 +71,7 @@ object PrimarySettingsAuthority {
 
     fun title(id: ItemId, uiStrings: LisaUiStrings): String = when (id) {
         ItemId.Calibration -> uiStrings.calibrationTitle
+        ItemId.GlassesUsed -> uiStrings.glassesUsedWithLisaTitle
         ItemId.SpeechVolume -> uiStrings.guidedSelectSpeechVolumeSetting
         ItemId.SpeechSpeed -> uiStrings.guidedSelectSpeechSpeedSetting
         ItemId.TextSize -> uiStrings.textSize

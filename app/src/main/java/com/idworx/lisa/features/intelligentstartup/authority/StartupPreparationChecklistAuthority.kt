@@ -54,6 +54,8 @@ object StartupPreparationChecklistAuthority {
     }
 
     private fun profileLoaded(phase: StartupPhase): Boolean = when (phase) {
+        StartupPhase.GlassesQuestion,
+        StartupPhase.GlassesGuidance,
         StartupPhase.FaceDetection,
         StartupPhase.ProfileResolution -> false
         else -> true

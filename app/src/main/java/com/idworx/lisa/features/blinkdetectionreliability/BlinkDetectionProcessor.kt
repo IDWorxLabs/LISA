@@ -18,7 +18,29 @@ data class BlinkProcessResult(
     val skippedBothUncertain: Boolean = false,
     val skippedUnstable: Boolean = false,
     val rejectedUnprimed: Boolean = false,
-    val rejectedIncompleteShape: Boolean = false
+    val rejectedIncompleteShape: Boolean = false,
+    /**
+     * Observational fields for debug decision tracing only.
+     * Populated alongside production decisions; never alter wink acceptance.
+     */
+    val diagnosticPrevLeftProb: Float? = null,
+    val diagnosticPrevRightProb: Float? = null,
+    val diagnosticLeftUncertain: Boolean = false,
+    val diagnosticRightUncertain: Boolean = false,
+    val diagnosticBothOpen: Boolean = false,
+    val diagnosticLeftPrimed: Boolean = false,
+    val diagnosticRightPrimed: Boolean = false,
+    val diagnosticLeftCooldownBlocked: Boolean = false,
+    val diagnosticRightCooldownBlocked: Boolean = false,
+    val diagnosticRequiredWinkFrames: Int = 0,
+    val diagnosticOpenPrimingFrames: Int = 0,
+    val diagnosticLeftSupportCount: Int = 0,
+    val diagnosticRightSupportCount: Int = 0,
+    val diagnosticReopenIncompleteLeft: Boolean = false,
+    val diagnosticReopenIncompleteRight: Boolean = false,
+    val diagnosticClosedThresholdLeft: Float = 0f,
+    val diagnosticClosedThresholdRight: Float = 0f,
+    val diagnosticOpenThreshold: Float = 0f
 )
 
 /**
@@ -54,9 +76,11 @@ class BlinkDetectionProcessor(
     ): BlinkProcessResult {
         val leftProb = eyes.userLeft
         val rightProb = eyes.userRight
+        val capturedPrevLeft = prevLeft
+        val capturedPrevRight = prevRight
         val hasActiveSequence = acceptedLeftCount > 0 || acceptedRightCount > 0
         val hasActiveClose = leftClosingFrames > 0 || rightClosingFrames > 0
-        val bothOpen = leftProb > tuning.openEyeThreshold && rightProb > tuning.openEyeThreshold
+        val bothOpen = tuning.isBothEyesOpen(leftProb, rightProb)
 
         if (bothOpen) {
             leftCountedThisGesture = false
@@ -77,7 +101,20 @@ class BlinkDetectionProcessor(
             resetTracking()
             prevLeft = leftProb
             prevRight = rightProb
-            return BlinkProcessResult(skippedBothUncertain = true, skippedUnstable = true)
+            return BlinkProcessResult(
+                skippedBothUncertain = true,
+                skippedUnstable = true,
+                diagnosticPrevLeftProb = capturedPrevLeft,
+                diagnosticPrevRightProb = capturedPrevRight,
+                diagnosticLeftUncertain = true,
+                diagnosticRightUncertain = true,
+                diagnosticBothOpen = bothOpen,
+                diagnosticRequiredWinkFrames = tuning.requiredWinkFrames,
+                diagnosticOpenPrimingFrames = tuning.openPrimingFrames,
+                diagnosticClosedThresholdLeft = tuning.effectiveLeftClosedThreshold,
+                diagnosticClosedThresholdRight = tuning.effectiveRightClosedThreshold,
+                diagnosticOpenThreshold = tuning.openEyeThreshold
+            )
         }
 
         val completingBlinkReopen = bothOpen && hasActiveClose
@@ -93,7 +130,19 @@ class BlinkDetectionProcessor(
                 leftStreak = leftClosingFrames,
                 rightStreak = rightClosingFrames,
                 skippedForJitter = true,
-                skippedUnstable = !hasActiveSequence
+                skippedUnstable = !hasActiveSequence,
+                diagnosticPrevLeftProb = capturedPrevLeft,
+                diagnosticPrevRightProb = capturedPrevRight,
+                diagnosticLeftUncertain = leftUncertain,
+                diagnosticRightUncertain = rightUncertain,
+                diagnosticBothOpen = bothOpen,
+                diagnosticLeftSupportCount = leftClosingFrames,
+                diagnosticRightSupportCount = rightClosingFrames,
+                diagnosticRequiredWinkFrames = tuning.requiredWinkFrames,
+                diagnosticOpenPrimingFrames = tuning.openPrimingFrames,
+                diagnosticClosedThresholdLeft = tuning.effectiveLeftClosedThreshold,
+                diagnosticClosedThresholdRight = tuning.effectiveRightClosedThreshold,
+                diagnosticOpenThreshold = tuning.openEyeThreshold
             )
         }
 
@@ -141,6 +190,17 @@ class BlinkDetectionProcessor(
         val completedLeftClose = leftClosingFrames
         val completedRightClose = rightClosingFrames
 
+        val leftCooldownBlocked = bothOpen &&
+            completedLeftClose >= tuning.requiredWinkFrames &&
+            leftPrimed &&
+            !leftCountedThisGesture &&
+            nowMs - lastLeftAcceptedMs < tuning.cooldownMs
+        val rightCooldownBlocked = bothOpen &&
+            completedRightClose >= tuning.requiredWinkFrames &&
+            rightPrimed &&
+            !rightCountedThisGesture &&
+            nowMs - lastRightAcceptedMs < tuning.cooldownMs
+
         val acceptLeft = bothOpen &&
             completedLeftClose >= tuning.requiredWinkFrames &&
             leftPrimed &&
@@ -153,14 +213,18 @@ class BlinkDetectionProcessor(
             !rightCountedThisGesture &&
             nowMs - lastRightAcceptedMs >= tuning.cooldownMs
 
+        var reopenIncompleteLeft = false
+        var reopenIncompleteRight = false
         if (bothOpen) {
             leftPrimingFrames = (leftPrimingFrames + 1).coerceAtMost(tuning.openPrimingFrames + 2)
             rightPrimingFrames = (rightPrimingFrames + 1).coerceAtMost(tuning.openPrimingFrames + 2)
             if (completedLeftClose > 0 && !acceptLeft && completedLeftClose < tuning.requiredWinkFrames) {
                 rejectedIncompleteShape = true
+                reopenIncompleteLeft = true
             }
             if (completedRightClose > 0 && !acceptRight && completedRightClose < tuning.requiredWinkFrames) {
                 rejectedIncompleteShape = true
+                reopenIncompleteRight = true
             }
             leftClosingFrames = 0
             leftCloseGrace = 0
@@ -188,7 +252,25 @@ class BlinkDetectionProcessor(
             leftStreak = completedLeftClose,
             rightStreak = completedRightClose,
             rejectedUnprimed = rejectedUnprimed,
-            rejectedIncompleteShape = rejectedIncompleteShape
+            rejectedIncompleteShape = rejectedIncompleteShape,
+            diagnosticPrevLeftProb = capturedPrevLeft,
+            diagnosticPrevRightProb = capturedPrevRight,
+            diagnosticLeftUncertain = leftUncertain,
+            diagnosticRightUncertain = rightUncertain,
+            diagnosticBothOpen = bothOpen,
+            diagnosticLeftPrimed = leftPrimed,
+            diagnosticRightPrimed = rightPrimed,
+            diagnosticLeftCooldownBlocked = leftCooldownBlocked,
+            diagnosticRightCooldownBlocked = rightCooldownBlocked,
+            diagnosticRequiredWinkFrames = tuning.requiredWinkFrames,
+            diagnosticOpenPrimingFrames = tuning.openPrimingFrames,
+            diagnosticLeftSupportCount = completedLeftClose,
+            diagnosticRightSupportCount = completedRightClose,
+            diagnosticReopenIncompleteLeft = reopenIncompleteLeft,
+            diagnosticReopenIncompleteRight = reopenIncompleteRight,
+            diagnosticClosedThresholdLeft = tuning.effectiveLeftClosedThreshold,
+            diagnosticClosedThresholdRight = tuning.effectiveRightClosedThreshold,
+            diagnosticOpenThreshold = tuning.openEyeThreshold
         )
     }
 

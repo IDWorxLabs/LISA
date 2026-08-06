@@ -201,7 +201,19 @@ fun GuidedTrainingFlow(
     onResetLearningProgress: () -> Unit = {},
     onLearningPreferencesChange: (
         com.idworx.lisa.features.onboardingguide.model.TrainingPreferences
-    ) -> Unit = {}
+    ) -> Unit = {},
+    eyeTestModeOpen: Boolean = false,
+    eyeTestController: com.idworx.lisa.features.eyediagnostic.EyeTestModeController? = null,
+    onCloseEyeTestMode: () -> Unit = {},
+    personalisedEyeProfileOpen: Boolean = false,
+    personalisedEyeProfileController: com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileController? = null,
+    onClosePersonalisedEyeProfile: () -> Unit = {},
+    signalInvestigationOpen: Boolean = false,
+    signalInvestigationController: com.idworx.lisa.features.signalinvestigation.SignalInvestigationController? = null,
+    onCloseSignalInvestigation: () -> Unit = {},
+    glassesCharacterisationOpen: Boolean = false,
+    glassesCharacterisationController: com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController? = null,
+    onCloseGlassesCharacterisation: () -> Unit = {}
 ) {
     val progress = state.progress
 
@@ -216,6 +228,38 @@ fun GuidedTrainingFlow(
         ) {
             onSetupStepChange(TrainingSessionController.SETUP_STEP_READY)
         }
+    }
+
+    if (eyeTestModeOpen && eyeTestController != null) {
+        com.idworx.lisa.features.eyediagnostic.EyeTestModeScreen(
+            controller = eyeTestController,
+            onBack = onCloseEyeTestMode
+        )
+        return
+    }
+
+    if (personalisedEyeProfileOpen && personalisedEyeProfileController != null) {
+        com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileScreen(
+            controller = personalisedEyeProfileController,
+            onBack = onClosePersonalisedEyeProfile
+        )
+        return
+    }
+
+    if (signalInvestigationOpen && signalInvestigationController != null) {
+        com.idworx.lisa.features.signalinvestigation.SignalInvestigationScreen(
+            controller = signalInvestigationController,
+            onBack = onCloseSignalInvestigation
+        )
+        return
+    }
+
+    if (glassesCharacterisationOpen && glassesCharacterisationController != null) {
+        com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationScreen(
+            controller = glassesCharacterisationController,
+            onBack = onCloseGlassesCharacterisation
+        )
+        return
     }
 
     when (progress.currentPhase) {

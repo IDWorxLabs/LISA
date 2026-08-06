@@ -14,6 +14,7 @@ enum class LisaPanel {
     VoiceFamily,
     Settings,
     Recalibration,
+    GlassesSetup,
     DeveloperTools,
     AboutLisa,
     PrivacyPolicy,

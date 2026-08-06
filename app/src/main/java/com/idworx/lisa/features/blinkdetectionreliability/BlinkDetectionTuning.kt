@@ -18,9 +18,12 @@ data class BlinkDetectionTuning(
     val streakGraceFrames: Int = STREAK_GRACE_FRAMES,
     val jitterThresholdIdle: Float = EYE_PROB_JUMP_THRESHOLD_IDLE,
     val jitterThresholdActive: Float = EYE_PROB_JUMP_THRESHOLD_ACTIVE,
-    /** Optional per-eye closed thresholds from Quick Eye Calibration. */
+    /** Optional per-eye closed thresholds (Personalised Profile prototype). Null = use [closedEyeThreshold]. */
     val leftClosedEyeThreshold: Float? = null,
-    val rightClosedEyeThreshold: Float? = null
+    val rightClosedEyeThreshold: Float? = null,
+    /** Optional per-eye open thresholds (Personalised Profile prototype). Null = use [openEyeThreshold]. */
+    val leftOpenEyeThreshold: Float? = null,
+    val rightOpenEyeThreshold: Float? = null
 ) {
     companion object {
         /** Minimum gap between accepted blinks on the same eye (was 900 ms — too strict for double-blink phrases). */
@@ -60,14 +63,29 @@ data class BlinkDetectionTuning(
     val effectiveRightClosedThreshold: Float
         get() = rightClosedEyeThreshold ?: closedEyeThreshold
 
+    val effectiveLeftOpenThreshold: Float
+        get() = leftOpenEyeThreshold ?: openEyeThreshold
+
+    val effectiveRightOpenThreshold: Float
+        get() = rightOpenEyeThreshold ?: openEyeThreshold
+
     fun isLeftWinkCandidate(leftProb: Float, rightProb: Float): Boolean =
-        leftProb < effectiveLeftClosedThreshold && rightProb > openEyeThreshold
+        leftProb < effectiveLeftClosedThreshold && rightProb > effectiveRightOpenThreshold
 
     fun isRightWinkCandidate(leftProb: Float, rightProb: Float): Boolean =
-        rightProb < effectiveRightClosedThreshold && leftProb > openEyeThreshold
+        rightProb < effectiveRightClosedThreshold && leftProb > effectiveLeftOpenThreshold
 
+    fun isBothEyesOpen(leftProb: Float, rightProb: Float): Boolean =
+        leftProb > effectiveLeftOpenThreshold && rightProb > effectiveRightOpenThreshold
+
+    /**
+     * Shared uncertain-band gate used by production both-eyes skip.
+     * With default (null) personalised opens this equals historical
+     * `min(closedL, closedR)..openEyeThreshold`.
+     */
     fun isEyeUncertain(prob: Float): Boolean {
         val closed = minOf(effectiveLeftClosedThreshold, effectiveRightClosedThreshold)
-        return prob in closed..openEyeThreshold
+        val open = maxOf(effectiveLeftOpenThreshold, effectiveRightOpenThreshold)
+        return prob in closed..open
     }
 }

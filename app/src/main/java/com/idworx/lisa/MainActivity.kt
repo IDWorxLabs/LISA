@@ -54,6 +54,18 @@ import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionDiagnost
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionProcessor
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkDetectionTuning
 import com.idworx.lisa.features.blinkdetectionreliability.BlinkEyeProbabilities
+import com.idworx.lisa.features.blinkdetectionreliability.BlinkProcessResult
+import com.idworx.lisa.features.eyediagnostic.EyeDecisionTraceBuilder
+import com.idworx.lisa.features.eyediagnostic.EyeDecisionTraceLogger
+import com.idworx.lisa.features.eyediagnostic.EyeDecisionTraceTracker
+import com.idworx.lisa.features.eyediagnostic.EyeTestModeAccess
+import com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileAccess
+import com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileController
+import com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileStore
+import com.idworx.lisa.features.eyediagnostic.EyeTestModeController
+import com.idworx.lisa.features.eyediagnostic.EyeTestSessionStore
+import com.idworx.lisa.features.eyediagnostic.LisaEyeDiagnostic
+import com.idworx.lisa.features.intelligentstartup.authority.WelcomeEyeNavigationAuthority
 import com.idworx.lisa.features.calibrationreliability.model.CalibrationHealthState
 import com.idworx.lisa.features.companionmemory.engine.CompanionMemoryEngines
 import com.idworx.lisa.features.companionmemory.integration.PersonalityMemoryAdapter
@@ -98,6 +110,107 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         sensitivityPresets.getValue(level.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL))
 
     private val blinkProcessor = BlinkDetectionProcessor(BlinkDetectionTuning.default)
+
+    /** Debug-only glasses/eye reliability Logcat samples. No-op in release ([BuildConfig.DEBUG]=false). */
+    private val eyeDiagnosticLogger = LisaEyeDiagnostic.Logger(enabled = BuildConfig.DEBUG)
+    private val eyeDecisionTraceTracker = EyeDecisionTraceTracker()
+    private val eyeDecisionTraceLogger = EyeDecisionTraceLogger(enabled = BuildConfig.DEBUG)
+
+    /** Width of the most recent ImageProxy analyzed for face-width % diagnostics. */
+    private var lastAnalyzedFrameWidthPx: Int = 0
+    /** Height of the most recent ImageProxy analyzed for camera-resolution diagnostics. */
+    private var lastAnalyzedFrameHeightPx: Int = 0
+
+    /** One-shot debug confirmation that CameraX frames reached [processFrame]. */
+    private var eyeDiagnosticPipelineLogged: Boolean = false
+
+    private val eyeTestController by lazy {
+        EyeTestModeController(
+            store = EyeTestSessionStore(EyeTestSessionStore.defaultRoot(filesDir)),
+            isDebugBuild = BuildConfig.DEBUG
+        ).also { controller ->
+            controller.applySessionDeviceInfo(
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                manufacturer = android.os.Build.MANUFACTURER,
+                model = android.os.Build.MODEL,
+                android = android.os.Build.VERSION.RELEASE
+            )
+        }
+    }
+    private val uiEyeTestModeOpen = mutableStateOf(false)
+
+    private val personalisedEyeProfileController by lazy {
+        PersonalisedEyeProfileController(
+            store = PersonalisedEyeProfileStore(PersonalisedEyeProfileStore.defaultRoot(filesDir)),
+            isDebugBuild = BuildConfig.DEBUG
+        ).also { controller ->
+            controller.applyDeviceInfo(
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                manufacturer = android.os.Build.MANUFACTURER,
+                model = android.os.Build.MODEL,
+                android = android.os.Build.VERSION.RELEASE
+            )
+        }
+    }
+    private val uiPersonalisedEyeProfileOpen = mutableStateOf(false)
+
+    private val signalInvestigationController by lazy {
+        com.idworx.lisa.features.signalinvestigation.SignalInvestigationController(
+            store = com.idworx.lisa.features.signalinvestigation.SignalInvestigationStore(
+                com.idworx.lisa.features.signalinvestigation.SignalInvestigationStore.defaultRoot(filesDir)
+            ),
+            isDebugBuild = BuildConfig.DEBUG,
+            speak = { text -> speakSignalInvestigationGuidance(text) },
+            playCue = { cue -> playSignalInvestigationCue(cue) },
+            ttsAvailableProvider = { tts != null }
+        ).also { controller ->
+            controller.applyDeviceInfo(
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                manufacturer = android.os.Build.MANUFACTURER,
+                model = android.os.Build.MODEL,
+                android = android.os.Build.VERSION.RELEASE
+            )
+        }
+    }
+    private val uiSignalInvestigationOpen = mutableStateOf(false)
+    private var signalInvestigationToneGenerator: android.media.ToneGenerator? = null
+
+    private val glassesCharacterisationController by lazy {
+        com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController(
+            store = com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationStore(
+                com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationStore
+                    .defaultRoot(filesDir)
+            ),
+            isDebugBuild = BuildConfig.DEBUG,
+            speak = { text -> speakGlassesCharacterisationGuidance(text) },
+            playCue = { cue -> playGlassesCharacterisationCue(cue) },
+            ttsAvailableProvider = { tts != null },
+            standardTuningProvider = {
+                BlinkDetectionTuning(
+                    closedEyeThreshold = closedEyeThreshold,
+                    openEyeThreshold = openEyeThreshold,
+                    requiredWinkFrames = requiredWinkFrames
+                )
+            }
+        ).also { controller ->
+            controller.applyDeviceInfo(
+                versionName = BuildConfig.VERSION_NAME,
+                versionCode = BuildConfig.VERSION_CODE,
+                manufacturer = android.os.Build.MANUFACTURER,
+                model = android.os.Build.MODEL,
+                android = android.os.Build.VERSION.RELEASE
+            )
+        }
+    }
+    private val uiGlassesCharacterisationOpen = mutableStateOf(false)
+    private var glassesCharacterisationToneGenerator: android.media.ToneGenerator? = null
+    private val uiEngineeringToolsHubOpen = mutableStateOf(false)
+
+    private lateinit var glassesSetupStore: com.idworx.lisa.features.glassessetup.GlassesSetupStore
+    private val uiGlassesSetupShowGuidance = mutableStateOf(false)
 
     private var closedEyeThreshold = BlinkDetectionTuning.default.closedEyeThreshold
     private var openEyeThreshold = BlinkDetectionTuning.default.openEyeThreshold
@@ -401,7 +514,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 mainHandler.postDelayed({ action() }, delayMs)
             }
         )
-        startupSession.start()
+        glassesSetupStore = com.idworx.lisa.features.glassessetup.GlassesSetupStore(this)
+        val glassesPref = resolveNormallyUsesGlassesPreference()
+        startupSession.start(normallyUsesGlasses = glassesPref)
         com.idworx.lisa.features.universalsequenceexecution.UniversalSequenceExecutionDebugValidator
             .runIfDebug(
                 isDebugBuild = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -914,6 +1029,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onIntelligentStartupConfirmSelectedProfile = {
                             startupSession.onProfileSelectGesture()
                         },
+                        onIntelligentStartupGlassesAnswer = { usesGlasses ->
+                            if (!usesGlasses) {
+                                persistNormallyUsesGlasses(false)
+                            }
+                            startupSession.answerGlassesQuestion(usesGlasses)
+                        },
+                        onIntelligentStartupGlassesGuidanceContinue = {
+                            persistNormallyUsesGlasses(true)
+                            startupSession.continueFromGlassesGuidance()
+                        },
+                        onIntelligentStartupGlassesGuidanceBack = {
+                            startupSession.backFromGlassesGuidance()
+                        },
+                        normallyUsesGlasses = resolveNormallyUsesGlassesPreference(),
+                        glassesUsedLabel = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+                            .statusLabel(resolveNormallyUsesGlassesPreference()),
+                        glassesSetupShowGuidance = uiGlassesSetupShowGuidance.value,
+                        onGlassesSetupShowGuidanceChange = { uiGlassesSetupShowGuidance.value = it },
+                        onSetGlassesAnswer = { persistNormallyUsesGlasses(it) },
                         onTrainingEvent = { event -> handleTrainingEvent(event) },
                         onTrainingWelcomeNarration = { trainingSession.welcomeNarration() },
                         onTrainingFirstLaunchNarration = { trainingSession.firstLaunchChoiceNarration() },
@@ -965,6 +1099,53 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         onExploreFinishGuidedLearning = {
                             verifyTrainingNavigation(NavigationAction.FinishGuidedLearning)
                         },
+                        showEngineeringToolsHubEntry =
+                            com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess
+                                .isEntryVisible(BuildConfig.DEBUG),
+                        engineeringToolsHubOpen = uiEngineeringToolsHubOpen.value,
+                        onOpenEngineeringToolsHub = { openEngineeringToolsHub() },
+                        onCloseEngineeringToolsHub = { closeEngineeringToolsHub() },
+                        onOpenEngineeringTool = { tool -> openEngineeringTool(tool) },
+                        eyeTestModeOpen = uiEyeTestModeOpen.value,
+                        eyeTestController = if (
+                            com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                                .allowsDiagnosticStorageInit(BuildConfig.DEBUG)
+                        ) {
+                            eyeTestController
+                        } else {
+                            null
+                        },
+                        onCloseEyeTestMode = { closeEyeTestMode() },
+                        personalisedEyeProfileOpen = uiPersonalisedEyeProfileOpen.value,
+                        personalisedEyeProfileController = if (
+                            com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                                .allowsDiagnosticStorageInit(BuildConfig.DEBUG)
+                        ) {
+                            personalisedEyeProfileController
+                        } else {
+                            null
+                        },
+                        onClosePersonalisedEyeProfile = { closePersonalisedEyeProfile() },
+                        signalInvestigationOpen = uiSignalInvestigationOpen.value,
+                        signalInvestigationController = if (
+                            com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                                .allowsDiagnosticStorageInit(BuildConfig.DEBUG)
+                        ) {
+                            signalInvestigationController
+                        } else {
+                            null
+                        },
+                        onCloseSignalInvestigation = { closeSignalInvestigation() },
+                        glassesCharacterisationOpen = uiGlassesCharacterisationOpen.value,
+                        glassesCharacterisationController = if (
+                            com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                                .allowsDiagnosticStorageInit(BuildConfig.DEBUG)
+                        ) {
+                            glassesCharacterisationController
+                        } else {
+                            null
+                        },
+                        onCloseGlassesCharacterisation = { closeGlassesCharacterisation() },
                         cameraView = {
                             CameraPreview(
                                 onFrame = { imageProxy -> processFrame(imageProxy) },
@@ -1104,6 +1285,77 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (!LisaSpeechPolicy.allowsNarration()) return
         val params = Bundle()
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "LISA_NARRATION")
+    }
+
+    /**
+     * Debug-only Signal Investigation guidance.
+     * Isolated utterance id; calm fixed rate — not phrase-voice settings.
+     */
+    private fun speakSignalInvestigationGuidance(text: String) {
+        if (!BuildConfig.DEBUG) return
+        if (!uiSignalInvestigationOpen.value) return
+        val engine = tts ?: return
+        val params = Bundle()
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+        engine.setSpeechRate(0.92f)
+        engine.speak(text, TextToSpeech.QUEUE_ADD, params, "LISA_SIGNAL_INV_${System.currentTimeMillis()}")
+    }
+
+    private fun playSignalInvestigationCue(
+        cue: com.idworx.lisa.features.signalinvestigation.SignalInvestigationController.AudioCue
+    ) {
+        if (!BuildConfig.DEBUG) return
+        try {
+            val gen = signalInvestigationToneGenerator
+                ?: android.media.ToneGenerator(
+                    android.media.AudioManager.STREAM_MUSIC,
+                    60
+                ).also { signalInvestigationToneGenerator = it }
+            when (cue) {
+                com.idworx.lisa.features.signalinvestigation.SignalInvestigationController.AudioCue.RecordStart ->
+                    gen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 120)
+                com.idworx.lisa.features.signalinvestigation.SignalInvestigationController.AudioCue.RecordEnd ->
+                    gen.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 180)
+            }
+        } catch (_: Exception) {
+            // Non-fatal — voice guidance remains primary.
+        }
+    }
+
+    private fun speakGlassesCharacterisationGuidance(text: String) {
+        if (!BuildConfig.DEBUG) return
+        if (!uiGlassesCharacterisationOpen.value) return
+        val engine = tts ?: return
+        val params = Bundle()
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+        engine.setSpeechRate(0.92f)
+        engine.speak(
+            text,
+            TextToSpeech.QUEUE_ADD,
+            params,
+            "LISA_GLASSES_CHAR_${System.currentTimeMillis()}"
+        )
+    }
+
+    private fun playGlassesCharacterisationCue(
+        cue: com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController.AudioCue
+    ) {
+        if (!BuildConfig.DEBUG) return
+        try {
+            val gen = glassesCharacterisationToneGenerator
+                ?: android.media.ToneGenerator(
+                    android.media.AudioManager.STREAM_MUSIC,
+                    55
+                ).also { glassesCharacterisationToneGenerator = it }
+            when (cue) {
+                com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController.AudioCue.RecordStart ->
+                    gen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 100)
+                com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController.AudioCue.RecordEnd ->
+                    gen.startTone(android.media.ToneGenerator.TONE_PROP_ACK, 160)
+            }
+        } catch (_: Exception) {
+            // Non-fatal
+        }
     }
 
     private fun speak(text: String) = speakTranslatedPhrase(text)
@@ -1803,6 +2055,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             )
         )
         LisaPanel.Settings -> PrimarySettingsAuthority.menuDestinationActions(uiStrings)
+        LisaPanel.GlassesSetup -> emptyList()
         LisaPanel.Recalibration -> {
             val failed = uiSettingsRecalibrationState.value.outcome ==
                 SettingsRecalibrationOutcome.Failed
@@ -1910,6 +2163,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             actionId == MenuDestinationActionId.setting("calibration") ->
                 openSettingsRecalibration()
+            actionId == MenuDestinationActionId.setting("glasses_used") -> {
+                uiGlassesSetupShowGuidance.value = false
+                openPanel(LisaPanel.GlassesSetup, LisaPanel.Settings)
+            }
             actionId == MenuDestinationActionId.setting("calibration_retry") ->
                 settingsRecalibrationController.retry()
             actionId == MenuDestinationActionId.setting("speech_volume") ->
@@ -2775,7 +3032,168 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun openEngineeringToolsHub() {
+        if (!com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess
+                .isHubAllowed(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        closeAllPanels()
+        uiEngineeringToolsHubOpen.value = true
+    }
+
+    private fun closeEngineeringToolsHub() {
+        uiEngineeringToolsHubOpen.value = false
+    }
+
+    private fun openEngineeringTool(
+        tool: com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool
+    ) {
+        if (!com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess
+                .isHubAllowed(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        uiEngineeringToolsHubOpen.value = false
+        when (tool) {
+            com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool.EyeTestMode ->
+                openEyeTestMode()
+            com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool.PersonalisedEyeProfile ->
+                openPersonalisedEyeProfile()
+            com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool.SignalInvestigation ->
+                openSignalInvestigation()
+            com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool.GlassesCharacterisation ->
+                openGlassesCharacterisation()
+        }
+    }
+
+    private fun openEyeTestMode() {
+        if (!com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                .allowsDiagnosticNavigation(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        if (!EyeTestModeAccess.isEntryVisible(BuildConfig.DEBUG)) return
+        if (!eyeTestController.open()) return
+        uiEyeTestModeOpen.value = true
+    }
+
+    private fun closeEyeTestMode() {
+        eyeTestController.close()
+        uiEyeTestModeOpen.value = false
+        resetSequence()
+        refreshTrainingActiveState()
+    }
+
+    private fun openPersonalisedEyeProfile() {
+        if (!com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                .allowsDiagnosticNavigation(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        if (!PersonalisedEyeProfileAccess.isEntryVisible(BuildConfig.DEBUG)) return
+        if (!personalisedEyeProfileController.open()) return
+        uiPersonalisedEyeProfileOpen.value = true
+    }
+
+    private fun closePersonalisedEyeProfile() {
+        personalisedEyeProfileController.close()
+        uiPersonalisedEyeProfileOpen.value = false
+        resetSequence()
+        refreshTrainingActiveState()
+    }
+
+    private fun openSignalInvestigation() {
+        if (!com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                .allowsDiagnosticNavigation(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        if (!com.idworx.lisa.features.signalinvestigation.SignalInvestigationAccess
+                .isEntryVisible(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        if (!signalInvestigationController.open()) return
+        uiSignalInvestigationOpen.value = true
+    }
+
+    private fun closeSignalInvestigation() {
+        signalInvestigationController.close()
+        uiSignalInvestigationOpen.value = false
+        resetSequence()
+        refreshTrainingActiveState()
+    }
+
+    private fun openGlassesCharacterisation() {
+        if (!com.idworx.lisa.features.glassessetup.WelcomeLaunchDestinationAuthority
+                .allowsDiagnosticNavigation(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        if (!com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationAccess
+                .isEntryVisible(BuildConfig.DEBUG)
+        ) {
+            return
+        }
+        glassesCharacterisationController.applyRuntimeSetup(
+            sensitivityLevel = uiSensitivityLevel.value,
+            responseTimeLabel = "${uiSequenceProcessingDelaySec.value}s",
+            screenBrightness = try {
+                android.provider.Settings.System.getInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS
+                ) / 255f
+            } catch (_: Exception) {
+                null
+            },
+            ambientLux = null,
+            deviceOrientation = resources.configuration.orientation.toString(),
+            cameraResolution = null
+        )
+        if (!glassesCharacterisationController.open()) return
+        uiGlassesCharacterisationOpen.value = true
+    }
+
+    private fun closeGlassesCharacterisation() {
+        glassesCharacterisationController.close()
+        uiGlassesCharacterisationOpen.value = false
+        resetSequence()
+        refreshTrainingActiveState()
+    }
+
     private fun handleTrainingSequence(left: Int, right: Int) {
+        if (uiEyeTestModeOpen.value) {
+            val order = currentBlinkOrder()
+            eyeTestController.onSequenceObserved(left, right, order)
+            // L2 R2 must not exit during the L2 R2 observation step.
+            if (WelcomeEyeNavigationAuthority.isBack(left, right) &&
+                eyeTestController.allowsBlinkBackToExit()
+            ) {
+                closeEyeTestMode()
+            }
+            // Consume — no production Welcome/Back/Confirm actions.
+            resetSequence()
+            refreshTrainingActiveState()
+            return
+        }
+        if (uiPersonalisedEyeProfileOpen.value) {
+            // Prototype consumes sequences observationally via its candidate detector only.
+            // Never execute production Welcome/Back/Confirm or workspace actions.
+            resetSequence()
+            refreshTrainingActiveState()
+            return
+        }
+        if (uiSignalInvestigationOpen.value) {
+            resetSequence()
+            refreshTrainingActiveState()
+            return
+        }
+        if (uiGlassesCharacterisationOpen.value) {
+            resetSequence()
+            refreshTrainingActiveState()
+            return
+        }
         val order = currentBlinkOrder()
         if (trainingSession.handleBrain1Interaction(left, right, order)) {
             refreshTrainingActiveState()
@@ -3556,8 +3974,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         // Keep session fields; do not persist across process death / fresh launch.
         uiMenuFeedbackDraft.value = draft
 
+        val diagnostics =
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.FeedbackDiagnostics
+                .fromOperationalState(
+                    isDebugBuild = BuildConfig.DEBUG,
+                    sensitivityLevel = uiSensitivityLevel.value,
+                    responseTimeSec = uiSequenceProcessingDelaySec.value,
+                    normallyUsesGlasses = resolveNormallyUsesGlassesPreference(),
+                    languageLabel = uiActiveLanguage.value.label,
+                    cameraReady = uiCameraPermissionGranted.value,
+                    faceDetected = uiFacePresent.value,
+                    eyesDetected = uiEyesDetected.value
+                )
         val prepared =
-            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.prepare(this, draft)
+            com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.prepare(
+                this,
+                draft,
+                diagnostics
+            )
         // Do not pre-check PackageManager.resolveActivity — on Android 11+ package visibility
         // it often returns null even when startActivity can open a mailto handler.
         when (
@@ -5036,6 +5470,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         profileStore.saveProfiles(uiProfiles.toList(), uiActiveProfileId.value)
     }
 
+    private fun resolveNormallyUsesGlassesPreference(): Boolean? {
+        glassesSetupStore.normallyUsesGlasses()?.let { return it }
+        return activeProfile()?.normallyUsesGlasses
+    }
+
+    /**
+     * Guidance preference only — never changes Standard Mode thresholds or detection tuning.
+     */
+    private fun persistNormallyUsesGlasses(value: Boolean) {
+        check(!com.idworx.lisa.features.glassessetup.GlassesSetupAuthority.affectsEyeThresholds())
+        glassesSetupStore.setNormallyUsesGlasses(value)
+        if (activeProfile() != null) {
+            updateActiveProfile { it.copy(normallyUsesGlasses = value) }
+        }
+    }
+
     private fun updateActiveProfile(transform: (LisaUserProfile) -> LisaUserProfile) {
         val current = activeProfile() ?: return
         val updated = transform(current).copy(updatedAt = System.currentTimeMillis())
@@ -5077,7 +5527,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val level = CommunicationLevel.fromStored(levelLabel)
         val profile = LisaUserProfile.createNew(name, activeProfile()).copy(
             preferredLanguage = language,
-            communicationLevel = level
+            communicationLevel = level,
+            normallyUsesGlasses = glassesSetupStore.normallyUsesGlasses()
         ).withCommunicationLevel(level)
         uiProfiles.clear()
         uiProfiles.add(profile)
@@ -5281,6 +5732,175 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         publishBlinkDiagnostics(leftProb, rightProb, result)
     }
 
+    /**
+     * Observational eye diagnostics for glasses reliability. Never mutates wink/sequence state.
+     * Emits only when [BuildConfig.DEBUG] is true (via [eyeDiagnosticLogger]).
+     */
+    private fun emitEyeDiagnostic(
+        faceCount: Int,
+        face: Face?,
+        userLeftProb: Float?,
+        userRightProb: Float?,
+        rejectionReason: String?,
+        frameAccepted: Boolean,
+        processResult: BlinkProcessResult? = null
+    ) {
+        if (!eyeDiagnosticLogger.isEnabled() &&
+            !eyeDecisionTraceLogger.isEnabled() &&
+            !uiEyeTestModeOpen.value &&
+            !uiPersonalisedEyeProfileOpen.value &&
+            !uiSignalInvestigationOpen.value &&
+            !uiGlassesCharacterisationOpen.value
+        ) {
+            return
+        }
+        val tuning = blinkProcessor.tuning
+        val leftClosed = tuning.effectiveLeftClosedThreshold
+        val rightClosed = tuning.effectiveRightClosedThreshold
+        val openThr = tuning.openEyeThreshold
+        val bounds = face?.boundingBox
+        val bboxW = bounds?.width()
+        val bboxH = bounds?.height()
+        val eitherNull = userLeftProb == null || userRightProb == null
+        val now = System.currentTimeMillis()
+        val seq = eyeDiagnosticSequenceState()
+        val base = LisaEyeDiagnostic.Sample(
+            timestampMs = now,
+            faceDetected = faceCount > 0 && face != null,
+            faceCount = faceCount,
+            boundingBoxWidthPx = bboxW,
+            boundingBoxHeightPx = bboxH,
+            faceWidthPercentOfImage = LisaEyeDiagnostic.faceWidthPercent(bboxW, lastAnalyzedFrameWidthPx),
+            leftEyeOpenProbability = userLeftProb,
+            rightEyeOpenProbability = userRightProb,
+            eitherProbabilityNull = eitherNull,
+            headEulerAngleY = face?.headEulerAngleY,
+            headEulerAngleZ = face?.headEulerAngleZ,
+            sensitivityLevel = uiSensitivityLevel.value,
+            leftEyeClosedThreshold = leftClosed,
+            rightEyeClosedThreshold = rightClosed,
+            openEyeThreshold = openThr,
+            interpretedLeftEyeState = LisaEyeDiagnostic.interpretEyeState(
+                userLeftProb, leftClosed, openThr
+            ),
+            interpretedRightEyeState = LisaEyeDiagnostic.interpretEyeState(
+                userRightProb, rightClosed, openThr
+            ),
+            frameAccepted = frameAccepted,
+            rejectionReason = rejectionReason,
+            leftWinkCount = leftWinks,
+            rightWinkCount = rightWinks,
+            sequenceState = seq
+        )
+        val trace = EyeDecisionTraceBuilder.build(
+            rawLeft = userLeftProb,
+            rawRight = userRightProb,
+            tuning = tuning,
+            sensitivity = uiSensitivityLevel.value,
+            result = processResult,
+            rejectionReason = rejectionReason,
+            frameAccepted = frameAccepted,
+            sequenceState = seq,
+            previousLeftState = eyeDecisionTraceTracker.previousLeftState,
+            previousRightState = eyeDecisionTraceTracker.previousRightState,
+            previousLeftCandidateActive = eyeDecisionTraceTracker.leftCandidateActive,
+            previousRightCandidateActive = eyeDecisionTraceTracker.rightCandidateActive,
+            msSinceLeftTransition = eyeDecisionTraceTracker.msSinceLeftTransition(now),
+            msSinceRightTransition = eyeDecisionTraceTracker.msSinceRightTransition(now)
+        )
+        val events = eyeDecisionTraceTracker.observe(trace, now)
+        events.forEach { eyeDecisionTraceLogger.emitEventImmediate(it) }
+        eyeDecisionTraceLogger.maybeEmitFrame(trace)
+        val sample = LisaEyeDiagnostic.sampleFromDecisionTrace(base, trace)
+        if (eyeDiagnosticLogger.isEnabled()) {
+            eyeDiagnosticLogger.maybeEmit(sample)
+        }
+        if (uiEyeTestModeOpen.value) {
+            eyeTestController.onSample(sample, uiSequenceProcessingDelaySec.value)
+            eyeTestController.onDecisionTrace(trace, eyeDecisionTraceTracker)
+        }
+        if (uiPersonalisedEyeProfileOpen.value) {
+            personalisedEyeProfileController.onSample(
+                left = sample.leftEyeOpenProbability,
+                right = sample.rightEyeOpenProbability,
+                faceDetected = sample.faceDetected,
+                faceWidth = sample.faceWidthPercentOfImage,
+                frameAccepted = sample.frameAccepted
+            )
+        }
+        if (uiSignalInvestigationOpen.value) {
+            val bounds = face?.boundingBox
+            val imgW = lastAnalyzedFrameWidthPx.takeIf { it > 0 }
+            val imgH = lastAnalyzedFrameHeightPx.takeIf { it > 0 }
+            val centerXPct = if (bounds != null && imgW != null && imgW > 0) {
+                ((bounds.exactCenterX()) / imgW) * 100f
+            } else {
+                null
+            }
+            val centerYPct = if (bounds != null && imgH != null && imgH > 0) {
+                ((bounds.exactCenterY()) / imgH) * 100f
+            } else {
+                null
+            }
+            signalInvestigationController.onSample(
+                left = sample.leftEyeOpenProbability,
+                right = sample.rightEyeOpenProbability,
+                faceDetected = sample.faceDetected,
+                faceWidth = sample.faceWidthPercentOfImage,
+                frameAccepted = sample.frameAccepted,
+                headYaw = sample.headEulerAngleY,
+                headRoll = sample.headEulerAngleZ,
+                faceCenterXPct = centerXPct,
+                faceCenterYPct = centerYPct,
+                imageWidthPx = imgW,
+                imageHeightPx = imgH
+            )
+        }
+        if (uiGlassesCharacterisationOpen.value) {
+            val bounds = face?.boundingBox
+            val imgW = lastAnalyzedFrameWidthPx.takeIf { it > 0 }
+            val imgH = lastAnalyzedFrameHeightPx.takeIf { it > 0 }
+            val centerXPct = if (bounds != null && imgW != null && imgW > 0) {
+                ((bounds.exactCenterX()) / imgW) * 100f
+            } else {
+                null
+            }
+            val centerYPct = if (bounds != null && imgH != null && imgH > 0) {
+                ((bounds.exactCenterY()) / imgH) * 100f
+            } else {
+                null
+            }
+            glassesCharacterisationController.onSample(
+                left = sample.leftEyeOpenProbability,
+                right = sample.rightEyeOpenProbability,
+                faceDetected = sample.faceDetected,
+                faceWidth = sample.faceWidthPercentOfImage,
+                frameAccepted = sample.frameAccepted,
+                headYaw = sample.headEulerAngleY,
+                headRoll = sample.headEulerAngleZ,
+                faceCenterXPct = centerXPct,
+                faceCenterYPct = centerYPct,
+                imageWidthPx = imgW,
+                imageHeightPx = imgH
+            )
+        }
+    }
+
+    private fun eyeDiagnosticSequenceState(): String {
+        val stateName = uiCommunicationState.value::class.simpleName ?: "Unknown"
+        return "L${leftWinks}R${rightWinks}|$stateName|cd=$countdownActive|em=$emergencyActive"
+    }
+
+    /**
+     * Raw mirrored user-eye probabilities for diagnostics only.
+     * Unlike [userEyeProbabilities], preserves per-eye nulls so glasses glare/null asymmetry is visible.
+     */
+    private fun diagnosticUserEyeProbabilities(face: Face): Pair<Float?, Float?> {
+        val sensorLeft = face.leftEyeOpenProbability
+        val sensorRight = face.rightEyeOpenProbability
+        return sensorRight to sensorLeft
+    }
+
     // --------- Camera + ML processing ----------
     @androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
     private fun processFrame(imageProxy: ImageProxy) {
@@ -5290,6 +5910,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             return
         }
 
+        lastAnalyzedFrameWidthPx = imageProxy.width
+        lastAnalyzedFrameHeightPx = imageProxy.height
+        if (eyeDiagnosticLogger.isEnabled() && !eyeDiagnosticPipelineLogged) {
+            eyeDiagnosticPipelineLogged = true
+            android.util.Log.i(
+                LisaEyeDiagnostic.TAG,
+                "pipeline=processFrame_entered frameW=$lastAnalyzedFrameWidthPx"
+            )
+        }
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
         detector.process(image)
@@ -5299,15 +5928,32 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 if (emergencyActive) {
                     if (faces.isEmpty()) {
                         updateDiagnostics(null, null)
+                        emitEyeDiagnostic(
+                            faceCount = 0,
+                            face = null,
+                            userLeftProb = null,
+                            userRightProb = null,
+                            rejectionReason = "no_face",
+                            frameAccepted = false
+                        )
                         return@addOnSuccessListener
                     }
                     val face = faces[0]
                     val eyes = userEyeProbabilities(face)
                     if (eyes == null) {
+                        val (diagL, diagR) = diagnosticUserEyeProbabilities(face)
                         updateDiagnostics(null, null)
+                        emitEyeDiagnostic(
+                            faceCount = faces.size,
+                            face = face,
+                            userLeftProb = diagL,
+                            userRightProb = diagR,
+                            rejectionReason = "null_eye_probabilities",
+                            frameAccepted = false
+                        )
                         return@addOnSuccessListener
                     }
-                    processActiveEmergencyStopWinks(eyes.userLeft, eyes.userRight)
+                    processActiveEmergencyStopWinks(eyes.userLeft, eyes.userRight, face, faces.size)
                     return@addOnSuccessListener
                 }
                 if (faces.isEmpty()) {
@@ -5316,6 +5962,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     uiEyesDetected.value = false
                     blinkProcessor.clearPreviousProbabilities()
                     updateDiagnostics(null, null)
+                    emitEyeDiagnostic(
+                        faceCount = 0,
+                        face = null,
+                        userLeftProb = null,
+                        userRightProb = null,
+                        rejectionReason = "no_face",
+                        frameAccepted = false
+                    )
                     if (startupSession.isActive) {
                         startupSession.onFacePresence(false)
                     }
@@ -5347,7 +6001,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         setCommunicationState(LisaCommunicationState.Listening)
                     }
                 }
-                handleWinks(face)
+                handleWinks(face, faces.size)
             }
             .addOnFailureListener {
                 uiTrackingLost.value = true
@@ -5355,6 +6009,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 uiEyesDetected.value = false
                 blinkProcessor.clearPreviousProbabilities()
                 updateDiagnostics(null, null)
+                emitEyeDiagnostic(
+                    faceCount = 0,
+                    face = null,
+                    userLeftProb = null,
+                    userRightProb = null,
+                    rejectionReason = "detector_failure",
+                    frameAccepted = false
+                )
                 if (!emergencyActive && leftWinks == 0 && rightWinks == 0) {
                     setCommunicationState(LisaCommunicationState.WaitingForFace)
                 }
@@ -5364,13 +6026,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
     }
 
-    private fun handleWinks(face: Face) {
+    private fun handleWinks(face: Face, faceCount: Int = 1) {
         if (emergencyActive) return
 
         val eyes = userEyeProbabilities(face)
         if (eyes == null) {
             uiEyesDetected.value = false
             updateDiagnostics(null, null)
+            val (diagL, diagR) = diagnosticUserEyeProbabilities(face)
+            emitEyeDiagnostic(
+                faceCount = faceCount,
+                face = face,
+                userLeftProb = diagL,
+                userRightProb = diagR,
+                rejectionReason = "null_eye_probabilities",
+                frameAccepted = false
+            )
             return
         }
         uiEyesDetected.value = true
@@ -5406,14 +6077,19 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         if (countdownActive) {
-            handleCountdownWinks(leftProb, rightProb)
+            handleCountdownWinks(leftProb, rightProb, face, faceCount)
             return
         }
 
-        processSequenceWinks(leftProb, rightProb)
+        processSequenceWinks(leftProb, rightProb, face, faceCount)
     }
 
-    private fun handleCountdownWinks(leftProb: Float, rightProb: Float) {
+    private fun handleCountdownWinks(
+        leftProb: Float,
+        rightProb: Float,
+        face: Face? = null,
+        faceCount: Int = 1
+    ) {
         val now = System.currentTimeMillis()
         val result = blinkProcessor.processFrame(
             BlinkEyeProbabilities(leftProb, rightProb),
@@ -5424,6 +6100,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiDevLeftStreak.value = result.leftStreak
         uiDevRightStreak.value = result.rightStreak
         updateDiagnostics(leftProb, rightProb, result)
+        val reject = LisaEyeDiagnostic.rejectionReasonFrom(result)
+        emitEyeDiagnostic(
+            faceCount = faceCount,
+            face = face,
+            userLeftProb = leftProb,
+            userRightProb = rightProb,
+            rejectionReason = reject,
+            frameAccepted = !result.skippedBothUncertain && !result.skippedForJitter && !result.skippedUnstable,
+            processResult = result
+        )
 
         if (result.acceptLeft && !countdownLeftHandled) {
             countdownLeftHandled = true
@@ -5442,7 +6128,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
      * Emergency. Touch Stop Emergency and this blink path share [cancelOrStopEmergency].
      * Armed confirmation still uses L1 R1 to confirm and R1 L1 to cancel — phases never overlap.
      */
-    private fun processActiveEmergencyStopWinks(leftProb: Float, rightProb: Float) {
+    private fun processActiveEmergencyStopWinks(
+        leftProb: Float,
+        rightProb: Float,
+        face: Face? = null,
+        faceCount: Int = 1
+    ) {
         val now = System.currentTimeMillis()
         val result = blinkProcessor.processFrame(
             BlinkEyeProbabilities(leftProb, rightProb),
@@ -5466,6 +6157,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         // Publish live counters after increments so Emergency Active Left/Right update immediately.
         updateDiagnostics(leftProb, rightProb, result)
+        val reject = LisaEyeDiagnostic.rejectionReasonFrom(result)
+        emitEyeDiagnostic(
+            faceCount = faceCount,
+            face = face,
+            userLeftProb = leftProb,
+            userRightProb = rightProb,
+            rejectionReason = reject,
+            frameAccepted = !result.skippedBothUncertain && !result.skippedForJitter && !result.skippedUnstable,
+            processResult = result
+        )
         val hasCountedWinks = leftWinks > 0 || rightWinks > 0
         val activelyWinking = result.leftCandidate || result.rightCandidate
         if (!hasCountedWinks || lastWinkTimeMs == 0L) return
@@ -5492,10 +6193,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun processSequenceWinks(leftProb: Float, rightProb: Float) {
+    private fun processSequenceWinks(
+        leftProb: Float,
+        rightProb: Float,
+        face: Face? = null,
+        faceCount: Int = 1
+    ) {
         if (countdownActive) return
         if (emergencyActive) {
-            processActiveEmergencyStopWinks(leftProb, rightProb)
+            processActiveEmergencyStopWinks(leftProb, rightProb, face, faceCount)
             return
         }
 
@@ -5510,6 +6216,16 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         uiDevLeftStreak.value = result.leftStreak
         uiDevRightStreak.value = result.rightStreak
         updateDiagnostics(leftProb, rightProb, result)
+        val reject = LisaEyeDiagnostic.rejectionReasonFrom(result)
+        emitEyeDiagnostic(
+            faceCount = faceCount,
+            face = face,
+            userLeftProb = leftProb,
+            userRightProb = rightProb,
+            rejectionReason = reject,
+            frameAccepted = !result.skippedBothUncertain && !result.skippedForJitter && !result.skippedUnstable,
+            processResult = result
+        )
 
         if (result.acceptLeft) {
             if (startupSession.isActive && !startupSession.eyeControlEnabled) {
@@ -5526,6 +6242,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 leftWinks += 1
                 if (sequenceStartMs == 0L) sequenceStartMs = now
                 onWinkCounted(isLeft = true)
+                if (uiEyeTestModeOpen.value) {
+                    eyeTestController.onWinkObserved(isLeft = true)
+                }
             }
         }
 
@@ -5544,6 +6263,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 rightWinks += 1
                 if (sequenceStartMs == 0L) sequenceStartMs = now
                 onWinkCounted(isLeft = false)
+                if (uiEyeTestModeOpen.value) {
+                    eyeTestController.onWinkObserved(isLeft = false)
+                }
             }
         }
 

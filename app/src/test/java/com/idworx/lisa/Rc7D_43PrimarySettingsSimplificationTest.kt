@@ -16,12 +16,13 @@ class Rc7D_43PrimarySettingsSimplificationTest {
         assertFalse(keys.contains("sensitivity"))
         assertFalse(keys.contains("response_time"))
         assertTrue(keys.contains("calibration"))
+        assertTrue(keys.contains("glasses_used"))
         assertTrue(keys.contains("speech_volume"))
         assertTrue(keys.contains("speech_speed"))
         assertTrue(keys.contains("text_size"))
         assertTrue(keys.contains("device_check"))
         assertTrue(keys.contains("developer_mode"))
-        assertEquals(6, PrimarySettingsAuthority.items.size)
+        assertEquals(7, PrimarySettingsAuthority.items.size)
         assertTrue(PrimarySettingsAuthority.removedFromPrimaryKeys.contains("sensitivity"))
         assertTrue(PrimarySettingsAuthority.removedFromPrimaryKeys.contains("response_time"))
     }
@@ -48,7 +49,7 @@ class Rc7D_43PrimarySettingsSimplificationTest {
     fun menuDestinationActionsMatchAuthorityOrder() {
         val actions = PrimarySettingsAuthority.menuDestinationActions(english)
         assertEquals(PrimarySettingsAuthority.items.map { it.actionId }, actions.map { it.id })
-        assertEquals(6, actions.size)
+        assertEquals(7, actions.size)
     }
 
     @Test
@@ -69,16 +70,17 @@ class Rc7D_43PrimarySettingsSimplificationTest {
     fun primarySettingsUiOmitsSensitivityResponseTimeAndOffCalibration() {
         val ui = readSource("app/src/main/java/com/idworx/lisa/LisaAccessibilityUi.kt")
         val panel = ui.substringAfter("private fun SettingsPanel(")
-            .substringBefore("private fun PrimarySettingsLauncherCard(")
+            .substringBefore("private fun GlassesSetupSettingsPanel(")
         assertFalse(panel.contains("ItemId.Sensitivity"))
         assertFalse(panel.contains("ItemId.ResponseTime"))
         assertTrue(panel.contains("calibrationStatusLabel"))
         assertFalse(panel.contains("SettingsSliderRow("))
         // Calibration must not use a misleading On/Off toggle status.
         val calibrationBranch = panel.substringAfter("ItemId.Calibration ->")
-            .substringBefore("ItemId.SpeechVolume")
+            .substringBefore("ItemId.GlassesUsed")
         assertFalse(calibrationBranch.contains("\"On\""))
         assertFalse(calibrationBranch.contains("\"Off\""))
+        assertTrue(panel.contains("ItemId.GlassesUsed"))
     }
 
     @Test

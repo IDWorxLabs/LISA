@@ -100,7 +100,7 @@ class Rc8_45FinalPreReleaseUiRefinementTest {
         assertTrue(block.contains("UniversalEyeTrackingHeader"))
     }
 
-    // --- Adjustment 2: Caregiver shortcut removal ---
+    // --- Adjustment 2: Production destination — three actions only; no caregiver/research tools ---
 
     @Test
     fun destinationSelectionHasOnlyThreeProductionActions() {
@@ -112,7 +112,14 @@ class Rc8_45FinalPreReleaseUiRefinementTest {
         assertFalse(block.contains("caregiverAdvancedSkipNavigation"))
         assertFalse(block.contains("onSkipToNavigationTraining"))
         assertFalse(block.contains("For caregivers"))
+        assertFalse(block.contains("EyeTestModeAccess"))
+        assertFalse(block.contains("SignalInvestigationAccess"))
+        assertFalse(block.contains("GlassesCharacterisationAccess"))
+        assertFalse(block.contains("PersonalisedEyeProfileAccess"))
         assertTrue(WelcomeDestinationLayoutAuthority.caregiverAbsentFromDestinationScreen(
+            read("features/onboardingguide/ui/TrainingWelcomeScreen.kt")
+        ))
+        assertTrue(WelcomeDestinationLayoutAuthority.destinationOmitsResearchToolEntries(
             read("features/onboardingguide/ui/TrainingWelcomeScreen.kt")
         ))
         assertTrue(GuidedNavigationAccessFloatingCardAuditor.welcomeExposesSkipToNavigationTraining())

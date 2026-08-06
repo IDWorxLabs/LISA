@@ -20,12 +20,12 @@ Android Auto Backup is **disabled** for LISA so these preferences are not includ
 
 - Feedback you type in the form is kept **only while LISA remains open** (current app session).
 - Feedback fields are **cleared on a fresh app launch**.
-- **Review and send by email** opens an in-app caregiver-assistance step before the system email chooser.
+- **Review and Send** opens an in-app caregiver-assistance step before the system email chooser.
 - An email account must already be set up in an email app on the device (for example Gmail or Outlook).
 - A caregiver may be needed to choose the email app, select the account, review the message, and press Send (LISA wink control does not operate inside external email apps).
 - Information leaves LISA **only if** the caregiver or user chooses to send the email.
 - The email provider handles transmission.
-- The pre-filled message includes app version, Android version, device model, and the feedback fields you entered.
+- The pre-filled message includes app version, Android version, device model, operational diagnostics (build type, sensitivity, response time, glasses preference, communication language, camera/face/eyes readiness, and local date/time), and the feedback fields you entered. It does **not** include photos, camera frames, audio, biometric templates, stored phrases, contacts, or GPS.
 - You can edit or delete any content before sending.
 - LISA **cannot confirm** whether the message was sent.
 

@@ -67,6 +67,11 @@ data class LisaUserProfile(
     val selectedTtsVoiceName: String? = null,
     /** RC7D.34 — local per-profile Quick Eye Calibration payload. */
     val eyeCalibration: ProfileEyeCalibration? = null,
+    /**
+     * Setup preference only — whether the user normally wears glasses with LISA.
+     * null = not answered yet. Does not alter Standard Mode thresholds.
+     */
+    val normallyUsesGlasses: Boolean? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -156,6 +161,9 @@ data class LisaUserProfile(
                 }
             )
         }
+        if (normallyUsesGlasses != null) {
+            put("normallyUsesGlasses", normallyUsesGlasses)
+        }
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }
@@ -231,6 +239,11 @@ data class LisaUserProfile(
                     } ?: emptyList()
                 )
             },
+            normallyUsesGlasses = if (obj.has("normallyUsesGlasses")) {
+                obj.getBoolean("normallyUsesGlasses")
+            } else {
+                null
+            },
             createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
             updatedAt = obj.optLong("updatedAt", System.currentTimeMillis())
         )
@@ -269,7 +282,8 @@ fun profileDefaultsForLevel(
     sensitivityOverride: Int? = null
 ): ProfileLevelDefaults = when (level) {
     CommunicationLevel.Beginner -> ProfileLevelDefaults(
-        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 2,
+        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+            ?: DEFAULT_SENSITIVITY_LEVEL,
         textSizeScale = 1.1f,
         confirmationCountdownSec = 5,
         responseSpeed = ResponseSpeed.Slow,
@@ -284,7 +298,8 @@ fun profileDefaultsForLevel(
         emergencyVolume = 1.0f
     )
     CommunicationLevel.Advanced -> ProfileLevelDefaults(
-        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL) ?: 4,
+        sensitivityLevel = sensitivityOverride?.coerceIn(MIN_SENSITIVITY_LEVEL, MAX_SENSITIVITY_LEVEL)
+            ?: DEFAULT_SENSITIVITY_LEVEL,
         textSizeScale = 0.95f,
         confirmationCountdownSec = 2,
         responseSpeed = ResponseSpeed.Fast,

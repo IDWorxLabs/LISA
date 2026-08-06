@@ -309,34 +309,47 @@ class LisaSecureStorageCryptoAndMigrationTest {
 class LisaFeedbackEmailAuthorityTest {
     @Test
     fun emailTemplateIncludesRequiredFieldsAndDestination() {
-        val prepared = com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.PreparedEmail(
-            to = com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.DESTINATION_EMAIL,
-            subject = com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.EMAIL_SUBJECT,
-            body = buildString {
-                appendLine("LISA Version: 1.1")
-                appendLine("Android Version: 14 (SDK 34)")
-                appendLine("Device Model: Device Model X")
-                appendLine()
-                appendLine("Feedback:")
-                appendLine()
-                appendLine("What worked well:")
-                appendLine("eye tracking")
-                appendLine()
-                appendLine("What was confusing:")
-                appendLine("menu")
-                appendLine()
-                appendLine("Wink detection feedback:")
-                appendLine("good")
-                appendLine()
-                appendLine("Speech timing feedback:")
-                appendLine("ok")
-            }
+        val prepared = com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority.prepare(
+            draft = com.idworx.lisa.MenuFeedbackDraft(
+                workedWell = "eye tracking",
+                confusing = "menu",
+                winkDetection = "good",
+                speechTiming = "ok"
+            ),
+            versionName = "1.1",
+            androidRelease = "14",
+            androidSdk = 34,
+            manufacturer = "Device",
+            model = "Model X",
+            diagnostics = com.idworx.lisa.features.feedbackemail.LisaFeedbackEmailAuthority
+                .FeedbackDiagnostics(
+                    build = "Release",
+                    sensitivity = "5",
+                    responseTime = "2s",
+                    normallyUsesGlasses = "NO",
+                    language = "English",
+                    camera = "Ready",
+                    face = "Detected",
+                    eyes = "Detected",
+                    date = "2026-07-18",
+                    time = "10:00:00",
+                    timeZone = "UTC"
+                )
         )
         assertEquals("lisa-feedback@asgarddynamics.io", prepared.to)
-        assertEquals("LISA Feedback", prepared.subject)
+        assertEquals(
+            "LISA Feedback | v1.1 | Glasses: NO | Device Model X",
+            prepared.subject
+        )
         assertTrue(prepared.body.contains("LISA Version:"))
         assertTrue(prepared.body.contains("Android Version:"))
         assertTrue(prepared.body.contains("Device Model:"))
+        assertTrue(prepared.body.contains("TECHNICAL INFORMATION"))
+        assertTrue(prepared.body.contains("USER FEEDBACK"))
+        assertTrue(prepared.body.contains("END OF REPORT"))
+        assertTrue(prepared.body.contains("Build Type:"))
+        assertTrue(prepared.body.contains("Communication Language:"))
+        assertTrue(prepared.body.contains("Normally Uses Glasses:"))
         assertTrue(prepared.body.contains("What worked well:"))
         assertTrue(prepared.body.contains("What was confusing:"))
         assertFalse(prepared.body.contains("Android ID"))

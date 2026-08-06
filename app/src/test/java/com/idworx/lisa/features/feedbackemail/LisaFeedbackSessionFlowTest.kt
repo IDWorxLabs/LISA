@@ -130,37 +130,49 @@ class LisaFeedbackSessionFlowTest {
 
     @Test
     fun emailRecipientSubjectAndBodyRemainCorrect() {
-        val prepared = LisaFeedbackEmailAuthority.PreparedEmail(
-            to = LisaFeedbackEmailAuthority.DESTINATION_EMAIL,
-            subject = LisaFeedbackEmailAuthority.EMAIL_SUBJECT,
-            body = buildString {
-                appendLine("LISA Version: 1.1")
-                appendLine("Android Version: 13 (SDK 33)")
-                appendLine("Device Model: Device Model X")
-                appendLine()
-                appendLine("Feedback:")
-                appendLine()
-                appendLine("What worked well:")
-                appendLine("a")
-                appendLine()
-                appendLine("What was confusing:")
-                appendLine("b")
-                appendLine()
-                appendLine("Wink detection feedback:")
-                appendLine("c")
-                appendLine()
-                appendLine("Speech timing feedback:")
-                appendLine("d")
-            }
+        val prepared = LisaFeedbackEmailAuthority.prepare(
+            draft = MenuFeedbackDraft(
+                workedWell = "a",
+                confusing = "b",
+                winkDetection = "c",
+                speechTiming = "d"
+            ),
+            versionName = "1.1",
+            androidRelease = "13",
+            androidSdk = 33,
+            manufacturer = "Device",
+            model = "Model X",
+            diagnostics = LisaFeedbackEmailAuthority.FeedbackDiagnostics(
+                build = "Debug",
+                sensitivity = "5",
+                responseTime = "2s",
+                normallyUsesGlasses = "UNKNOWN",
+                language = "English",
+                camera = "Ready",
+                face = "Detected",
+                eyes = "Detected",
+                date = "2026-07-18",
+                time = "12:00:00",
+                timeZone = "UTC"
+            )
         )
         val mailto = LisaFeedbackEmailAuthority.buildMailtoUriString(prepared)
         assertEquals(
             "lisa-feedback@asgarddynamics.io",
             LisaFeedbackEmailAuthority.mailtoRecipientFromUriString(mailto)
         )
-        assertEquals("LISA Feedback", LisaFeedbackEmailAuthority.mailtoQueryValue(mailto, "subject"))
+        assertEquals(
+            "LISA Feedback | v1.1 | Glasses: UNKNOWN | Device Model X",
+            LisaFeedbackEmailAuthority.mailtoQueryValue(mailto, "subject")
+        )
         val body = LisaFeedbackEmailAuthority.mailtoQueryValue(mailto, "body")!!
         assertTrue(body.contains("LISA Version:"))
+        assertTrue(body.contains("TECHNICAL INFORMATION"))
+        assertTrue(body.contains("USER FEEDBACK"))
+        assertTrue(body.contains("END OF REPORT"))
+        assertTrue(body.contains("Build Type:"))
+        assertTrue(body.contains("Communication Language:"))
+        assertTrue(body.contains("Normally Uses Glasses:"))
         assertTrue(body.contains("What worked well:"))
         assertTrue(body.contains("Speech timing feedback:"))
     }

@@ -236,7 +236,7 @@ private fun WelcomeDestinationSelectionScreen(
         selectedChoiceLabel?.contains("Communication", ignoreCase = true) == true
 
     TrainingSoftBackground {
-        // RC7D.40 — destination fits the target viewport without outer scrolling.
+        // Production destination: three actions only; no outer scrolling.
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -286,7 +286,6 @@ private fun WelcomeDestinationSelectionScreen(
                             bottom = style.SubtitleToActionSpacing
                         )
                 )
-                // Spread the three primary actions evenly through remaining card height.
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = true)

@@ -234,8 +234,10 @@ class Rc7D_40CompactWelcomeActionsTest {
         assertFalse(destinationBlock().contains("CaregiverAdvancedSkipLink"))
         assertFalse(destinationBlock().contains("caregiverAdvancedSkipNavigation"))
         assertFalse(destinationBlock().contains("onSkipToNavigationTraining"))
+        assertFalse(destinationBlock().contains("For caregivers"))
         assertFalse(destinationBlock().contains(".verticalScroll("))
         assertFalse(destinationBlock().contains("rememberScrollState()"))
+        assertTrue(WelcomeDestinationLayoutAuthority.destinationOmitsResearchToolEntries(welcomeSource()))
     }
 
     @Test

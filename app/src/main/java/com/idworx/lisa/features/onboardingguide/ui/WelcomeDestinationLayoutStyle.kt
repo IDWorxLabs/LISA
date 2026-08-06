@@ -129,7 +129,8 @@ object WelcomeDestinationLayoutAuthority {
         val block = destinationBlock(source) ?: return false
         return !block.contains("CaregiverAdvancedSkipLink") &&
             !block.contains("caregiverAdvancedSkipNavigation") &&
-            !block.contains("onSkipToNavigationTraining")
+            !block.contains("onSkipToNavigationTraining") &&
+            !block.contains("For caregivers")
     }
 
     @Deprecated(
@@ -138,6 +139,16 @@ object WelcomeDestinationLayoutAuthority {
     )
     fun caregiverRemainsInDestinationScreen(source: String): Boolean =
         caregiverAbsentFromDestinationScreen(source)
+
+    fun destinationOmitsResearchToolEntries(source: String): Boolean {
+        val block = destinationBlock(source) ?: return false
+        return !block.contains("EyeTestModeAccess") &&
+            !block.contains("PersonalisedEyeProfileAccess") &&
+            !block.contains("SignalInvestigationAccess") &&
+            !block.contains("GlassesCharacterisationAccess") &&
+            !block.contains("showEyeTestModeEntry") &&
+            !block.contains("showSignalInvestigationEntry")
+    }
 
     fun continueMergesSequenceIntoButton(source: String): Boolean {
         val start = source.indexOf("fun WelcomeIntroductionContinueAction")

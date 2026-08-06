@@ -250,6 +250,31 @@ fun LisaRootUI(
     onIntelligentStartupConfirmCreatePrimary: () -> Unit = {},
     onIntelligentStartupSelectProfileIndex: (Int) -> Unit = {},
     onIntelligentStartupConfirmSelectedProfile: () -> Unit = {},
+    onIntelligentStartupGlassesAnswer: (Boolean) -> Unit = {},
+    onIntelligentStartupGlassesGuidanceContinue: () -> Unit = {},
+    onIntelligentStartupGlassesGuidanceBack: () -> Unit = {},
+    normallyUsesGlasses: Boolean? = null,
+    glassesUsedLabel: String = "",
+    glassesSetupShowGuidance: Boolean = false,
+    onGlassesSetupShowGuidanceChange: (Boolean) -> Unit = {},
+    onSetGlassesAnswer: (Boolean) -> Unit = {},
+    showEngineeringToolsHubEntry: Boolean = false,
+    engineeringToolsHubOpen: Boolean = false,
+    onOpenEngineeringToolsHub: () -> Unit = {},
+    onCloseEngineeringToolsHub: () -> Unit = {},
+    onOpenEngineeringTool: (com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.Tool) -> Unit = {},
+    eyeTestModeOpen: Boolean = false,
+    eyeTestController: com.idworx.lisa.features.eyediagnostic.EyeTestModeController? = null,
+    onCloseEyeTestMode: () -> Unit = {},
+    personalisedEyeProfileOpen: Boolean = false,
+    personalisedEyeProfileController: com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileController? = null,
+    onClosePersonalisedEyeProfile: () -> Unit = {},
+    signalInvestigationOpen: Boolean = false,
+    signalInvestigationController: com.idworx.lisa.features.signalinvestigation.SignalInvestigationController? = null,
+    onCloseSignalInvestigation: () -> Unit = {},
+    glassesCharacterisationOpen: Boolean = false,
+    glassesCharacterisationController: com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationController? = null,
+    onCloseGlassesCharacterisation: () -> Unit = {},
     cameraView: @Composable () -> Unit
 ) {
     if (intelligentStartupActive) {
@@ -271,10 +296,77 @@ fun LisaRootUI(
                 onConfirmCreatePrimaryUser = onIntelligentStartupConfirmCreatePrimary,
                 onSelectProfileIndex = onIntelligentStartupSelectProfileIndex,
                 onConfirmSelectedProfile = onIntelligentStartupConfirmSelectedProfile,
+                onGlassesAnswer = onIntelligentStartupGlassesAnswer,
+                onGlassesGuidanceContinue = onIntelligentStartupGlassesGuidanceContinue,
+                onGlassesGuidanceBack = onIntelligentStartupGlassesGuidanceBack,
                 onDecreaseSensitivity = onSensitivityDecrease,
                 onIncreaseSensitivity = onSensitivityIncrease,
                 onDecreaseResponseTime = onResponseTimeDecrease,
                 onIncreaseResponseTime = onResponseTimeIncrease
+            )
+        }
+        return
+    }
+    if (engineeringToolsHubOpen) {
+        com.idworx.lisa.features.engineeringtools.EngineeringToolsHubScreen(
+            onOpenTool = onOpenEngineeringTool,
+            onBack = onCloseEngineeringToolsHub
+        )
+        return
+    }
+    if (eyeTestModeOpen && eyeTestController != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                Box(modifier = Modifier.matchParentSize().alpha(0f)) {
+                    cameraView()
+                }
+            }
+            com.idworx.lisa.features.eyediagnostic.EyeTestModeScreen(
+                controller = eyeTestController,
+                onBack = onCloseEyeTestMode
+            )
+        }
+        return
+    }
+    if (personalisedEyeProfileOpen && personalisedEyeProfileController != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                Box(modifier = Modifier.matchParentSize().alpha(0f)) {
+                    cameraView()
+                }
+            }
+            com.idworx.lisa.features.personalisedeyeprofile.PersonalisedEyeProfileScreen(
+                controller = personalisedEyeProfileController,
+                onBack = onClosePersonalisedEyeProfile
+            )
+        }
+        return
+    }
+    if (signalInvestigationOpen && signalInvestigationController != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                // Live preview for Face-ID-style positioning guide (debug SI only).
+                Box(modifier = Modifier.matchParentSize()) {
+                    cameraView()
+                }
+            }
+            com.idworx.lisa.features.signalinvestigation.SignalInvestigationScreen(
+                controller = signalInvestigationController,
+                onBack = onCloseSignalInvestigation
+            )
+        }
+        return
+    }
+    if (glassesCharacterisationOpen && glassesCharacterisationController != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (cameraPermissionGranted) {
+                Box(modifier = Modifier.matchParentSize()) {
+                    cameraView()
+                }
+            }
+            com.idworx.lisa.features.glassescharacterisation.GlassesCharacterisationScreen(
+                controller = glassesCharacterisationController,
+                onBack = onCloseGlassesCharacterisation
             )
         }
         return
@@ -316,7 +408,19 @@ fun LisaRootUI(
                 showBlinkDiagnostics = showBlinkDiagnostics,
                 onCalibrationStarted = onTrainingCalibrationStarted,
                 onAdvanceCalibrationDot = onTrainingAdvanceCalibrationDot,
-                onReplayTutorial = onTrainingReplayTutorial
+                onReplayTutorial = onTrainingReplayTutorial,
+                eyeTestModeOpen = eyeTestModeOpen,
+                eyeTestController = eyeTestController,
+                onCloseEyeTestMode = onCloseEyeTestMode,
+                personalisedEyeProfileOpen = personalisedEyeProfileOpen,
+                personalisedEyeProfileController = personalisedEyeProfileController,
+                onClosePersonalisedEyeProfile = onClosePersonalisedEyeProfile,
+                signalInvestigationOpen = signalInvestigationOpen,
+                signalInvestigationController = signalInvestigationController,
+                onCloseSignalInvestigation = onCloseSignalInvestigation,
+                glassesCharacterisationOpen = glassesCharacterisationOpen,
+                glassesCharacterisationController = glassesCharacterisationController,
+                onCloseGlassesCharacterisation = onCloseGlassesCharacterisation
             )
         }
         return
@@ -722,6 +826,15 @@ fun LisaRootUI(
                             speechVolumeLevel = speechVolumeLevel,
                             speechSpeedLevel = speechSpeedLevel,
                             hasSavedCalibration = hasSavedEyeCalibration,
+                            glassesUsedLabel = glassesUsedLabel,
+                            onBack = onBackToMenu
+                        )
+                        LisaPanel.GlassesSetup -> GlassesSetupSettingsPanel(
+                            uiStrings = uiStrings,
+                            normallyUsesGlasses = normallyUsesGlasses,
+                            showGuidance = glassesSetupShowGuidance,
+                            onShowGuidanceChange = onGlassesSetupShowGuidanceChange,
+                            onSetGlassesAnswer = onSetGlassesAnswer,
                             onBack = onBackToMenu
                         )
                         LisaPanel.Recalibration -> SettingsRecalibrationPanel(
@@ -739,6 +852,8 @@ fun LisaRootUI(
                             uiStrings = uiStrings,
                             developerMode = developerMode,
                             onDeveloperModeChange = onDeveloperModeChange,
+                            showEngineeringToolsHubEntry = showEngineeringToolsHubEntry,
+                            onOpenEngineeringToolsHub = onOpenEngineeringToolsHub,
                             onBack = onBackToMenu
                         )
                         LisaPanel.AboutLisa -> AboutLisaPanel(
@@ -932,6 +1047,7 @@ fun LisaRootUI(
                     LisaPanel.VoiceFamily,
                     LisaPanel.Settings,
                     LisaPanel.Recalibration,
+                    LisaPanel.GlassesSetup,
                     LisaPanel.DeveloperTools,
                     LisaPanel.AboutLisa,
                     LisaPanel.PrivacyPolicy,
@@ -2114,17 +2230,42 @@ private fun DeveloperToolsPanel(
     uiStrings: LisaUiStrings,
     developerMode: Boolean,
     onDeveloperModeChange: (Boolean) -> Unit,
+    showEngineeringToolsHubEntry: Boolean = false,
+    onOpenEngineeringToolsHub: () -> Unit = {},
     onBack: () -> Unit
 ) {
     LisaPanelShell(title = uiStrings.developerTools, onBack = onBack, backLabel = uiStrings.back) {
         PanelPurposeLine(uiStrings.developerToolsPurpose)
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         SettingsToggleRow(
             title = uiStrings.developerModeTitle,
             subtitle = uiStrings.developerModeSubtitle,
             checked = developerMode,
             onCheckedChange = onDeveloperModeChange
         )
+        if (showEngineeringToolsHubEntry) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(LisaWhite)
+                    .clickable(onClick = onOpenEngineeringToolsHub)
+                    .padding(horizontal = 14.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    text = com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.HUB_TITLE,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = LisaBlueDark
+                )
+                Text(
+                    text = com.idworx.lisa.features.engineeringtools.EngineeringToolsHubAccess.HUB_SUPPORTING,
+                    fontSize = 12.sp,
+                    color = LisaBlueDark.copy(alpha = 0.7f)
+                )
+            }
+        }
     }
 }
 
@@ -2160,6 +2301,7 @@ private fun SettingsPanel(
     speechVolumeLevel: Int,
     speechSpeedLevel: Int,
     hasSavedCalibration: Boolean,
+    glassesUsedLabel: String,
     onBack: () -> Unit
 ) {
     LisaPanelShell(title = uiStrings.settings, onBack = onBack, backLabel = uiStrings.back) {
@@ -2178,6 +2320,7 @@ private fun SettingsPanel(
                     val status = when (item.id) {
                         PrimarySettingsAuthority.ItemId.Calibration ->
                             PrimarySettingsAuthority.calibrationStatusLabel(hasSavedCalibration, uiStrings)
+                        PrimarySettingsAuthority.ItemId.GlassesUsed -> glassesUsedLabel
                         PrimarySettingsAuthority.ItemId.SpeechVolume ->
                             SpeechVolumeAuthority.percentLabel(speechVolumeLevel)
                         PrimarySettingsAuthority.ItemId.SpeechSpeed ->
@@ -2202,6 +2345,111 @@ private fun SettingsPanel(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GlassesSetupSettingsPanel(
+    uiStrings: LisaUiStrings,
+    normallyUsesGlasses: Boolean?,
+    showGuidance: Boolean,
+    onShowGuidanceChange: (Boolean) -> Unit,
+    onSetGlassesAnswer: (Boolean) -> Unit,
+    onBack: () -> Unit
+) {
+    val auth = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+    LisaPanelShell(
+        title = uiStrings.glassesUsedWithLisaTitle,
+        onBack = {
+            if (showGuidance) onShowGuidanceChange(false) else onBack()
+        },
+        backLabel = uiStrings.back
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberDestinationScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (showGuidance) {
+                Text(
+                    text = auth.GUIDANCE_TITLE,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = LisaBlueDark
+                )
+                Text(text = auth.GUIDANCE_INTRO, fontSize = 15.sp, color = LisaBlueDark, lineHeight = 22.sp)
+                Text(text = auth.GUIDANCE_RISK, fontSize = 15.sp, color = LisaBlueDark, lineHeight = 22.sp)
+                Text(
+                    text = auth.GUIDANCE_BEST_RESULTS_HEADER,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = LisaBlueDark
+                )
+                auth.GUIDANCE_BULLETS.forEach { bullet ->
+                    Text(text = "• $bullet", fontSize = 14.sp, color = LisaBlueDark, lineHeight = 20.sp)
+                }
+                Text(
+                    text = auth.GUIDANCE_NOTICE,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = LisaBlueDark,
+                    lineHeight = 20.sp
+                )
+            } else {
+                Text(
+                    text = "Current value: ${auth.statusLabel(normallyUsesGlasses)}",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 16.sp,
+                    color = LisaBlueDark
+                )
+                Text(
+                    text = auth.QUESTION_SUPPORTING,
+                    fontSize = 14.sp,
+                    color = LisaBlueDark.copy(alpha = 0.8f)
+                )
+                SettingsSectionLabel(uiStrings.glassesChangeAnswer)
+                PrimarySettingsTouchRow(
+                    title = uiStrings.glassesUsedYes,
+                    selected = normallyUsesGlasses == true,
+                    onClick = { onSetGlassesAnswer(true) }
+                )
+                PrimarySettingsTouchRow(
+                    title = uiStrings.glassesUsedNo,
+                    selected = normallyUsesGlasses == false,
+                    onClick = { onSetGlassesAnswer(false) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PrimarySettingsTouchRow(
+                    title = uiStrings.glassesViewGuidance,
+                    selected = false,
+                    onClick = { onShowGuidanceChange(true) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrimarySettingsTouchRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) LisaBlue.copy(alpha = 0.18f) else LisaWhite)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 14.dp)
+    ) {
+        Text(
+            text = title,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = LisaBlueDark
+        )
     }
 }
 

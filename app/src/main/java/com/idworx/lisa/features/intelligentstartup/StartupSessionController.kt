@@ -51,7 +51,12 @@ class StartupSessionController(
     val isActive: Boolean get() = state.blocksMainUi
     val eyeControlEnabled: Boolean get() = state.eyeControlActive
 
-    fun start() {
+    /**
+     * @param normallyUsesGlasses null → show glasses question first; non-null → Preparing path.
+     * Default [false] preserves legacy unit tests that exercise Preparing/calibration directly.
+     * Production always passes the durable preference (null when unanswered).
+     */
+    fun start(normallyUsesGlasses: Boolean? = false) {
         engine.reset()
         compatibilityOpenness.clear()
         compatibilityDistance.clear()
@@ -62,12 +67,40 @@ class StartupSessionController(
         preparationFinalized = false
         preparingHandoffScheduled = false
         preparingSession++
-        state = StartupFlowState()
+        state = if (normallyUsesGlasses == null) {
+            StartupFlowState(
+                phase = StartupPhase.GlassesQuestion,
+                normallyUsesGlasses = null,
+                lookingForFaceMessage = false
+            )
+        } else {
+            StartupFlowState(normallyUsesGlasses = normallyUsesGlasses)
+        }
         publish()
+    }
+
+    fun answerGlassesQuestion(usesGlasses: Boolean) {
+        if (state.phase != StartupPhase.GlassesQuestion) return
+        dispatch(StartupEvent.GlassesAnswered(usesGlasses))
+    }
+
+    fun continueFromGlassesGuidance() {
+        if (state.phase != StartupPhase.GlassesGuidance) return
+        dispatch(StartupEvent.AcknowledgeGlassesGuidance)
+    }
+
+    fun backFromGlassesGuidance() {
+        if (state.phase != StartupPhase.GlassesGuidance) return
+        dispatch(StartupEvent.BackFromGlassesGuidance)
     }
 
     fun onFacePresence(present: Boolean) {
         if (!isActive) return
+        if (state.phase == StartupPhase.GlassesQuestion ||
+            state.phase == StartupPhase.GlassesGuidance
+        ) {
+            return
+        }
         val previous = state.faceDetected
         dispatch(StartupEvent.FacePresenceChanged(present))
         if (state.phase == StartupPhase.FaceDetection && present && !previous) {

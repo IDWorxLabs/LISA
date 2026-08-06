@@ -1195,9 +1195,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
     )
     val privacyYourInfoTitle: String get() = t("Your information", "Jou inligting", "Ulwazi lwakho")
     val privacyYourInfoBody: String get() = t(
-        "Communication profiles, vocabulary, and settings stay on this device in encrypted storage. Feedback you type is kept only while LISA stays open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Feedback leaves LISA only if you choose Review and send by email and then send the message in your email app.",
-        "Kommunikasieprofiele, woordeskat en instellings bly op hierdie toestel in geënkripteerde berging. Terugvoer wat jy tik word slegs gehou terwyl LISA oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Terugvoer verlaat LISA slegs as jy Hersien en stuur per e-pos kies en dan die boodskap in jou e-posprogram stuur.",
-        "Amaphrofayela okuxhumana, ulimi, nezilungiselelo ahlala kule divayisi kukugcina okubethelwe. Impendulo oyithayipha igcinwa kuphela ngenkathi i-LISA ivulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Impendulo iphuma ku-LISA kuphela uma ukhetha Buyekeza futhi uthumele nge-imeyili bese uthumela umlayezo ohlelweni lwakho lwe-imeyili."
+        "Communication profiles, vocabulary, and settings stay on this device in encrypted storage. Feedback you type is kept only while LISA stays open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Feedback leaves LISA only if you choose Review and Send and then send the message in your email app.",
+        "Kommunikasieprofiele, woordeskat en instellings bly op hierdie toestel in geënkripteerde berging. Terugvoer wat jy tik word slegs gehou terwyl LISA oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Terugvoer verlaat LISA slegs as jy Hersien en Stuur kies en dan die boodskap in jou e-posprogram stuur.",
+        "Amaphrofayela okuxhumana, ulimi, nezilungiselelo ahlala kule divayisi kukugcina okubethelwe. Impendulo oyithayipha igcinwa kuphela ngenkathi i-LISA ivulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Impendulo iphuma ku-LISA kuphela uma ukhetha Buyekeza futhi Thumela bese uthumela umlayezo ohlelweni lwakho lwe-imeyili."
     )
     val privacyEmergencyTitle: String get() = t("Emergency mode", "Noodmodus", "Imodi yesimo esiphuthumayo")
     val privacyEmergencyBody: String get() = t(
@@ -1246,9 +1246,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Impendulo ihlala ngenkathi i-LISA ivuliwe."
     )
     val feedbackPrivacyNotice: String get() = t(
-        "Your feedback stays in LISA while the app remains open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Review and send by email prepares a message for lisa-feedback@asgarddynamics.io. Information leaves LISA only if you choose to send the email. Your email provider handles delivery. The message includes app version, Android version, device model, and the feedback you entered. You can edit or remove anything before sending. LISA cannot confirm whether the message was sent.",
-        "Jou terugvoer bly in LISA terwyl die app oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Hersien en stuur per e-pos berei 'n boodskap voor vir lisa-feedback@asgarddynamics.io. Inligting verlaat LISA slegs as jy kies om die e-pos te stuur. Jou e-posverskaffer hanteer aflewering. Die boodskap sluit app-weergawe, Android-weergawe, toestelmodel en jou terugvoer in. Jy kan enigiets wysig of verwyder voor jy stuur. LISA kan nie bevestig of die boodskap gestuur is nie.",
-        "Impendulo yakho ihlala ku-LISA ngenkathi uhlelo luvulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Buyekeza futhi uthumele nge-imeyili ulungisa umlayezo we-lisa-feedback@asgarddynamics.io. Ulwazi luphuma ku-LISA kuphela uma ukhetha ukuthumela i-imeyili. Umhlinzeki wakho we-imeyili uphatha ukulethwa. Umlayezo uhlanganisa inguqulo yohlelo, i-Android, imodeli yedivayisi, nempendulo oyifakile. Ungahlela noma ususe noma yini ngaphambi kokuthumela. I-LISA ayikwazi ukuqinisekisa ukuthi umlayezo uthunyelwe."
+        "Your feedback stays in LISA while the app remains open and is cleared on a fresh launch. A caregiver may be needed to choose an email app and press Send. Review and Send prepares a message for lisa-feedback@asgarddynamics.io. Information leaves LISA only if you choose to send the email. Your email provider handles delivery. The message includes app version, Android version, device model, operational diagnostics, and the feedback you entered. You can edit or remove anything before sending. LISA cannot confirm whether the message was sent.",
+        "Jou terugvoer bly in LISA terwyl die app oop bly en word by 'n nuwe opening uitgevee. 'n Versorger kan nodig wees om 'n e-posprogram te kies en Stuur te druk. Hersien en Stuur berei 'n boodskap voor vir lisa-feedback@asgarddynamics.io. Inligting verlaat LISA slegs as jy kies om die e-pos te stuur. Jou e-posverskaffer hanteer aflewering. Die boodskap sluit app-weergawe, Android-weergawe, toestelmodel, bedryfsdiagnostiek en jou terugvoer in. Jy kan enigiets wysig of verwyder voor jy stuur. LISA kan nie bevestig of die boodskap gestuur is nie.",
+        "Impendulo yakho ihlala ku-LISA ngenkathi uhlelo luvulekile futhi iyasulwa ekuvulweni okusha. Kungadingeka umnakekeli ukukhetha uhlelo lwe-imeyili futhi acindezele Thumela. Buyekeza futhi Thumela ulungisa umlayezo we-lisa-feedback@asgarddynamics.io. Ulwazi luphuma ku-LISA kuphela uma ukhetha ukuthumela i-imeyili. Umhlinzeki wakho we-imeyili uphatha ukulethwa. Umlayezo uhlanganisa inguqulo yohlelo, i-Android, imodeli yedivayisi, ukuhlola kokusebenza, nempendulo oyifakile. Ungahlela noma ususe noma yini ngaphambi kokuthumela. I-LISA ayikwazi ukuqinisekisa ukuthi umlayezo uthunyelwe."
     )
     val feedbackCaregiverSpeakHeading: String get() = t(
         "Help me send this feedback",
@@ -1286,9 +1286,9 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Buyela emuva"
     )
     val feedbackSendByEmail: String get() = t(
-        "Review and send by email",
-        "Hersien en stuur per e-pos",
-        "Buyekeza futhi uthumele nge-imeyili"
+        "Review and Send",
+        "Hersien en Stuur",
+        "Buyekeza futhi Thumela"
     )
     val feedbackClearDraft: String get() = t(
         "Clear feedback",
@@ -1370,6 +1370,20 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         "Qinisekisa ikhamera, ukutholwa kwe-wink, ne-alamu yosizo oluphuthumayo."
     )
     val calibrationTitle: String get() = t("Calibration", "Kalibrasie", "Ukunquma")
+    val glassesUsedWithLisaTitle: String get() =
+        t("Glasses used with LISA", "Bril saam met LISA", "Izibuko ezisetshenziswa no-LISA")
+    val glassesUsedYes: String get() = t("Yes", "Ja", "Yebo")
+    val glassesUsedNo: String get() = t("No", "Nee", "Cha")
+    val glassesChangeAnswer: String get() =
+        t("Change answer", "Verander antwoord", "Shintsha impendulo")
+    val glassesViewGuidance: String get() =
+        t("View glasses guidance", "Bekyk brilriglyne", "Buka isiqondiso sezibuko")
+    val glassesGuidanceContinueSetup: String get() =
+        t(
+            "Continue to Eye Tracking Setup",
+            "Gaan voort na oognasporing-opstelling",
+            "Qhubeka ekusetheni kokulandelela amehlo"
+        )
     val calibrationSubtitle: String get() = t(
         "Fine-tune eye detection",
         "Stel oog-opsporing fyn",
@@ -1472,6 +1486,7 @@ data class LisaUiStrings(val language: PreferredLanguage) {
         LisaPanel.Voice -> voice
         LisaPanel.Settings -> settings
         LisaPanel.Recalibration -> calibrationTitle
+        LisaPanel.GlassesSetup -> glassesUsedWithLisaTitle
         LisaPanel.TestingChecklist -> testingChecklist
         LisaPanel.Feedback -> feedback
         LisaPanel.ReleaseNotes -> releaseNotes

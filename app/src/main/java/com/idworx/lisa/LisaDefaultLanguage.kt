@@ -40,7 +40,7 @@ data class WinkMapping(
 const val MIN_SEQUENCE_WINKS = 2
 const val MIN_SENSITIVITY_LEVEL = 1
 const val MAX_SENSITIVITY_LEVEL = 10
-const val DEFAULT_SENSITIVITY_LEVEL = 3
+const val DEFAULT_SENSITIVITY_LEVEL = 5
 
 fun isSequenceEligibleForSpeech(left: Int, right: Int): Boolean =
     left + right >= MIN_SEQUENCE_WINKS

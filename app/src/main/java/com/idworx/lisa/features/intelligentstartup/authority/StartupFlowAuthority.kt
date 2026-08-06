@@ -68,7 +68,46 @@ object EyeCalibrationAuthority {
 object StartupFlowAuthority {
 
     fun reduce(state: StartupFlowState, event: StartupEvent): StartupFlowState = when (event) {
+        is StartupEvent.GlassesAnswered -> {
+            if (state.phase != StartupPhase.GlassesQuestion) {
+                state
+            } else if (event.usesGlasses) {
+                state.copy(
+                    normallyUsesGlasses = true,
+                    phase = StartupPhase.GlassesGuidance,
+                    lookingForFaceMessage = false
+                )
+            } else {
+                state.copy(
+                    normallyUsesGlasses = false,
+                    phase = StartupPhase.FaceDetection,
+                    lookingForFaceMessage = true,
+                    faceDetected = false
+                )
+            }
+        }
+
+        StartupEvent.AcknowledgeGlassesGuidance -> {
+            if (state.phase != StartupPhase.GlassesGuidance) state
+            else state.copy(
+                phase = StartupPhase.FaceDetection,
+                lookingForFaceMessage = true,
+                faceDetected = false
+            )
+        }
+
+        StartupEvent.BackFromGlassesGuidance -> {
+            if (state.phase != StartupPhase.GlassesGuidance) state
+            else state.copy(
+                phase = StartupPhase.GlassesQuestion,
+                normallyUsesGlasses = null,
+                lookingForFaceMessage = false
+            )
+        }
+
         is StartupEvent.FacePresenceChanged -> when (state.phase) {
+            StartupPhase.GlassesQuestion,
+            StartupPhase.GlassesGuidance -> state.copy(faceDetected = event.present)
             StartupPhase.FaceDetection -> state.copy(
                 faceDetected = event.present,
                 lookingForFaceMessage = !event.present

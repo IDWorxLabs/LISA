@@ -5,6 +5,10 @@ package com.idworx.lisa.features.intelligentstartup.model
  * Splash remains OS-owned; this machine prepares eye tracking before Welcome.
  */
 enum class StartupPhase {
+    /** First-launch / upgrade: glasses preference unanswered. Touch-only. */
+    GlassesQuestion,
+    /** Shown only when the user answered Yes. Touch-only. */
+    GlassesGuidance,
     FaceDetection,
     ProfileResolution,
     CreatePrimaryUser,
@@ -87,6 +91,8 @@ data class StartupProfileChoice(
 
 data class StartupFlowState(
     val phase: StartupPhase = StartupPhase.FaceDetection,
+    /** Mirrored from durable preference for Preparing reminder / UI. */
+    val normallyUsesGlasses: Boolean? = null,
     val faceDetected: Boolean = false,
     val lookingForFaceMessage: Boolean = true,
     val profileChoices: List<StartupProfileChoice> = emptyList(),
@@ -122,6 +128,10 @@ data class StartupFlowState(
 }
 
 sealed class StartupEvent {
+    /** Persist outside the reducer; reducer only advances the flow. */
+    data class GlassesAnswered(val usesGlasses: Boolean) : StartupEvent()
+    data object AcknowledgeGlassesGuidance : StartupEvent()
+    data object BackFromGlassesGuidance : StartupEvent()
     data class FacePresenceChanged(val present: Boolean) : StartupEvent()
     data object BeginProfileResolution : StartupEvent()
     data class ProfilesResolvedNone(val defaultName: String) : StartupEvent()

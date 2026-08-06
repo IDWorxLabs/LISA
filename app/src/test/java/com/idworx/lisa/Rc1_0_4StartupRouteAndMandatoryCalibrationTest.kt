@@ -151,12 +151,14 @@ class Rc1_0_4StartupRouteAndMandatoryCalibrationTest {
 
     @Test
     fun preparingIsTheOnlySurfaceForTheThreePreCalibrationPhases() {
-        val source = startupFlowSource()
+        val source = startupFlowSource().replace("\r\n", "\n")
+        assertTrue(source.contains("StartupPhase.GlassesQuestion -> GlassesQuestionScreen("))
+        assertTrue(source.contains("StartupPhase.GlassesGuidance -> GlassesGuidanceScreen("))
+        assertTrue(source.contains("StartupPhase.FaceDetection,"))
+        assertTrue(source.contains("StartupPhase.ProfileResolution,"))
         assertTrue(
             source.contains(
-                "StartupPhase.FaceDetection,\n" +
-                    "                StartupPhase.ProfileResolution,\n" +
-                    "                StartupPhase.EvaluatingCompatibility -> FaceDetectionStartupScreen("
+                "StartupPhase.EvaluatingCompatibility -> FaceDetectionStartupScreen("
             )
         )
         assertEquals(StartupPhase.FaceDetection, StartupFlowState().phase)
@@ -241,6 +243,8 @@ class Rc1_0_4StartupRouteAndMandatoryCalibrationTest {
     fun noDuplicateReadinessPhaseExistsInTheStateMachine() {
         assertEquals(
             listOf(
+                "GlassesQuestion",
+                "GlassesGuidance",
                 "FaceDetection",
                 "ProfileResolution",
                 "CreatePrimaryUser",
@@ -290,15 +294,11 @@ class Rc1_0_4StartupRouteAndMandatoryCalibrationTest {
 
     @Test
     fun cameraGuidanceCardStaysVisibleForTheWholePreparingPhase() {
-        val source = startupFlowSource()
+        val source = startupFlowSource().replace("\r\n", "\n")
         assertTrue(source.contains("CameraGuidanceCard(uiStrings = uiStrings, tight = tight)"))
         // The card is bound to the same flag the checklist uses, so neither can outlive the other.
-        assertTrue(
-            source.contains(
-                "evaluating = state.phase == StartupPhase.EvaluatingCompatibility ||\n" +
-                    "                        state.phase == StartupPhase.ProfileResolution"
-            )
-        )
+        assertTrue(source.contains("evaluating = state.phase == StartupPhase.EvaluatingCompatibility ||"))
+        assertTrue(source.contains("state.phase == StartupPhase.ProfileResolution"))
     }
 
     @Test

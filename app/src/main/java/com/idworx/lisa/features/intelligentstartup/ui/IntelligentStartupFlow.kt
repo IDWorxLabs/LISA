@@ -91,20 +91,33 @@ fun IntelligentStartupFlow(
     onConfirmCreatePrimaryUser: () -> Unit = {},
     onSelectProfileIndex: (Int) -> Unit = {},
     onConfirmSelectedProfile: () -> Unit = {},
+    onGlassesAnswer: (Boolean) -> Unit = {},
+    onGlassesGuidanceContinue: () -> Unit = {},
+    onGlassesGuidanceBack: () -> Unit = {},
     onDecreaseSensitivity: () -> Unit = {},
     onIncreaseSensitivity: () -> Unit = {},
     onDecreaseResponseTime: () -> Unit = {},
     onIncreaseResponseTime: () -> Unit = {}
 ) {
-    LaunchedEffect(cameraPermissionGranted) {
-        if (!cameraPermissionGranted) onRequestCameraPermission()
+    val glassesSetupPhases = state.phase == StartupPhase.GlassesQuestion ||
+        state.phase == StartupPhase.GlassesGuidance
+    LaunchedEffect(cameraPermissionGranted, glassesSetupPhases) {
+        if (!glassesSetupPhases && !cameraPermissionGranted) onRequestCameraPermission()
     }
     Box(modifier = Modifier.fillMaxSize()) {
-        if (cameraPermissionGranted) {
+        if (cameraPermissionGranted && !glassesSetupPhases) {
             Box(modifier = Modifier.matchParentSize()) { cameraView() }
         }
         TrainingSoftBackground {
             when (state.phase) {
+                StartupPhase.GlassesQuestion -> GlassesQuestionScreen(
+                    onYes = { onGlassesAnswer(true) },
+                    onNo = { onGlassesAnswer(false) }
+                )
+                StartupPhase.GlassesGuidance -> GlassesGuidanceScreen(
+                    onContinue = onGlassesGuidanceContinue,
+                    onBack = onGlassesGuidanceBack
+                )
                 StartupPhase.FaceDetection,
                 StartupPhase.ProfileResolution,
                 StartupPhase.EvaluatingCompatibility -> FaceDetectionStartupScreen(
@@ -115,6 +128,8 @@ fun IntelligentStartupFlow(
                     faceDetected = state.faceDetected,
                     communicationPrepared = state.communicationPrepared,
                     calibrationDecisionReady = state.calibrationDecisionReady,
+                    showGlassesReminder = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+                        .showPreparingReminder(state.normallyUsesGlasses),
                     uiStrings = uiStrings,
                     eyeTrackingStatus = eyeTrackingStatus,
                     onDecreaseSensitivity = onDecreaseSensitivity,
@@ -183,6 +198,139 @@ fun IntelligentStartupFlow(
     }
 }
 
+@Composable
+private fun GlassesQuestionScreen(
+    onYes: () -> Unit,
+    onNo: () -> Unit
+) {
+    val auth = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = auth.QUESTION_TITLE,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            lineHeight = 32.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = auth.QUESTION_SUPPORTING,
+            fontSize = 17.sp,
+            color = LisaBlueDark.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            lineHeight = 24.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        TrainingPrimaryButton(
+            text = auth.ANSWER_YES,
+            onClick = onYes,
+            minHeight = 56.dp
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        TrainingPrimaryButton(
+            text = auth.ANSWER_NO,
+            onClick = onNo,
+            minHeight = 56.dp
+        )
+    }
+}
+
+@Composable
+private fun GlassesGuidanceScreen(
+    onContinue: () -> Unit,
+    onBack: () -> Unit
+) {
+    val auth = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = auth.GUIDANCE_TITLE,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = auth.GUIDANCE_INTRO,
+            fontSize = 16.sp,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = auth.GUIDANCE_RISK,
+            fontSize = 16.sp,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = auth.GUIDANCE_BEST_RESULTS_HEADER,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        auth.GUIDANCE_BULLETS.forEach { bullet ->
+            Text(
+                text = "• $bullet",
+                fontSize = 15.sp,
+                color = LisaBlueDark,
+                textAlign = TextAlign.Start,
+                lineHeight = 22.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = auth.GUIDANCE_NOTICE,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = LisaBlueDark,
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        TrainingPrimaryButton(
+            text = auth.GUIDANCE_CONTINUE,
+            onClick = onContinue,
+            minHeight = 56.dp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        com.idworx.lisa.features.onboardingguide.ui.TrainingSecondaryButton(
+            text = auth.GUIDANCE_BACK,
+            onClick = onBack,
+            minHeight = 52.dp
+        )
+    }
+}
+
 /** Shared universal eye-tracking header, then screen content. */
 @Composable
 private fun StartupScreenWithSharedBlinkCounter(
@@ -224,6 +372,7 @@ private fun FaceDetectionStartupScreen(
     faceDetected: Boolean,
     communicationPrepared: Boolean,
     calibrationDecisionReady: Boolean,
+    showGlassesReminder: Boolean = false,
     uiStrings: LisaUiStrings,
     eyeTrackingStatus: EyeTrackingStatusUiState,
     onDecreaseSensitivity: () -> Unit,
@@ -283,6 +432,20 @@ private fun FaceDetectionStartupScreen(
                 if (evaluating) {
                     CameraGuidanceCard(uiStrings = uiStrings, tight = tight)
                     Spacer(modifier = Modifier.height(if (tight) 8.dp else 12.dp))
+                    if (showGlassesReminder) {
+                        Text(
+                            text = com.idworx.lisa.features.glassessetup.GlassesSetupAuthority
+                                .PREPARING_REMINDER,
+                            fontSize = if (tight) 13.sp else 14.sp,
+                            color = LisaBlueDark.copy(alpha = 0.85f),
+                            textAlign = TextAlign.Center,
+                            lineHeight = if (tight) 18.sp else 20.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(if (tight) 6.dp else 10.dp))
+                    }
                 }
                 Text(
                     text = title,
